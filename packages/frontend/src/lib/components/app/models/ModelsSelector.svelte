@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ChevronDown, Loader2, Package } from '@lucide/svelte';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { cn } from '$lib/components/ui/utils';
 	import {
@@ -10,6 +10,7 @@
 		modelsLoading,
 		modelsUpdating,
 		selectedModelId,
+		selectedModelName,
 		singleModelName
 	} from '$lib/stores/models.svelte';
 	import { KeyboardKey } from '$lib/enums';
@@ -202,10 +203,10 @@
 
 	function getDisplayOption(): ModelOption | undefined {
 		if (!isRouter) {
-			const displayModel = serverModel || currentModel;
+			const displayModel = selectedModelName() || serverModel || currentModel;
 			if (displayModel) {
 				return {
-					id: serverModel ? 'current' : 'offline-current',
+					id: selectedModelName() ? 'selected' : serverModel ? 'current' : 'offline-current',
 					model: displayModel,
 					name: displayModel.split('/').pop() || displayModel,
 					capabilities: []
@@ -269,122 +270,123 @@
 		{@const selectedOption = getDisplayOption()}
 
 		{#if isRouter}
-			<DropdownMenu.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
-				<DropdownMenu.Trigger
-					class={cn(
-						`inline-grid cursor-pointer grid-cols-[1fr_auto_1fr] items-center gap-1.5 rounded-sm bg-muted-foreground/10 px-1.5 py-1 text-xs transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60`,
-						!isCurrentModelInCache
-							? 'bg-red-400/10 !text-red-400 hover:bg-red-400/20 hover:text-red-400'
-							: forceForegroundText
+			<button
+				type="button"
+				class={cn(
+					`inline-grid cursor-pointer grid-cols-[1fr_auto_1fr] items-center gap-1.5 rounded-sm bg-muted-foreground/10 px-1.5 py-1 text-xs transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60`,
+					!isCurrentModelInCache
+						? 'bg-red-400/10 !text-red-400 hover:bg-red-400/20 hover:text-red-400'
+						: forceForegroundText
+							? 'text-foreground'
+							: isHighlightedCurrentModelActive
 								? 'text-foreground'
-								: isHighlightedCurrentModelActive
-									? 'text-foreground'
-									: 'text-muted-foreground',
-						isOpen ? 'text-foreground' : ''
-					)}
-					style="max-width: min(calc(100cqw - 9rem), 20rem)"
-					disabled={disabled || updating}
-				>
-					<Package class="h-3.5 w-3.5" />
+								: 'text-muted-foreground',
+					isOpen ? 'text-foreground' : ''
+				)}
+				style="max-width: min(calc(100cqw - 9rem), 20rem)"
+				disabled={disabled || updating}
+				onclick={() => handleOpenChange(true)}
+			>
+				<Package class="h-3.5 w-3.5" />
 
-					{#if selectedOption}
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								<!-- prevent another nested button element -->
-								{#snippet child({ props })}
-									<ModelId
-										modelId={selectedOption.model}
-										class="min-w-0 overflow-hidden"
-										showOrgName
-										{...props}
-									/>
-								{/snippet}
-							</Tooltip.Trigger>
-
-							<Tooltip.Content>
-								<p class="font-mono">{selectedOption.model}</p>
-							</Tooltip.Content>
-						</Tooltip.Root>
-					{:else}
-						<span class="min-w-0 font-medium">Select model</span>
-					{/if}
-
-					{#if updating || isLoadingModel}
-						<Loader2 class="h-3 w-3.5 animate-spin" />
-					{:else}
-						<ChevronDown class="h-3 w-3.5" />
-					{/if}
-				</DropdownMenu.Trigger>
-
-				<DropdownMenu.Content
-					align="end"
-					class="w-full max-w-[100vw] pt-0 sm:w-max sm:max-w-[calc(100vw-2rem)]"
-				>
-					<DropdownMenuSearchable
-						bind:searchValue={searchTerm}
-						placeholder="Search models..."
-						onSearchKeyDown={handleSearchKeyDown}
-						emptyMessage="No models found."
-						isEmpty={filteredOptions.length === 0 && isCurrentModelInCache}
-					>
-						<div class="models-list">
-							{#if !isCurrentModelInCache && currentModel}
-								<!-- Show unavailable model as first option (disabled) -->
-								<button
-									type="button"
-									class="flex w-full cursor-not-allowed items-center bg-red-400/10 p-2 text-left text-sm text-red-400"
-									role="option"
-									aria-selected="true"
-									aria-disabled="true"
-									disabled
-								>
-									<ModelId modelId={currentModel} class="flex-1" showOrgName />
-
-									<span class="ml-2 text-xs whitespace-nowrap opacity-70">(not available)</span>
-								</button>
-							{/if}
-
-							{#if filteredOptions.length === 0}
-								<p class="px-4 py-3 text-sm text-muted-foreground">No models found.</p>
-							{/if}
-
-							{#snippet modelOption(item: ModelItem, showOrgName: boolean)}
-								{@const { option, flatIndex } = item}
-								{@const isSelected = currentModel === option.model || activeId === option.id}
-								{@const isHighlighted = flatIndex === highlightedIndex}
-								{@const isFav = modelsStore.favoriteModelIds.has(option.model)}
-
-								<ModelsSelectorOption
-									{option}
-									{isSelected}
-									{isHighlighted}
-									{isFav}
-									{showOrgName}
-									onSelect={handleSelect}
-									onInfoClick={handleInfoClick}
-									onMouseEnter={() => (highlightedIndex = flatIndex)}
-									onKeyDown={(e) => {
-										if (e.key === KeyboardKey.ENTER || e.key === KeyboardKey.SPACE) {
-											e.preventDefault();
-											handleSelect(option.id);
-										}
-									}}
+				{#if selectedOption}
+					<Tooltip.Root>
+						<Tooltip.Trigger>
+							{#snippet child({ props })}
+								<ModelId
+									modelId={selectedOption.model}
+									class="min-w-0 overflow-hidden"
+									showOrgName
+									{...props}
 								/>
 							{/snippet}
+						</Tooltip.Trigger>
 
-							<ModelsSelectorList
-								groups={groupedFilteredOptions}
-								{currentModel}
-								{activeId}
-								sectionHeaderClass="my-1.5 px-2 py-2 text-[13px] font-semibold text-muted-foreground/70 select-none"
-								onSelect={handleSelect}
-								onInfoClick={handleInfoClick}
-								renderOption={modelOption}
-							/>
-						</div>
-					</DropdownMenuSearchable>
-				</DropdownMenu.Content>
-			</DropdownMenu.Root>
+						<Tooltip.Content>
+							<p class="font-mono">{selectedOption.model}</p>
+						</Tooltip.Content>
+					</Tooltip.Root>
+				{:else}
+					<span class="min-w-0 font-medium">Select model</span>
+				{/if}
+
+				{#if updating || isLoadingModel}
+					<Loader2 class="h-3 w-3.5 animate-spin" />
+				{:else}
+					<ChevronDown class="h-3 w-3.5" />
+				{/if}
+			</button>
+
+			<Dialog.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
+				<Dialog.Content class="flex max-h-[80vh] w-full max-w-md flex-col gap-0 p-0">
+					<Dialog.Header class="px-4 pt-4 pb-3">
+						<Dialog.Title>Select Model</Dialog.Title>
+						<Dialog.Description class="sr-only">
+							Choose a model to use for the conversation
+						</Dialog.Description>
+					</Dialog.Header>
+
+					<div class="px-4 pb-2">
+						<DropdownMenuSearchable
+							bind:searchValue={searchTerm}
+							placeholder="Search models..."
+							onSearchKeyDown={handleSearchKeyDown}
+							emptyMessage="No models found."
+							isEmpty={filteredOptions.length === 0 && isCurrentModelInCache}
+						>
+							<div class="models-list">
+								{#if !isCurrentModelInCache && currentModel}
+									<button
+										type="button"
+										class="flex w-full cursor-not-allowed items-center bg-red-400/10 p-2 text-left text-sm text-red-400"
+										role="option"
+										aria-selected="true"
+										aria-disabled="true"
+										disabled
+									>
+										<ModelId modelId={currentModel} class="flex-1" showOrgName />
+										<span class="ml-2 text-xs whitespace-nowrap opacity-70">(not available)</span>
+									</button>
+								{/if}
+
+								{#snippet modelOption(item: ModelItem, showOrgName: boolean)}
+									{@const { option, flatIndex } = item}
+									{@const isSelected = currentModel === option.model || activeId === option.id}
+									{@const isHighlighted = flatIndex === highlightedIndex}
+									{@const isFav = modelsStore.favoriteModelIds.has(option.model)}
+
+									<ModelsSelectorOption
+										{option}
+										{isSelected}
+										{isHighlighted}
+										{isFav}
+										{showOrgName}
+										onSelect={handleSelect}
+										onInfoClick={handleInfoClick}
+										onMouseEnter={() => (highlightedIndex = flatIndex)}
+										onKeyDown={(e) => {
+											if (e.key === KeyboardKey.ENTER || e.key === KeyboardKey.SPACE) {
+												e.preventDefault();
+												handleSelect(option.id);
+											}
+										}}
+									/>
+								{/snippet}
+
+								<ModelsSelectorList
+									groups={groupedFilteredOptions}
+									{currentModel}
+									{activeId}
+									sectionHeaderClass="my-1.5 px-2 py-2 text-[13px] font-semibold text-muted-foreground/70 select-none"
+									onSelect={handleSelect}
+									onInfoClick={handleInfoClick}
+									renderOption={modelOption}
+								/>
+							</div>
+						</DropdownMenuSearchable>
+					</div>
+				</Dialog.Content>
+			</Dialog.Root>
 		{:else}
 			<button
 				class={cn(

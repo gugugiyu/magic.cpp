@@ -8,13 +8,18 @@
 		serverEndpointConfig,
 		isUsingDefaultEndpoint
 	} from '$lib/stores/server-endpoint.svelte';
-	import { modelsStore, modelOptions } from '$lib/stores/models.svelte';
+	import { modelsStore, modelOptions, selectedModelId } from '$lib/stores/models.svelte';
 	import { serverStore, serverError } from '$lib/stores/server.svelte';
 	import { toast } from 'svelte-sonner';
 
 	let endpointInput = $derived(serverEndpointConfig().baseUrl);
 	let showResetConfirm = $state(false);
 	let isRefreshing = $state(false);
+	let activeModelId = $derived(selectedModelId());
+
+	function handleModelSelect(modelId: string) {
+		modelsStore.selectModelById(modelId);
+	}
 
 	async function handleRefreshModels() {
 		isRefreshing = true;
@@ -125,12 +130,25 @@
 		{:else if modelOptions().length > 0}
 			<div class="max-h-60 space-y-1 overflow-y-auto rounded-md border border-border/30 p-2">
 				{#each modelOptions() as model (model.id)}
-					<div class="flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/50">
+					{@const isActive = model.id === activeModelId}
+					<button
+						type="button"
+						class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition-colors hover:bg-muted/50 {isActive
+							? 'bg-muted/70 font-medium'
+							: 'cursor-pointer'}"
+						onclick={() => handleModelSelect(model.id)}
+					>
 						<span class="truncate text-sm">{model.name}</span>
-						{#if model.model}
-							<span class="ml-2 truncate text-xs text-muted-foreground">{model.model}</span>
-						{/if}
-					</div>
+						<span class="ml-2 flex shrink-0 items-center gap-1.5">
+							{#if isActive}
+								<span class="text-xs text-muted-foreground">active</span>
+							{:else if model.model}
+								<span class="truncate text-xs text-muted-foreground"
+									>{model.model.split('/').pop()}</span
+								>
+							{/if}
+						</span>
+					</button>
 				{/each}
 			</div>
 		{:else}

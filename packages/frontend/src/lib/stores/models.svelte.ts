@@ -7,7 +7,8 @@ import { TTLCache } from '$lib/utils';
 import {
 	MODEL_PROPS_CACHE_TTL_MS,
 	MODEL_PROPS_CACHE_MAX_ENTRIES,
-	FAVORITE_MODELS_LOCALSTORAGE_KEY
+	FAVORITE_MODELS_LOCALSTORAGE_KEY,
+	SELECTED_MODEL_LOCALSTORAGE_KEY
 } from '$lib/constants';
 
 /**
@@ -294,6 +295,18 @@ class ModelsStore {
 
 			this.models = models;
 
+			// Restore previously selected model if it's still available
+			if (!this.selectedModelId) {
+				const savedModelName = this.loadSelectedModelFromStorage();
+				if (savedModelName) {
+					const match = models.find((m) => m.model === savedModelName);
+					if (match) {
+						this.selectedModelId = match.id;
+						this.selectedModelName = match.model;
+					}
+				}
+			}
+
 			// WORKAROUND: In MODEL mode, /props returns modalities for the single model,
 			// but /v1/models doesn't include modalities. We bridge this gap here.
 			const serverProps = serverStore.props;
@@ -458,6 +471,7 @@ class ModelsStore {
 		try {
 			this.selectedModelId = option.id;
 			this.selectedModelName = option.model;
+			this.saveSelectedModelToStorage(option.model);
 		} finally {
 			this.updating = false;
 		}
@@ -478,6 +492,7 @@ class ModelsStore {
 	clearSelection(): void {
 		this.selectedModelId = null;
 		this.selectedModelName = null;
+		this.saveSelectedModelToStorage(null);
 	}
 
 	findModelByName(modelName: string): ModelOption | null {
@@ -656,6 +671,26 @@ class ModelsStore {
 		}
 	}
 
+	private saveSelectedModelToStorage(modelName: string | null): void {
+		try {
+			if (modelName) {
+				localStorage.setItem(SELECTED_MODEL_LOCALSTORAGE_KEY, modelName);
+			} else {
+				localStorage.removeItem(SELECTED_MODEL_LOCALSTORAGE_KEY);
+			}
+		} catch {
+			// ignore storage errors
+		}
+	}
+
+	private loadSelectedModelFromStorage(): string | null {
+		try {
+			return localStorage.getItem(SELECTED_MODEL_LOCALSTORAGE_KEY);
+		} catch {
+			return null;
+		}
+	}
+
 	private loadFavoritesFromStorage(): Set<string> {
 		try {
 			const raw = localStorage.getItem(FAVORITE_MODELS_LOCALSTORAGE_KEY);
@@ -691,6 +726,7 @@ class ModelsStore {
 		this.error = null;
 		this.selectedModelId = null;
 		this.selectedModelName = null;
+		this.saveSelectedModelToStorage(null);
 		this.modelUsage.clear();
 		this.modelLoadingStates.clear();
 		this.modelPropsCache.clear();

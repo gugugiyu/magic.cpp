@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Search, SquarePen, X } from '@lucide/svelte';
+	import { Search, SquarePen, X, Plug } from '@lucide/svelte';
 	import { KeyboardShortcutInfo } from '$lib/components/app';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -96,6 +96,20 @@
 				<McpLogo class="h-4 w-4" />
 
 				MCP Servers
+			</div>
+		</Button>
+
+		<Button
+			class="w-full justify-between backdrop-blur-none! hover:[&>kbd]:opacity-100"
+			onclick={() => {
+				chatSettingsDialog.open(SETTINGS_SECTION_TITLES.CONNECTION);
+			}}
+			variant="ghost"
+		>
+			<div class="flex items-center gap-2">
+				<Plug class="h-4 w-4" />
+
+				Connections
 			</div>
 		</Button>
 	{/if}

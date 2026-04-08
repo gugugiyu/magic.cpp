@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ChevronDown, Loader2, Package } from '@lucide/svelte';
-	import * as Sheet from '$lib/components/ui/sheet';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { cn } from '$lib/components/ui/utils';
 	import {
 		modelsStore,
@@ -9,6 +9,7 @@
 		modelsLoading,
 		modelsUpdating,
 		selectedModelId,
+		selectedModelName,
 		singleModelName
 	} from '$lib/stores/models.svelte';
 	import { isRouterMode } from '$lib/stores/server.svelte';
@@ -164,11 +165,12 @@
 
 	function getDisplayOption(): ModelOption | undefined {
 		if (!isRouter) {
-			if (serverModel) {
+			const displayModel = selectedModelName() || serverModel || currentModel;
+			if (displayModel) {
 				return {
-					id: 'current',
-					model: serverModel,
-					name: serverModel.split('/').pop() || serverModel,
+					id: selectedModelName() ? 'selected' : serverModel ? 'current' : 'offline-current',
+					model: displayModel,
+					name: displayModel.split('/').pop() || displayModel,
 					capabilities: []
 				};
 			}
@@ -242,22 +244,22 @@
 				{/if}
 			</button>
 
-			<Sheet.Root bind:open={sheetOpen} onOpenChange={handleSheetOpenChange}>
-				<Sheet.Content side="bottom" class="max-h-[85vh] gap-1">
-					<Sheet.Header>
-						<Sheet.Title>Select Model</Sheet.Title>
+			<Dialog.Root bind:open={sheetOpen} onOpenChange={handleSheetOpenChange}>
+				<Dialog.Content class="flex max-h-[80vh] w-full max-w-md flex-col gap-0 p-0">
+					<Dialog.Header class="px-4 pt-4 pb-3">
+						<Dialog.Title>Select Model</Dialog.Title>
 
-						<Sheet.Description class="sr-only">
+						<Dialog.Description class="sr-only">
 							Choose a model to use for the conversation
-						</Sheet.Description>
-					</Sheet.Header>
+						</Dialog.Description>
+					</Dialog.Header>
 
-					<div class="flex flex-col gap-1 pb-4">
-						<div class="mb-3 px-4">
+					<div class="flex flex-col gap-1 px-4 pb-4">
+						<div class="mb-3">
 							<SearchInput placeholder="Search models..." bind:value={searchTerm} />
 						</div>
 
-						<div class="max-h-[60vh] overflow-y-auto px-2">
+						<div class="overflow-y-auto">
 							{#if !isCurrentModelInCache && currentModel}
 								<button
 									type="button"
@@ -287,8 +289,8 @@
 							/>
 						</div>
 					</div>
-				</Sheet.Content>
-			</Sheet.Root>
+				</Dialog.Content>
+			</Dialog.Root>
 		{:else}
 			<button
 				class={cn(

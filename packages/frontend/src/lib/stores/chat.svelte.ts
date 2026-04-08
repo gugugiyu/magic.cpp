@@ -551,7 +551,7 @@ class ChatStore {
 	): Promise<void> {
 		let effectiveModel = modelOverride;
 
-		if (isRouterMode() && !effectiveModel) {
+		if (!effectiveModel) {
 			const conversationModel = this.getConversationModel(allMessages);
 			effectiveModel = selectedModelName() || conversationModel;
 		}
@@ -1001,7 +1001,7 @@ class ChatStore {
 				parentMessage.id,
 				false
 			) as DatabaseMessage[];
-			const modelToUse = modelOverride || msg.model || undefined;
+			const modelToUse = modelOverride || selectedModelName() || msg.model || undefined;
 			await this.streamChatCompletion(
 				conversationPath,
 				newAssistantMessage,
@@ -1595,10 +1595,8 @@ class ChatStore {
 			timings_per_token: true
 		};
 
-		if (isRouterMode()) {
-			const modelName = selectedModelName();
-			if (modelName) apiOptions.model = modelName;
-		}
+		const modelName = selectedModelName();
+		if (modelName) apiOptions.model = modelName;
 
 		if (currentConfig.systemMessage) apiOptions.systemMessage = currentConfig.systemMessage;
 

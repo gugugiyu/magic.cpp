@@ -307,7 +307,8 @@ class AgenticStore {
 		};
 		const maxTurns = agenticConfig.maxTurns;
 
-		const effectiveModel = options.model || modelsStore.models[0]?.model || '';
+		const effectiveModel =
+			options.model || modelsStore.selectedModelName || modelsStore.models[0]?.model || '';
 
 		for (let turn = 0; turn < maxTurns; turn++) {
 			this.updateSession(conversationId, { currentTurn: turn + 1 });

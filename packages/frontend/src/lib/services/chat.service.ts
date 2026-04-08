@@ -898,7 +898,7 @@ export class ChatService {
 			return messageModel;
 		}
 
-		console.log("HEREE");
+		console.log('HEREE');
 
 		// avoid guessing from non-standard locations (metadata, etc.)
 		return undefined;

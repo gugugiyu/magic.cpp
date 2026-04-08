@@ -87,7 +87,7 @@
 </script>
 
 <svelte:head>
-	<title>llama.cpp - AI Chat Interface</title>
+	<title>magic.cpp - Agentic Fork</title>
 </svelte:head>
 
 <ChatScreen showCenteredEmpty />

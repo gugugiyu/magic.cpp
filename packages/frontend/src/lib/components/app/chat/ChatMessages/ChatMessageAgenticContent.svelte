@@ -1,12 +1,12 @@
 <script lang="ts">
 	import {
 		ChatMessageStatistics,
-		CollapsibleContentBlock,
 		MarkdownContent,
 		SyntaxHighlightedCode
 	} from '$lib/components/app';
 	import { config } from '$lib/stores/settings.svelte';
-	import { Wrench, Loader2, Brain } from '@lucide/svelte';
+	import { Wrench, Loader2, Brain, ChevronRight } from '@lucide/svelte';
+	import { cn } from '$lib/components/ui/utils';
 	import { AgenticSectionType, FileTypeText } from '$lib/enums';
 	import { formatJsonPretty } from '$lib/utils';
 	import {
@@ -124,137 +124,144 @@
 			<MarkdownContent content={section.content} attachments={message?.extra} />
 		</div>
 	{:else if section.type === AgenticSectionType.TOOL_CALL_STREAMING}
-		{@const streamingIcon = isStreaming ? Loader2 : Loader2}
-		{@const streamingIconClass = isStreaming ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
+		<div class="agentic-inline-block">
+			<button
+				type="button"
+				class="agentic-inline-trigger"
+				onclick={() => toggleExpanded(index, section)}
+				aria-expanded={isExpanded(index, section)}
+			>
+				<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
+				<span class="agentic-label">
+					Calling <span class="agentic-name">{section.toolName || 'tool'}</span>{isStreaming
+						? '…'
+						: ' — incomplete'}
+				</span>
+				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
+			</button>
 
-		<CollapsibleContentBlock
-			open={isExpanded(index, section)}
-			class="my-2"
-			icon={streamingIcon}
-			iconClass={streamingIconClass}
-			title={section.toolName || 'Tool call'}
-			subtitle={isStreaming ? '' : 'incomplete'}
-			{isStreaming}
-			onToggle={() => toggleExpanded(index, section)}
-		>
-			<div class="pt-3">
-				<div class="my-3 flex items-center gap-2 text-xs text-muted-foreground">
-					<span>Arguments:</span>
-
-					{#if isStreaming}
-						<Loader2 class="h-3 w-3 animate-spin" />
+			{#if isExpanded(index, section)}
+				<div class="agentic-inline-content">
+					<div class="mb-2 text-xs text-muted-foreground/60">Arguments</div>
+					{#if section.toolArgs}
+						<SyntaxHighlightedCode
+							code={formatJsonPretty(section.toolArgs)}
+							language={FileTypeText.JSON}
+							maxHeight="20rem"
+							class="text-xs"
+						/>
+					{:else if isStreaming}
+						<p class="text-xs text-muted-foreground/60 italic">Receiving arguments…</p>
+					{:else}
+						<p class="text-xs text-yellow-600 italic dark:text-yellow-400">
+							Response was truncated
+						</p>
 					{/if}
-				</div>
-				{#if section.toolArgs}
-					<SyntaxHighlightedCode
-						code={formatJsonPretty(section.toolArgs)}
-						language={FileTypeText.JSON}
-						maxHeight="20rem"
-						class="text-xs"
-					/>
-				{:else if isStreaming}
-					<div class="rounded bg-muted/30 p-2 text-xs text-muted-foreground italic">
-						Receiving arguments...
-					</div>
-				{:else}
-					<div
-						class="rounded bg-yellow-500/10 p-2 text-xs text-yellow-600 italic dark:text-yellow-400"
-					>
-						Response was truncated
-					</div>
-				{/if}
-			</div>
-		</CollapsibleContentBlock>
-	{:else if section.type === AgenticSectionType.TOOL_CALL || section.type === AgenticSectionType.TOOL_CALL_PENDING}
-		{@const isPending = section.type === AgenticSectionType.TOOL_CALL_PENDING}
-		{@const toolIcon = isPending ? Loader2 : Wrench}
-		{@const toolIconClass = isPending ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
-
-		<CollapsibleContentBlock
-			open={isExpanded(index, section)}
-			class="my-2"
-			icon={toolIcon}
-			iconClass={toolIconClass}
-			title={section.toolName || ''}
-			subtitle={isPending ? 'executing...' : undefined}
-			isStreaming={isPending}
-			onToggle={() => toggleExpanded(index, section)}
-		>
-			{#if section.toolArgs && section.toolArgs !== '{}'}
-				<div class="pt-3">
-					<div class="my-3 text-xs text-muted-foreground">Arguments:</div>
-
-					<SyntaxHighlightedCode
-						code={formatJsonPretty(section.toolArgs)}
-						language={FileTypeText.JSON}
-						maxHeight="20rem"
-						class="text-xs"
-					/>
 				</div>
 			{/if}
+		</div>
+	{:else if section.type === AgenticSectionType.TOOL_CALL || section.type === AgenticSectionType.TOOL_CALL_PENDING}
+		{@const isPending = section.type === AgenticSectionType.TOOL_CALL_PENDING}
 
-			<div class="pt-3">
-				<div class="my-3 flex items-center gap-2 text-xs text-muted-foreground">
-					<span>Result:</span>
+		<div class="agentic-inline-block">
+			<button
+				type="button"
+				class="agentic-inline-trigger"
+				onclick={() => toggleExpanded(index, section)}
+				aria-expanded={isExpanded(index, section)}
+			>
+				{#if isPending}
+					<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
+				{:else}
+					<Wrench class="h-3.5 w-3.5 shrink-0" />
+				{/if}
+				<span class="agentic-label">
+					{isPending ? 'Calling' : 'Called'}
+					<span class="agentic-name">{section.toolName || 'tool'}</span>{isPending ? '…' : ''}
+				</span>
+				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
+			</button>
 
-					{#if isPending}
-						<Loader2 class="h-3 w-3 animate-spin" />
+			{#if isExpanded(index, section)}
+				<div class="agentic-inline-content">
+					{#if section.toolArgs && section.toolArgs !== '{}'}
+						<div class="mb-2 text-xs text-muted-foreground/60">Arguments</div>
+						<SyntaxHighlightedCode
+							code={formatJsonPretty(section.toolArgs)}
+							language={FileTypeText.JSON}
+							maxHeight="20rem"
+							class="text-xs"
+						/>
+					{/if}
+
+					<div class="mt-3 mb-2 flex items-center gap-2 text-xs text-muted-foreground/60">
+						<span>Result</span>
+						{#if isPending}<Loader2 class="h-3 w-3 animate-spin" />{/if}
+					</div>
+					{#if section.toolResult}
+						<div class="overflow-auto rounded-md border border-border bg-muted/50 p-3">
+							{#each section.parsedLines as line, i (i)}
+								<div class="font-mono text-xs leading-relaxed whitespace-pre-wrap">{line.text}</div>
+								{#if line.image}
+									<img
+										src={line.image.base64Url}
+										alt={line.image.name}
+										class="mt-2 mb-2 h-auto max-w-full rounded-lg"
+										loading="lazy"
+									/>
+								{/if}
+							{/each}
+						</div>
+					{:else if isPending}
+						<p class="text-xs text-muted-foreground/60 italic">Waiting for result…</p>
 					{/if}
 				</div>
-				{#if section.toolResult}
-					<div class="overflow-auto rounded-lg border border-border bg-muted p-4">
-						{#each section.parsedLines as line, i (i)}
-							<div class="font-mono text-xs leading-relaxed whitespace-pre-wrap">{line.text}</div>
-							{#if line.image}
-								<img
-									src={line.image.base64Url}
-									alt={line.image.name}
-									class="mt-2 mb-2 h-auto max-w-full rounded-lg"
-									loading="lazy"
-								/>
-							{/if}
-						{/each}
-					</div>
-				{:else if isPending}
-					<div class="rounded bg-muted/30 p-2 text-xs text-muted-foreground italic">
-						Waiting for result...
-					</div>
-				{/if}
-			</div>
-		</CollapsibleContentBlock>
+			{/if}
+		</div>
 	{:else if section.type === AgenticSectionType.REASONING}
-		<CollapsibleContentBlock
-			open={isExpanded(index, section)}
-			class="my-2"
-			icon={Brain}
-			title="Reasoning"
-			onToggle={() => toggleExpanded(index, section)}
-		>
-			<div class="pt-3">
-				<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
-					{section.content}
-				</div>
-			</div>
-		</CollapsibleContentBlock>
-	{:else if section.type === AgenticSectionType.REASONING_PENDING}
-		{@const reasoningTitle = isStreaming ? 'Reasoning...' : 'Reasoning'}
-		{@const reasoningSubtitle = isStreaming ? '' : 'incomplete'}
+		<div class="agentic-inline-block">
+			<button
+				type="button"
+				class="agentic-inline-trigger"
+				onclick={() => toggleExpanded(index, section)}
+				aria-expanded={isExpanded(index, section)}
+			>
+				<Brain class="h-3.5 w-3.5 shrink-0" />
+				<span class="agentic-label">Thought</span>
+				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
+			</button>
 
-		<CollapsibleContentBlock
-			open={isExpanded(index, section)}
-			class="my-2"
-			icon={Brain}
-			title={reasoningTitle}
-			subtitle={reasoningSubtitle}
-			{isStreaming}
-			onToggle={() => toggleExpanded(index, section)}
-		>
-			<div class="pt-3">
-				<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
-					{section.content}
+			{#if isExpanded(index, section)}
+				<div class="agentic-inline-content">
+					<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
+						{section.content}
+					</div>
 				</div>
-			</div>
-		</CollapsibleContentBlock>
+			{/if}
+		</div>
+	{:else if section.type === AgenticSectionType.REASONING_PENDING}
+		<div class="agentic-inline-block">
+			<button
+				type="button"
+				class="agentic-inline-trigger"
+				onclick={() => toggleExpanded(index, section)}
+				aria-expanded={isExpanded(index, section)}
+			>
+				<Brain class="h-3.5 w-3.5 shrink-0" />
+				<span class="agentic-label" class:thinking-pulse={isStreaming}>
+					{isStreaming ? 'Thinking…' : 'Thought — incomplete'}
+				</span>
+				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
+			</button>
+
+			{#if isExpanded(index, section)}
+				<div class="agentic-inline-content">
+					<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
+						{section.content}
+					</div>
+				</div>
+			{/if}
+		</div>
 	{/if}
 {/snippet}
 
@@ -302,6 +309,79 @@
 
 	.agentic-text {
 		width: 100%;
+	}
+
+	.agentic-inline-block {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.agentic-inline-trigger {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.125rem 0.25rem;
+		border-radius: 0.25rem;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		color: var(--muted-foreground);
+		font-size: 0.75rem;
+		line-height: 1.25rem;
+		transition:
+			color 0.15s,
+			background 0.15s;
+		text-align: left;
+		width: auto;
+	}
+
+	.agentic-inline-trigger:hover {
+		color: var(--foreground);
+		background: hsl(var(--muted) / 0.5);
+	}
+
+	.agentic-label {
+		font-size: 0.75rem;
+		color: inherit;
+	}
+
+	.agentic-name {
+		font-style: italic;
+	}
+
+	:global(.agentic-chevron) {
+		width: 0.875rem;
+		height: 0.875rem;
+		flex-shrink: 0;
+		transition: transform 0.15s ease;
+	}
+
+	:global(.agentic-chevron.expanded) {
+		transform: rotate(90deg);
+	}
+
+	.agentic-inline-content {
+		margin-left: 1.25rem;
+		margin-top: 0.25rem;
+		padding-left: 0.75rem;
+		border-left: 2px solid hsl(var(--muted-foreground) / 0.25);
+		max-height: 32rem;
+		overflow-y: auto;
+	}
+
+	@keyframes thinking-pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.4;
+		}
+	}
+
+	.thinking-pulse {
+		animation: thinking-pulse 1.6s ease-in-out infinite;
 	}
 
 	.agentic-turn {

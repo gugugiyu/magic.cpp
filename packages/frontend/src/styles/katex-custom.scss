@@ -1,0 +1,8 @@
+// Override KaTeX SCSS variables to disable ttf and woff fonts
+// Only use woff2 format which is embedded in the bundle
+$use-woff2: true;
+$use-woff: false;
+$use-ttf: false;
+
+// Use Vite alias for font folder
+$font-folder: 'katex-fonts';

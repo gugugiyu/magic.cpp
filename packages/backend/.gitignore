@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Bun specific
+bun.lockb
+# Note: Some teams prefer to commit the lockfile; 
+# Bun's official stance is to commit bun.lockb to ensure reproducible installs.
+
+# TypeScript / Build output
+dist/
+out/
+static/
+*.tsbuildinfo
+# If you emit JS files from TS (not common with Bun's direct execution)
+# *.js
+# *.js.map
+
+# Environment variables
+.env
+*.local
+
+# Debug / Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db

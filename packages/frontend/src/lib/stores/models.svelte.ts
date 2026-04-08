@@ -307,6 +307,12 @@ class ModelsStore {
 				}
 			}
 
+			// Else, default to the first model from the list
+			if (!this.selectedModelId && models.length > 0) {
+				this.selectedModelId = models[0].id;
+				this.selectedModelName = models[0].model;
+			}
+
 			// WORKAROUND: In MODEL mode, /props returns modalities for the single model,
 			// but /v1/models doesn't include modalities. We bridge this gap here.
 			const serverProps = serverStore.props;

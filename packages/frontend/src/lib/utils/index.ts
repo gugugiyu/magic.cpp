@@ -158,6 +158,14 @@ export {
 	type ToolResultLine
 } from './agentic';
 
+// Filter utilities
+export {
+	applyResponseFilters,
+	detectLanguagePinner,
+	getActiveFilters,
+	type ResponseFilterOptions
+} from './filters';
+
 // Legacy migration utilities
 export { runLegacyMigration, isMigrationNeeded } from './legacy-migration';
 

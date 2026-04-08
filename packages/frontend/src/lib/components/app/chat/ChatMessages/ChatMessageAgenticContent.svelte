@@ -8,7 +8,7 @@
 	import { Wrench, Loader2, Brain, ChevronRight } from '@lucide/svelte';
 	import { cn } from '$lib/components/ui/utils';
 	import { AgenticSectionType, FileTypeText } from '$lib/enums';
-	import { formatJsonPretty } from '$lib/utils';
+	import { formatJsonPretty, applyResponseFilters } from '$lib/utils';
 	import {
 		deriveAgenticSections,
 		parseToolResultWithImages,
@@ -32,6 +32,12 @@
 
 	const showToolCallInProgress = $derived(config().showToolCallInProgress as boolean);
 	const showThoughtInProgress = $derived(config().showThoughtInProgress as boolean);
+
+	const filterOptions = $derived({
+		filterEmojiRemoval: config().filterEmojiRemoval as boolean,
+		filterCodeblockOnly: config().filterCodeblockOnly as boolean,
+		filterRawMode: config().filterRawMode as boolean
+	});
 
 	const sections = $derived(deriveAgenticSections(message, toolMessages, [], isStreaming));
 
@@ -120,8 +126,9 @@
 
 {#snippet renderSection(section: (typeof sectionsParsed)[number], index: number)}
 	{#if section.type === AgenticSectionType.TEXT}
+		{@const displayContent = applyResponseFilters(section.content, filterOptions)}
 		<div class="agentic-text">
-			<MarkdownContent content={section.content} attachments={message?.extra} />
+			<MarkdownContent content={displayContent} attachments={message?.extra} />
 		</div>
 	{:else if section.type === AgenticSectionType.TOOL_CALL_STREAMING}
 		<div class="agentic-inline-block">

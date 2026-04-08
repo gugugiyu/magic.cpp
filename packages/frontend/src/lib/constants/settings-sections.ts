@@ -12,6 +12,7 @@ export const SETTINGS_SECTION_TITLES = {
 	IMPORT_EXPORT: 'Import/Export',
 	CONNECTION: 'Connection',
 	MCP: 'MCP',
+	FILTER: 'Filter',
 	DEVELOPER: 'Developer'
 } as const;
 

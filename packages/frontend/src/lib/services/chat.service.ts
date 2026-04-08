@@ -3,6 +3,8 @@ import { apiPost } from '$lib/utils/api-fetch';
 import { formatAttachmentText } from '$lib/utils/formatters';
 import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 import { isAbortError } from '$lib/utils/abort';
+import { detectLanguagePinner } from '$lib/utils/filters';
+import { settingsStore } from '$lib/stores/settings.svelte';
 import {
 	ATTACHMENT_LABEL_PDF_FILE,
 	ATTACHMENT_LABEL_MCP_PROMPT,
@@ -130,6 +132,39 @@ export class ChatService {
 					}
 				}
 			});
+		}
+
+		if (settingsStore.config.filterLanguagePinner) {
+			const lastUserMsg = [...normalizedMessages]
+				.reverse()
+				.find((m) => m.role === MessageRole.USER);
+			if (lastUserMsg) {
+				const textContent =
+					typeof lastUserMsg.content === 'string'
+						? lastUserMsg.content
+						: ((lastUserMsg.content as ApiChatMessageContentPart[])?.find(
+								(p) => p.type === ContentPartType.TEXT
+							)?.text ?? '');
+				const lang = detectLanguagePinner(textContent);
+				if (lang) {
+					const instruction = `\n\nIMPORTANT: the response should be in ${lang}.`;
+					if (typeof lastUserMsg.content === 'string') {
+						lastUserMsg.content += instruction;
+					} else if (Array.isArray(lastUserMsg.content)) {
+						const textPart = (lastUserMsg.content as ApiChatMessageContentPart[]).find(
+							(p) => p.type === ContentPartType.TEXT
+						);
+						if (textPart) {
+							textPart.text += instruction;
+						} else {
+							(lastUserMsg.content as ApiChatMessageContentPart[]).push({
+								type: ContentPartType.TEXT,
+								text: instruction.trim()
+							});
+						}
+					}
+				}
+			}
 		}
 
 		const requestBody: ApiChatCompletionRequest = {

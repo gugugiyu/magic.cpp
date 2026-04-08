@@ -8,7 +8,8 @@
 		ChevronLeft,
 		ChevronRight,
 		Database,
-		Plug
+		Plug,
+		ListFilter
 	} from '@lucide/svelte';
 	import {
 		ChatSettingsFooter,
@@ -290,6 +291,32 @@
 				{
 					key: SETTINGS_KEYS.SHOW_TOOL_CALL_IN_PROGRESS,
 					label: 'Show tool call in progress',
+					type: SettingsFieldType.CHECKBOX
+				}
+			]
+		},
+		{
+			title: SETTINGS_SECTION_TITLES.FILTER,
+			icon: ListFilter,
+			fields: [
+				{
+					key: SETTINGS_KEYS.FILTER_EMOJI_REMOVAL,
+					label: 'Emoji removal',
+					type: SettingsFieldType.CHECKBOX
+				},
+				{
+					key: SETTINGS_KEYS.FILTER_CODEBLOCK_ONLY,
+					label: 'Code block only',
+					type: SettingsFieldType.CHECKBOX
+				},
+				{
+					key: SETTINGS_KEYS.FILTER_RAW_MODE,
+					label: 'Raw mode',
+					type: SettingsFieldType.CHECKBOX
+				},
+				{
+					key: SETTINGS_KEYS.FILTER_LANGUAGE_PINNER,
+					label: 'Language pinner',
 					type: SettingsFieldType.CHECKBOX
 				}
 			]

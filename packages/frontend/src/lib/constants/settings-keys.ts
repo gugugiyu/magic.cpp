@@ -52,6 +52,11 @@ export const SETTINGS_KEYS = {
 	ALWAYS_SHOW_AGENTIC_TURNS: 'alwaysShowAgenticTurns',
 	AGENTIC_MAX_TOOL_PREVIEW_LINES: 'agenticMaxToolPreviewLines',
 	SHOW_TOOL_CALL_IN_PROGRESS: 'showToolCallInProgress',
+	// Filter
+	FILTER_EMOJI_REMOVAL: 'filterEmojiRemoval',
+	FILTER_CODEBLOCK_ONLY: 'filterCodeblockOnly',
+	FILTER_RAW_MODE: 'filterRawMode',
+	FILTER_LANGUAGE_PINNER: 'filterLanguagePinner',
 	// Developer
 	DISABLE_REASONING_PARSING: 'disableReasoningParsing',
 	EXCLUDE_REASONING_FROM_CONTEXT: 'excludeReasoningFromContext',

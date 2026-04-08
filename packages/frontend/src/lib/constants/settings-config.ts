@@ -31,6 +31,11 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	agenticMaxToolPreviewLines: 25,
 	showToolCallInProgress: false,
 	alwaysShowAgenticTurns: false,
+	// filter settings
+	filterEmojiRemoval: false,
+	filterCodeblockOnly: false,
+	filterRawMode: false,
+	filterLanguagePinner: false,
 	// sampling params: empty means "use server default"
 	// the server / preset is the source of truth
 	// empty values are shown as placeholders from /props in the UI
@@ -141,6 +146,13 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 		'Number of lines shown in tool output previews (last N lines). Only these previews and the final LLM response persist after the agentic loop completes.',
 	showToolCallInProgress:
 		'Automatically expand tool call details while executing and keep them expanded after completion.',
+	filterEmojiRemoval:
+		'Remove all emoji characters from model responses. Applied after the full response is received.',
+	filterCodeblockOnly:
+		'Keep only the first code block in the response, discarding all surrounding text. If no code block is found, the full response is kept.',
+	filterRawMode: 'Strip all Markdown formatting and display responses as plain text.',
+	filterLanguagePinner:
+		'Detect a language tag in your message (e.g. ![en] or ![fr]) and automatically instruct the model to respond in that language.',
 	pyInterpreterEnabled:
 		'Enable Python interpreter using Pyodide. Allows running Python code in markdown code blocks.',
 	enableContinueGeneration:

@@ -707,6 +707,12 @@ export { default as ChatSettingsFields } from './ChatSettings/ChatSettingsFields
 export { default as ChatSettingsImportExportTab } from './ChatSettings/ChatSettingsImportExportTab.svelte';
 
 /**
+ * Connection tab content for server endpoint configuration.
+ * Allows users to configure the server URL, refresh models, and reset to default.
+ */
+export { default as ChatSettingsConnectionTab } from './ChatSettings/ChatSettingsConnectionTab.svelte';
+
+/**
  * Badge indicating parameter source for sampling settings. Shows one of:
  * - **Custom**: User has explicitly set this value (orange badge)
  * - **Server Props**: Using default from `/props` endpoint (blue badge)

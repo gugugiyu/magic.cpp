@@ -1,6 +1,7 @@
 import { base } from '$app/paths';
 import { getJsonHeaders, getAuthHeaders } from './api-headers';
 import { UrlProtocol } from '$lib/enums';
+import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 
 /**
  * API Fetch Utilities
@@ -52,7 +53,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 	const url =
 		path.startsWith(UrlProtocol.HTTP) || path.startsWith(UrlProtocol.HTTPS)
 			? path
-			: `${base}${path}`;
+			: serverEndpointStore.isDefault()
+				? `${base}${path}`
+				: `${serverEndpointStore.getBaseUrl()}${path}`;
 
 	const response = await fetch(url, {
 		...fetchOptions,
@@ -88,7 +91,10 @@ export async function apiFetchWithParams<T>(
 	params: Record<string, string>,
 	options: ApiFetchOptions = {}
 ): Promise<T> {
-	const url = new URL(basePath, window.location.href);
+	const baseUrl = serverEndpointStore.isDefault()
+		? window.location.href
+		: serverEndpointStore.getBaseUrl();
+	const url = new URL(basePath, baseUrl);
 
 	for (const [key, value] of Object.entries(params)) {
 		if (value !== undefined && value !== null) {

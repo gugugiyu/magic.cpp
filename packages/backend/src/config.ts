@@ -22,11 +22,12 @@ const UpstreamSchema = z.object({
 
 const ConfigFileSchema = z.object({
 	port: z.number().int().positive().default(3000),
-	staticDir: z.string().default('../frontend/public'),
+	staticDir: z.string().default('../public'),
 	heartbeatInterval: z.number().int().positive().default(30),
 	upstreams: z.array(UpstreamSchema).min(1),
 	enabled: z.boolean().default(true),	
 	modelList: z.array(z.string()).default([]),
+	debug: z.boolean().default(false),
 	streaming: StreamingConfigSchema.default({ enabled: true, bufferWords: 0 })
 });
 

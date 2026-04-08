@@ -45,9 +45,6 @@ export async function proxyRequest(
 
 	// Log error responses from upstream
 	if (!resp.ok) {
-		const bodyText = await resp.clone().text();
-		console.error(`[proxy] ${upstream.id} returned ${resp.status}:`, bodyText.slice(0, 500));
-
 		// Handle 429 Rate Limit specially - extract retry-after info
 		if (resp.status === 429) {
 			const retryAfter = resp.headers.get('retry-after') || resp.headers.get('x-ratelimit-reset');
@@ -76,8 +73,6 @@ export async function proxyRequest(
 
 	console.log(`[proxy] response headers:`, Object.fromEntries(responseHeaders.entries()));
 	console.log(`[proxy] returning response body, status:`, resp.status);
-	const respBody = await resp.clone().text();
-	console.log(`[proxy] upstream response body (${respBody.length} chars):`, respBody.slice(0, 300));
 
 	return new Response(resp.body, {
 		status: resp.status,

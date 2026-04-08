@@ -7,11 +7,13 @@
 		Monitor,
 		ChevronLeft,
 		ChevronRight,
-		Database
+		Database,
+		Plug
 	} from '@lucide/svelte';
 	import {
 		ChatSettingsFooter,
 		ChatSettingsImportExportTab,
+		ChatSettingsConnectionTab,
 		ChatSettingsFields,
 		McpLogo,
 		McpServersSettings
@@ -259,6 +261,11 @@
 		{
 			title: SETTINGS_SECTION_TITLES.IMPORT_EXPORT,
 			icon: Database,
+			fields: []
+		},
+		{
+			title: SETTINGS_SECTION_TITLES.CONNECTION,
+			icon: Plug,
 			fields: []
 		},
 		{
@@ -525,6 +532,8 @@
 
 				{#if currentSection.title === SETTINGS_SECTION_TITLES.IMPORT_EXPORT}
 					<ChatSettingsImportExportTab />
+				{:else if currentSection.title === SETTINGS_SECTION_TITLES.CONNECTION}
+					<ChatSettingsConnectionTab />
 				{:else if currentSection.title === SETTINGS_SECTION_TITLES.MCP}
 					<div class="space-y-6">
 						<ChatSettingsFields

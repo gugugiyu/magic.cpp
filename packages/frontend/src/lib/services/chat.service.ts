@@ -1,5 +1,7 @@
 import { getJsonHeaders } from '$lib/utils/api-headers';
+import { apiPost } from '$lib/utils/api-fetch';
 import { formatAttachmentText } from '$lib/utils/formatters';
+import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 import { isAbortError } from '$lib/utils/abort';
 import {
 	ATTACHMENT_LABEL_PDF_FILE,
@@ -203,24 +205,27 @@ export class ChatService {
 		}
 
 		try {
-			const response = await fetch(`./v1/chat/completions`, {
-				method: 'POST',
-				headers: getJsonHeaders(),
-				body: JSON.stringify(requestBody),
-				signal
-			});
+			if (stream) {
+				const baseUrl = serverEndpointStore.isDefault() ? '' : serverEndpointStore.getBaseUrl();
+				const url = baseUrl ? `${baseUrl}/v1/chat/completions` : './v1/chat/completions';
 
-			if (!response.ok) {
-				const error = await ChatService.parseErrorResponse(response);
+				const response = await fetch(url, {
+					method: 'POST',
+					headers: getJsonHeaders(),
+					body: JSON.stringify(requestBody),
+					signal
+				});
 
-				if (onError) {
-					onError(error);
+				if (!response.ok) {
+					const error = await ChatService.parseErrorResponse(response);
+
+					if (onError) {
+						onError(error);
+					}
+
+					throw error;
 				}
 
-				throw error;
-			}
-
-			if (stream) {
 				await ChatService.handleStreamResponse(
 					response,
 					onChunk,
@@ -236,6 +241,12 @@ export class ChatService {
 
 				return;
 			} else {
+				const response = await apiPost<ApiChatCompletionResponse>(
+					'./v1/chat/completions',
+					requestBody,
+					{ signal }
+				);
+
 				return ChatService.handleNonStreamResponse(
 					response,
 					onComplete,
@@ -886,6 +897,8 @@ export class ChatService {
 		if (messageModel) {
 			return messageModel;
 		}
+
+		console.log("HEREE");
 
 		// avoid guessing from non-standard locations (metadata, etc.)
 		return undefined;

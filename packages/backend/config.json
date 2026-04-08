@@ -1,8 +1,9 @@
 {
 	"port": 3000,
-	"staticDir": "../frontend/public",
+	"staticDir": "../public",
 	"heartbeatInterval": 30,
 	"modelList": [],
+	"debug": true,
 	"streaming": {
 		"enabled": true,
 		"bufferWords": 0
@@ -12,7 +13,7 @@
 			"id": "desktop-main-vllm",
 			"label": "Desktop Vllm (main model)",
 			"url": "http://14.186.250.70:8000",
-			"type": "openai",
+			"type": "llamacpp",
 			"apiKey": "key",
 			"enabled": true
 		},

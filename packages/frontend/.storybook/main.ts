@@ -17,6 +17,12 @@ const config: StorybookConfig = {
 	viteFinal: async (config) => {
 		config.server = config.server || {};
 		config.server.fs = config.server.fs || {};
+		config.server.allowedHosts = ['localhost']; // Proxying CORS for testing
+		config.server.cors = {
+          origin: '*', // or specify your origin
+          methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+          allowedHeaders: ['Content-Type', 'Authorization'],
+        };
 		config.server.fs.allow = [...(config.server.fs.allow || []), resolve(__dirname, '../tests')];
 		return config;
 	}

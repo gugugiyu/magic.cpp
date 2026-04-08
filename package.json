@@ -1,5 +1,9 @@
 {
-  "version": "1.0.0",
   "name": "llamagic.cpp",
-  "workspaces": ["packages/*"]
+  "version": "1.0.0",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "web:dev": "bun run --filter webui dev",
+    "server:dev": "bun run --filter server dev"
+  }
 }

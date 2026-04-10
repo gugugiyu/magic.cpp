@@ -5,4 +5,6 @@ export const CODE_BLOCK_ACTIONS_CLASS = 'code-block-actions';
 export const CODE_LANGUAGE_CLASS = 'code-language';
 export const COPY_CODE_BTN_CLASS = 'copy-code-btn';
 export const PREVIEW_CODE_BTN_CLASS = 'preview-code-btn';
+export const MERMAID_RENDER_BTN_CLASS = 'mermaid-render-btn';
+export const SVG_RENDER_BTN_CLASS = 'svg-render-btn';
 export const RELATIVE_CLASS = 'relative';

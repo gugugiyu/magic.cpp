@@ -117,6 +117,8 @@
 
 		const copyButtons = containerRef.querySelectorAll<HTMLButtonElement>('.copy-code-btn');
 		const previewButtons = containerRef.querySelectorAll<HTMLButtonElement>('.preview-code-btn');
+		const mermaidButtons = containerRef.querySelectorAll<HTMLButtonElement>('.mermaid-render-btn');
+		const svgButtons = containerRef.querySelectorAll<HTMLButtonElement>('.svg-render-btn');
 
 		for (const button of copyButtons) {
 			button.removeEventListener('click', handleCopyClick);
@@ -124,6 +126,14 @@
 
 		for (const button of previewButtons) {
 			button.removeEventListener('click', handlePreviewClick);
+		}
+
+		for (const button of mermaidButtons) {
+			button.removeEventListener('click', handleMermaidRenderClick);
+		}
+
+		for (const button of svgButtons) {
+			button.removeEventListener('click', handleSvgRenderClick);
 		}
 	}
 
@@ -325,6 +335,178 @@
 	}
 
 	/**
+	 * Attaches pointer-based zoom/pan interaction to a rendered diagram container.
+	 * Supports mouse wheel zoom and pointer drag panning.
+	 */
+	function attachZoomPan(container: HTMLElement) {
+		let scale = 1;
+		let translateX = 0;
+		let translateY = 0;
+		let isDragging = false;
+		let lastX = 0;
+		let lastY = 0;
+
+		function applyTransform() {
+			container.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+			container.style.transformOrigin = '0 0';
+		}
+
+		function onWheel(e: WheelEvent) {
+			e.preventDefault();
+			const delta = e.deltaY > 0 ? 0.9 : 1.1;
+			scale = Math.min(Math.max(scale * delta, 0.2), 8);
+			applyTransform();
+		}
+
+		function onPointerDown(e: PointerEvent) {
+			isDragging = true;
+			lastX = e.clientX;
+			lastY = e.clientY;
+			container.setPointerCapture(e.pointerId);
+		}
+
+		function onPointerMove(e: PointerEvent) {
+			if (!isDragging) return;
+			translateX += e.clientX - lastX;
+			translateY += e.clientY - lastY;
+			lastX = e.clientX;
+			lastY = e.clientY;
+			applyTransform();
+		}
+
+		function onPointerUp() {
+			isDragging = false;
+		}
+
+		container.addEventListener('wheel', onWheel, { passive: false });
+		container.addEventListener('pointerdown', onPointerDown);
+		container.addEventListener('pointermove', onPointerMove);
+		container.addEventListener('pointerup', onPointerUp);
+		container.addEventListener('pointercancel', onPointerUp);
+	}
+
+	/**
+	 * Handles click on "Render diagram" button for mermaid code blocks.
+	 * Lazy-loads mermaid, renders the diagram as SVG, and replaces the code view.
+	 */
+	async function handleMermaidRenderClick(event: Event) {
+		event.preventDefault();
+		event.stopPropagation();
+
+		const target = event.currentTarget as HTMLButtonElement | null;
+		if (!target) return;
+
+		const wrapper = target.closest<HTMLElement>('.code-block-wrapper');
+		if (!wrapper) return;
+
+		const scrollContainer = wrapper.querySelector<HTMLElement>('.code-block-scroll-container');
+		if (!scrollContainer) return;
+
+		const info = getCodeInfoFromTarget(target);
+		if (!info) return;
+
+		// Toggle back to code view if already rendered
+		const existing = wrapper.querySelector<HTMLElement>('.mermaid-render-container');
+		if (existing) {
+			existing.remove();
+			scrollContainer.style.display = '';
+			target.title = 'Render diagram';
+			return;
+		}
+
+		target.disabled = true;
+		target.title = 'Rendering…';
+
+		try {
+			const mermaid = (await import('mermaid')).default;
+			const isDark = mode.current === ColorMode.DARK;
+
+			mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+
+			const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+			const { svg } = await mermaid.render(id, info.rawCode);
+
+			const renderContainer = document.createElement('div');
+			renderContainer.className = 'mermaid-render-container';
+			renderContainer.style.cssText =
+				'overflow:hidden;cursor:grab;position:relative;min-height:200px;';
+
+			const inner = document.createElement('div');
+			inner.innerHTML = svg;
+			inner.style.cssText = 'display:inline-block;';
+			renderContainer.appendChild(inner);
+
+			scrollContainer.style.display = 'none';
+			wrapper.appendChild(renderContainer);
+
+			attachZoomPan(inner);
+
+			target.title = 'Show source';
+		} catch (err) {
+			console.error('Mermaid render failed:', err);
+			target.title = 'Render diagram';
+		} finally {
+			target.disabled = false;
+		}
+	}
+
+	/**
+	 * Handles click on "Render SVG" button for svg code blocks.
+	 * Sanitizes with DOMPurify and injects the SVG inline, toggling code/render view.
+	 */
+	async function handleSvgRenderClick(event: Event) {
+		event.preventDefault();
+		event.stopPropagation();
+
+		const target = event.currentTarget as HTMLButtonElement | null;
+		if (!target) return;
+
+		const wrapper = target.closest<HTMLElement>('.code-block-wrapper');
+		if (!wrapper) return;
+
+		const scrollContainer = wrapper.querySelector<HTMLElement>('.code-block-scroll-container');
+		if (!scrollContainer) return;
+
+		const info = getCodeInfoFromTarget(target);
+		if (!info) return;
+
+		// Toggle back to code view if already rendered
+		const existing = wrapper.querySelector<HTMLElement>('.svg-render-container');
+		if (existing) {
+			existing.remove();
+			scrollContainer.style.display = '';
+			target.title = 'Render SVG';
+			return;
+		}
+
+		try {
+			const DOMPurify = (await import('dompurify')).default;
+			const clean = DOMPurify.sanitize(info.rawCode, {
+				USE_PROFILES: { svg: true, svgFilters: true }
+			});
+
+			const renderContainer = document.createElement('div');
+			renderContainer.className = 'svg-render-container';
+			renderContainer.style.cssText =
+				'overflow:hidden;cursor:grab;position:relative;min-height:80px;';
+
+			const inner = document.createElement('div');
+			inner.innerHTML = clean;
+			inner.style.cssText = 'display:inline-block;';
+			renderContainer.appendChild(inner);
+
+			scrollContainer.style.display = 'none';
+			wrapper.appendChild(renderContainer);
+
+			attachZoomPan(inner);
+
+			target.title = 'Show source';
+		} catch (err) {
+			console.error('SVG render failed:', err);
+		}
+	}
+
+	/**
 	 * Processes markdown content into stable and unstable HTML blocks.
 	 * Uses incremental rendering: stable blocks are cached, unstable block is re-rendered.
 	 * Incomplete code blocks are rendered using SyntaxHighlightedCode to maintain interactivity.
@@ -468,6 +650,8 @@
 		for (const wrapper of wrappers) {
 			const copyButton = wrapper.querySelector<HTMLButtonElement>('.copy-code-btn');
 			const previewButton = wrapper.querySelector<HTMLButtonElement>('.preview-code-btn');
+			const mermaidButton = wrapper.querySelector<HTMLButtonElement>('.mermaid-render-btn');
+			const svgButton = wrapper.querySelector<HTMLButtonElement>('.svg-render-btn');
 
 			if (copyButton && copyButton.dataset.listenerBound !== 'true') {
 				copyButton.dataset.listenerBound = 'true';
@@ -477,6 +661,16 @@
 			if (previewButton && previewButton.dataset.listenerBound !== 'true') {
 				previewButton.dataset.listenerBound = 'true';
 				previewButton.addEventListener('click', handlePreviewClick);
+			}
+
+			if (mermaidButton && mermaidButton.dataset.listenerBound !== 'true') {
+				mermaidButton.dataset.listenerBound = 'true';
+				mermaidButton.addEventListener('click', handleMermaidRenderClick);
+			}
+
+			if (svgButton && svgButton.dataset.listenerBound !== 'true') {
+				svgButton.dataset.listenerBound = 'true';
+				svgButton.addEventListener('click', handleSvgRenderClick);
 			}
 		}
 	}

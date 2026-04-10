@@ -13,31 +13,33 @@ export async function proxyRequest(
 	providedBody?: string,
 ): Promise<Response> {
 	const upstreamUrl = buildUrl(upstream.url, upstreamPath, req.url);
-	console.log(`[proxy] resolved URL: ${upstreamUrl}`);
 	const headers = forwardHeaders(req.headers, upstream.resolvedApiKey);
 
-	// Use provided body or read from request
-	const bodyText = providedBody || await req.text();
-	console.log(`[proxy] request body (${bodyText.length} chars):`, bodyText.slice(0, 200));
+	// Only read body for methods that typically have one
+	const method = req.method.toUpperCase();
+	let bodyText = '';
+	if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+		bodyText = providedBody || await req.text();
+	}
 
 	const upstreamReq = new Request(upstreamUrl, {
 		method: req.method,
 		headers,
-		body: bodyText,
+		body: bodyText || undefined,
 	});
 
 	let resp: Response;
-	console.log(`[proxy] sending request to ${upstreamUrl}`);
-	console.log(`[proxy] headers:`, JSON.stringify(Object.fromEntries(upstreamReq.headers.entries())));
-
 	try {
-		const startTime = Date.now();
-		resp = await fetch(upstreamReq);
-		const duration = Date.now() - startTime;
-		console.log(`[proxy] ${upstream.id} responded in ${duration}ms with status ${resp.status}`);
+		resp = await fetch(upstreamReq, { signal: AbortSignal.timeout(30_000) });
 	} catch (err) {
-		console.error(`[proxy] ${upstream.id} ${req.method} ${upstreamPath} failed:`, err);
-		return new Response(JSON.stringify({ error: `upstream '${upstream.id}' unreachable: ${(err as Error).message}` }), {
+		const error = err as Error;
+		if (error.name === 'TimeoutError') {
+			return new Response(JSON.stringify({ error: `upstream '${upstream.id}' timed out` }), {
+				status: 504,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
+		return new Response(JSON.stringify({ error: `upstream '${upstream.id}' unreachable: ${error.message}` }), {
 			status: 502,
 			headers: { 'Content-Type': 'application/json' },
 		});
@@ -70,9 +72,6 @@ export async function proxyRequest(
 	for (const h of ['transfer-encoding', 'connection', 'keep-alive', 'content-encoding']) {
 		responseHeaders.delete(h);
 	}
-
-	console.log(`[proxy] response headers:`, Object.fromEntries(responseHeaders.entries()));
-	console.log(`[proxy] returning response body, status:`, resp.status);
 
 	return new Response(resp.body, {
 		status: resp.status,

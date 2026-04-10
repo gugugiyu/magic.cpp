@@ -7,9 +7,10 @@
 export const SETTINGS_KEYS = {
 	// General
 	THEME: 'theme',
-	API_KEY: 'apiKey',
+	// apiKey: removed - backend handles API key centrally
 	SYSTEM_MESSAGE: 'systemMessage',
 	PASTE_LONG_TEXT_TO_FILE_LEN: 'pasteLongTextToFileLen',
+	ANCHOR_MESSAGES_COUNT: 'anchorMessagesCount',
 	COPY_TEXT_ATTACHMENTS_AS_PLAIN_TEXT: 'copyTextAttachmentsAsPlainText',
 	ENABLE_CONTINUE_GENERATION: 'enableContinueGeneration',
 	PDF_AS_IMAGE: 'pdfAsImage',
@@ -49,6 +50,12 @@ export const SETTINGS_KEYS = {
 	DRY_PENALTY_LAST_N: 'dry_penalty_last_n',
 	// MCP
 	AGENTIC_MAX_TURNS: 'agenticMaxTurns',
+	// Built-in tools
+	BUILTIN_TOOL_CALCULATOR: 'builtinToolCalculator',
+	BUILTIN_TOOL_TIME: 'builtinToolTime',
+	BUILTIN_TOOL_LOCATION: 'builtinToolLocation',
+	BUILTIN_TOOL_SEQUENTIAL_THINKING: 'builtinToolSequentialThinking',
+	BUILTIN_TOOL_CALL_SUBAGENT: 'builtinToolCallSubagent',
 	ALWAYS_SHOW_AGENTIC_TURNS: 'alwaysShowAgenticTurns',
 	AGENTIC_MAX_TOOL_PREVIEW_LINES: 'agenticMaxToolPreviewLines',
 	SHOW_TOOL_CALL_IN_PROGRESS: 'showToolCallInProgress',

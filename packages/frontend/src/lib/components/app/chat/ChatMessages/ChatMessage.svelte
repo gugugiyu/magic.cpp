@@ -40,8 +40,8 @@
 		assistantMessages: number;
 		messageTypes: string[];
 	} | null>(null);
-	let editedContent = $derived(message.content);
-	let editedExtras = $derived<DatabaseMessageExtra[]>(message.extra ? [...message.extra] : []);
+	let editDraft = $state<string>('');
+	let editedExtras = $state<DatabaseMessageExtra[]>(message.extra ? [...message.extra] : []);
 	let editedUploadedFiles = $state<ChatUploadedFile[]>([]);
 	let isEditing = $state(false);
 	let showDeleteDialog = $state(false);
@@ -49,6 +49,7 @@
 	let textareaElement: HTMLTextAreaElement | undefined = $state();
 
 	let showSaveOnlyOption = $derived(message.role === MessageRole.USER);
+	let editedContent = $derived(isEditing ? editDraft : message.content);
 
 	setMessageEditContext({
 		get isEditing() {
@@ -73,7 +74,7 @@
 			return showSaveOnlyOption;
 		},
 		setContent: (content: string) => {
-			editedContent = content;
+			editDraft = content;
 		},
 		setExtras: (extras: DatabaseMessageExtra[]) => {
 			editedExtras = extras;
@@ -111,8 +112,6 @@
 	});
 
 	async function handleCancelEdit() {
-		isEditing = false;
-
 		// If canceling a new system message with placeholder content, remove it without deleting children
 		if (message.role === MessageRole.SYSTEM) {
 			const conversationDeleted = await chatStore.removeSystemPromptPlaceholder(message.id);
@@ -121,16 +120,18 @@
 				goto(`${base}/`);
 			}
 
+			isEditing = false;
 			return;
 		}
 
-		editedContent = message.content;
+		isEditing = false;
+		editDraft = '';
 		editedExtras = message.extra ? [...message.extra] : [];
 		editedUploadedFiles = [];
 	}
 
 	function handleCopy() {
-		chatActions.copy(message);
+		chatActions.copy(message, toolMessages);
 	}
 
 	async function handleConfirmDelete() {
@@ -155,7 +156,7 @@
 	function handleEdit() {
 		isEditing = true;
 		// Clear temporary placeholder content for system messages
-		editedContent =
+		editDraft =
 			message.role === MessageRole.SYSTEM && message.content === SYSTEM_MESSAGE_PLACEHOLDER
 				? ''
 				: message.content;
@@ -183,7 +184,9 @@
 	}
 
 	function handleForkConversation(options: { name: string; includeAttachments: boolean }) {
-		chatActions.forkConversation(message, options);
+		// Fork at the last message in the agentic group so the full turn is included
+		const forkAtMessage = toolMessages.length > 0 ? toolMessages[toolMessages.length - 1] : message;
+		chatActions.forkConversation(forkAtMessage, options);
 	}
 
 	function handleNavigateToSibling(siblingId: string) {
@@ -310,7 +313,7 @@
 		onContinue={handleContinue}
 		onCopy={handleCopy}
 		onDelete={handleDelete}
-		onEdit={handleEdit}
+		onEdit={message.content?.trim() ? handleEdit : undefined}
 		onForkConversation={handleForkConversation}
 		onNavigateToSibling={handleNavigateToSibling}
 		onRegenerate={handleRegenerate}

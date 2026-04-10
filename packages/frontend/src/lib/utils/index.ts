@@ -8,7 +8,7 @@
  */
 
 // API utilities
-export { getAuthHeaders, getJsonHeaders } from './api-headers';
+export { getJsonHeaders } from './api-headers';
 export { apiFetch, apiFetchWithParams, apiPost, type ApiFetchOptions } from './api-fetch';
 export { validateApiKey } from './api-key-validation';
 
@@ -73,6 +73,7 @@ export {
 	formatJsonPretty,
 	formatTime,
 	formatPerformanceTime,
+	formatAgenticTurn,
 	formatAttachmentText
 } from './formatters';
 

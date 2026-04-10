@@ -1,4 +1,4 @@
-## llamagic.cpp — Backend
+## magic.cpp — Backend
 
 A lightweight HTTP gateway that sits between the frontend and one or more llama-server (or OpenAI-compatible) upstreams. It centralizes model discovery, API key injection, CORS handling, and static file serving so the frontend never needs to know about upstream URLs or credentials.
 

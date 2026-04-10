@@ -1,9 +1,9 @@
 {
-  "name": "llamagic.cpp",
+  "name": "magic.cpp",
   "version": "1.0.0",
-  "workspaces": ["packages/*"],
   "scripts": {
     "web:dev": "bun run --filter webui dev",
     "server:dev": "bun run --filter server dev"
-  }
+  },
+  "workspaces": ["packages/*"]
 }

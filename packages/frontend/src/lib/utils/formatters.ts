@@ -5,6 +5,8 @@ import {
 	SHORT_DURATION_THRESHOLD,
 	MEDIUM_DURATION_THRESHOLD
 } from '$lib/constants';
+import { AgenticSectionType } from '$lib/enums/agentic';
+import { deriveAgenticSections } from './agentic';
 
 /**
  * Formats file size in bytes to human readable format
@@ -150,4 +152,69 @@ export function formatAttachmentText(
 ): string {
 	const header = extra ? `${name} (${extra})` : name;
 	return `\n\n--- ${label}: ${header} ---\n${content}`;
+}
+
+/**
+ * Formats a full agentic turn (assistant message + tool messages + continuations)
+ * Each section is rendered in a readable text format:
+ * - TEXT sections: verbatim content
+ * - REASONING sections: wrapped in <thinking> tags
+ * - sequential_thinking tool calls: wrapped in <thinking step="n/total"> tags
+ * - Other tool calls: rendered as <tool_call name="..."> / <tool_result> blocks
+ *
+ * @param message - The anchor assistant message
+ * @param toolMessages - Tool result and continuation assistant messages
+ * @returns Formatted plain-text string for clipboard
+ */
+export function formatAgenticTurn(
+	message: DatabaseMessage,
+	toolMessages: DatabaseMessage[] = []
+): string {
+	const sections = deriveAgenticSections(message, toolMessages, [], false);
+	const parts: string[] = [];
+
+	for (const section of sections) {
+		if (section.type === AgenticSectionType.TEXT) {
+			if (section.content?.trim()) {
+				parts.push(section.content.trim());
+			}
+		} else if (
+			section.type === AgenticSectionType.REASONING ||
+			section.type === AgenticSectionType.REASONING_PENDING
+		) {
+			if (section.content?.trim()) {
+				parts.push(`<thinking>\n${section.content.trim()}\n</thinking>`);
+			}
+		} else if (section.toolName === 'sequential_thinking') {
+			/* Special parsing for sequential thinking tool */
+			try {
+				const args = section.toolArgs ? JSON.parse(section.toolArgs) : null;
+				if (args?.thought) {
+					const n = args.thoughtNumber;
+					const total = args.totalThoughts;
+					const stepAttr = n && total ? ` step="${n}/${total}"` : '';
+					parts.push(`<thinking${stepAttr}>\n${String(args.thought).trim()}\n</thinking>`);
+				}
+			} catch {
+				// ignore malformed args
+			}
+		} else if (
+			section.type === AgenticSectionType.TOOL_CALL ||
+			section.type === AgenticSectionType.TOOL_CALL_PENDING ||
+			section.type === AgenticSectionType.TOOL_CALL_STREAMING
+		) {
+			const name = section.toolName || 'tool';
+			let block = `<tool_call name="${name}">`;
+			if (section.toolArgs && section.toolArgs !== '{}') {
+				block += `\n${section.toolArgs}`;
+			}
+			block += `\n</tool_call>`;
+			if (section.toolResult) {
+				block += `\n<tool_result>\n${section.toolResult.trim()}\n</tool_result>`;
+			}
+			parts.push(block);
+		}
+	}
+
+	return parts.join('\n\n');
 }

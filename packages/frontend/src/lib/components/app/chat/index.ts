@@ -379,6 +379,17 @@ export { default as ChatFormResourcePicker } from './ChatForm/ChatFormResourcePi
 export { default as ChatMessages } from './ChatMessages/ChatMessages.svelte';
 
 /**
+ * **CompactionNote** - Inline compaction summary indicator
+ *
+ * Displays a subtle divider line with text showing tokens saved from
+ * session compaction. Non-interactive, styled as a helper note.
+ *
+ * @example
+ * <CompactionNote tokensSaved={1234} />
+ */
+export { default as CompactionNote } from './ChatMessages/CompactionNote.svelte';
+
+/**
  * **ChatMessage** - Single message display with actions
  *
  * Renders a single chat message with role-specific styling and full action
@@ -456,6 +467,14 @@ export { default as ChatMessage } from './ChatMessages/ChatMessage.svelte';
  * ```
  */
 export { default as ChatMessageAgenticContent } from './ChatMessages/ChatMessageAgenticContent.svelte';
+
+/**
+ * Vertical stepper display for sequential_thinking tool results. Shows each reasoning
+ * step with done/active/pending states. Active step shows an animated spinner while
+ * streaming; done steps show a green check. Pending placeholders are shown for
+ * anticipated future steps when the model signals nextThoughtNeeded.
+ */
+export { default as ChatMessageThinkingSteps } from './ChatMessages/ChatMessageThinkingSteps.svelte';
 
 /**
  * Action buttons toolbar for messages. Displays copy, edit, delete, and regenerate

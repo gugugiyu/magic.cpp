@@ -10,6 +10,12 @@ const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 export async function handleCorsProxy(req: Request): Promise<Response> {
 	const url = new URL(req.url);
 	const targetRaw = url.searchParams.get('url');
+	const method = req.method.toUpperCase();
+
+	// Handle probe request (HEAD without url param) - used to check if proxy is available
+	if (method === 'HEAD' && !targetRaw) {
+		return new Response('CORS proxy available', { status: 200 });
+	}
 
 	if (!targetRaw) {
 		return new Response('missing url parameter', { status: 400 });

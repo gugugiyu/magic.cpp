@@ -56,7 +56,7 @@
 					type: SettingsFieldType.SELECT,
 					options: SETTINGS_COLOR_MODES_CONFIG
 				},
-				{ key: SETTINGS_KEYS.API_KEY, label: 'API Key', type: SettingsFieldType.INPUT },
+				// API Key removed - backend handles API key centrally
 				{
 					key: SETTINGS_KEYS.SYSTEM_MESSAGE,
 					label: 'System Message',
@@ -65,6 +65,11 @@
 				{
 					key: SETTINGS_KEYS.PASTE_LONG_TEXT_TO_FILE_LEN,
 					label: 'Paste long text to file length',
+					type: SettingsFieldType.INPUT
+				},
+				{
+					key: SETTINGS_KEYS.ANCHOR_MESSAGES_COUNT,
+					label: 'Anchor messages count',
 					type: SettingsFieldType.INPUT
 				},
 				{
@@ -463,6 +468,38 @@
 		canScrollRight = scrollLeft < scrollWidth - clientWidth - 1; // -1 for rounding
 	}
 
+	const builtinToolFields = [
+		{
+			key: SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR,
+			label: 'Calculator',
+			description:
+				'Inject a calculator tool the model can call to evaluate arithmetic expressions without hallucinating results.'
+		},
+		{
+			key: SETTINGS_KEYS.BUILTIN_TOOL_TIME,
+			label: 'Get time',
+			description:
+				'Inject a get_time tool the model can call to retrieve the current UTC date and time.'
+		},
+		{
+			key: SETTINGS_KEYS.BUILTIN_TOOL_LOCATION,
+			label: 'Get location',
+			description:
+				'Inject a get_location tool the model can call to retrieve your browser-reported geolocation (requires permission).'
+		},
+		{
+			key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT,
+			label: 'Subagent',
+			description: 'Allow the main model to spawn a subagent to handle horizontal spanning tasks.'
+		},
+		{
+			key: SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING,
+			label: 'Sequential thinking',
+			description:
+				'Inject a sequential_thinking tool that lets the model break problems into explicit reasoning steps before answering.'
+		}
+	] as const;
+
 	export function reset() {
 		localConfig = { ...config() };
 
@@ -572,6 +609,30 @@
 
 						<div class="border-t border-border/30 pt-6">
 							<McpServersSettings />
+						</div>
+
+						<div class="border-t border-border/30 pt-6">
+							<h4 class="mb-4 text-sm font-semibold">Built-in Tools</h4>
+							<div class="space-y-4">
+								{#each builtinToolFields as tool (tool.key)}
+									<div class="flex flex-col gap-1">
+										<div class="flex items-center gap-2">
+											<input
+												type="checkbox"
+												id={tool.key}
+												checked={!!localConfig[tool.key]}
+												onchange={(e) =>
+													handleConfigChange(tool.key, (e.target as HTMLInputElement).checked)}
+												class="h-4 w-4 rounded border-border"
+											/>
+											<label for={tool.key} class="cursor-pointer text-sm leading-none font-medium">
+												{tool.label}
+											</label>
+										</div>
+										<p class="ml-6 text-xs text-muted-foreground">{tool.description}</p>
+									</div>
+								{/each}
+							</div>
 						</div>
 					</div>
 				{:else}

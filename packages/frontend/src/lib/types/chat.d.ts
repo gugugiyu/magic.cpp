@@ -114,7 +114,7 @@ export interface ChatStreamCallbacks {
 		reasoningContent: string | undefined,
 		timings: ChatMessageTimings | undefined,
 		toolCalls: ApiChatCompletionToolCall[] | undefined
-	) => Promise<void>;
+	) => Promise<string>;
 	createToolResultMessage?: (
 		toolCallId: string,
 		content: string,

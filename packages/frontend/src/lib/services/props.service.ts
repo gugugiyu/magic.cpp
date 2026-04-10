@@ -24,9 +24,7 @@ export class PropsService {
 			params.autoload = 'false';
 		}
 
-		return apiFetchWithParams<ApiLlamaCppServerProps>('./props', params, {
-			authOnly: true
-		});
+		return apiFetchWithParams<ApiLlamaCppServerProps>('./props', params);
 	}
 
 	/**
@@ -44,8 +42,6 @@ export class PropsService {
 			params.autoload = 'false';
 		}
 
-		return apiFetchWithParams<ApiLlamaCppServerProps>('./props', params, {
-			authOnly: true
-		});
+		return apiFetchWithParams<ApiLlamaCppServerProps>('./props', params);
 	}
 }

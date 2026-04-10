@@ -21,8 +21,14 @@ import {
 	CODE_LANGUAGE_CLASS,
 	COPY_CODE_BTN_CLASS,
 	PREVIEW_CODE_BTN_CLASS,
+	MERMAID_RENDER_BTN_CLASS,
+	SVG_RENDER_BTN_CLASS,
 	RELATIVE_CLASS
 } from '$lib/constants';
+
+const MERMAID_RENDER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="6 3 20 12 6 21 6 3"/></svg>`;
+
+const SVG_RENDER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`;
 
 declare global {
 	interface Window {
@@ -75,11 +81,56 @@ function createPreviewButton(codeId: string): Element {
 	};
 }
 
-function createHeader(language: string, codeId: string): Element {
-	const actions: Element[] = [createCopyButton(codeId)];
+function createMermaidRenderButton(codeId: string): Element {
+	return {
+		type: 'element',
+		tagName: 'button',
+		properties: {
+			className: [MERMAID_RENDER_BTN_CLASS],
+			'data-code-id': codeId,
+			title: 'Render diagram',
+			type: 'button'
+		},
+		children: [createRawHtmlElement(MERMAID_RENDER_ICON_SVG)]
+	};
+}
 
-	if (language.toLowerCase() === 'html') {
+function createSvgRenderButton(codeId: string): Element {
+	return {
+		type: 'element',
+		tagName: 'button',
+		properties: {
+			className: [SVG_RENDER_BTN_CLASS],
+			'data-code-id': codeId,
+			title: 'Render SVG',
+			type: 'button'
+		},
+		children: [createRawHtmlElement(SVG_RENDER_ICON_SVG)]
+	};
+}
+
+function extractNodeText(node: ElementContent): string {
+	if (node.type === 'text') return node.value;
+	if (node.type === 'element') return node.children.map(extractNodeText).join('');
+	return '';
+}
+
+function extractCodeText(codeElement: Element): string {
+	return codeElement.children.map(extractNodeText).join('');
+}
+
+function createHeader(language: string, codeId: string, codeText = ''): Element {
+	const actions: Element[] = [createCopyButton(codeId)];
+	const lang = language.toLowerCase();
+	const isSvgContent =
+		lang === 'svg' || (lang === 'xml' && codeText.trimStart().startsWith('<svg'));
+
+	if (lang === 'html') {
 		actions.push(createPreviewButton(codeId));
+	} else if (lang === 'mermaid') {
+		actions.push(createMermaidRenderButton(codeId));
+	} else if (isSvgContent) {
+		actions.push(createSvgRenderButton(codeId));
 	}
 
 	return {
@@ -164,6 +215,7 @@ export const rehypeEnhanceCodeBlocks: Plugin<[], Root> = () => {
 			if (!codeElement) return;
 
 			const language = extractLanguage(codeElement);
+			const codeText = extractCodeText(codeElement);
 			const codeId = generateCodeId();
 
 			codeElement.properties = {
@@ -171,7 +223,7 @@ export const rehypeEnhanceCodeBlocks: Plugin<[], Root> = () => {
 				'data-code-id': codeId
 			};
 
-			const header = createHeader(language, codeId);
+			const header = createHeader(language, codeId, codeText);
 			const wrapper = createWrapper(header, node);
 
 			// Replace pre with wrapper in parent

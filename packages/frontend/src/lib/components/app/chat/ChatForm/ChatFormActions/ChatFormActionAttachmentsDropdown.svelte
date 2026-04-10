@@ -9,6 +9,8 @@
 	import { McpLogo, DropdownMenuSearchable } from '$lib/components/app';
 	import { conversationsStore } from '$lib/stores/conversations.svelte';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
+	import { config, settingsStore } from '$lib/stores/settings.svelte';
+	import { SETTINGS_KEYS } from '$lib/constants/settings-keys';
 
 	import { HealthCheckStatus } from '$lib/enums';
 	import type { MCPServerSettingsEntry } from '$lib/types';
@@ -99,6 +101,21 @@
 	}
 
 	const fileUploadTooltipText = 'Add files, system prompt or MCP Servers';
+
+	// Built-in tools
+	const BUILTIN_TOOLS = [
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR, label: 'Calculator' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_TIME, label: 'Get time' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_LOCATION, label: 'Get location' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING, label: 'Sequential thinking' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent' }
+	] as const;
+
+	let currentConfig = $derived(config());
+
+	function toggleBuiltinTool(key: string, enabled: boolean) {
+		settingsStore.updateConfig(key as keyof typeof currentConfig, enabled);
+	}
 </script>
 
 <div class="flex items-center gap-1 {className}">
@@ -328,6 +345,35 @@
 					<span>MCP Resources</span>
 				</DropdownMenu.Item>
 			{/if}
+
+			<DropdownMenu.Sub>
+				<DropdownMenu.SubTrigger class="flex cursor-pointer items-center gap-2">
+					<Wrench class="h-4 w-4" />
+
+					<span>Built-in tools</span>
+				</DropdownMenu.SubTrigger>
+
+				<DropdownMenu.SubContent class="w-64 pt-0">
+					<div class="px-2 py-1.5">
+						<p class="text-xs font-medium text-muted-foreground">Toggle built-in tools</p>
+						<p class="text-xs text-muted-foreground">Tools are shared across all conversations</p>
+					</div>
+
+					<div class="max-h-64 overflow-y-auto">
+						{#each BUILTIN_TOOLS as tool (tool.key)}
+							{@const isEnabled = !!currentConfig[tool.key]}
+							<button
+								type="button"
+								class="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
+								onclick={() => toggleBuiltinTool(tool.key, !isEnabled)}
+							>
+								<span class="text-sm">{tool.label}</span>
+								<Switch checked={isEnabled} onclick={(e: MouseEvent) => e.stopPropagation()} />
+							</button>
+						{/each}
+					</div>
+				</DropdownMenu.SubContent>
+			</DropdownMenu.Sub>
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
 </div>

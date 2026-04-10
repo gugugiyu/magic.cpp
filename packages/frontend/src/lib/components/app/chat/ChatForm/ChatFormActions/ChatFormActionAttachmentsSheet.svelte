@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { Plus, MessageSquare, Zap, FolderOpen } from '@lucide/svelte';
+	import { Plus, MessageSquare, Zap, FolderOpen, Wrench } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Sheet from '$lib/components/ui/sheet';
+	import { Switch } from '$lib/components/ui/switch';
 	import { FILE_TYPE_ICONS } from '$lib/constants';
 	import { McpLogo } from '$lib/components/app';
+	import { settingsStore, config } from '$lib/stores/settings.svelte';
+	import { SETTINGS_KEYS } from '$lib/constants/settings-keys';
 
 	interface Props {
 		class?: string;
@@ -17,6 +20,7 @@
 		onMcpPromptClick?: () => void;
 		onMcpSettingsClick?: () => void;
 		onMcpResourcesClick?: () => void;
+		onBuiltinToolsChange?: (enabledTools: string[]) => void;
 	}
 
 	let {
@@ -30,8 +34,31 @@
 		onSystemPromptClick,
 		onMcpPromptClick,
 		onMcpSettingsClick,
-		onMcpResourcesClick
+		onMcpResourcesClick,
+		onBuiltinToolsChange
 	}: Props = $props();
+
+	const BUILTIN_TOOLS = [
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR, label: 'Calculator', icon: '🧮' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_TIME, label: 'Get time', icon: '🕐' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_LOCATION, label: 'Get location', icon: '📍' },
+		{
+			key: SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING,
+			label: 'Sequential thinking',
+			icon: '💭'
+		},
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent', icon: '🤖' }
+	] as const;
+
+	let currentConfig = $derived(config());
+	let enabledBuiltinTools = $derived(
+		BUILTIN_TOOLS.filter((t) => !!currentConfig[t.key]).map((t) => t.label)
+	);
+
+	function toggleBuiltinTool(key: string, enabled: boolean) {
+		settingsStore.updateConfig(key as keyof typeof currentConfig, enabled);
+		onBuiltinToolsChange?.(enabledBuiltinTools);
+	}
 
 	let sheetOpen = $state(false);
 
@@ -164,6 +191,35 @@
 						<span>MCP Resources</span>
 					</button>
 				{/if}
+
+				<div class="my-2 border-t border-border/30"></div>
+
+				<div class="px-3 py-1">
+					<div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+						<Wrench class="h-4 w-4" />
+						<span>Built-in tools</span>
+					</div>
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						Select tools to enable for this conversation
+					</p>
+				</div>
+
+				<div class="space-y-1 px-3 pb-2">
+					{#each BUILTIN_TOOLS as tool (tool.key)}
+						{@const isEnabled = !!currentConfig[tool.key]}
+						<button
+							type="button"
+							class="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
+							onclick={() => toggleBuiltinTool(tool.key, !isEnabled)}
+						>
+							<div class="flex items-center gap-2">
+								<span class="text-base">{tool.icon}</span>
+								<span class="text-sm">{tool.label}</span>
+							</div>
+							<Switch checked={isEnabled} onclick={(e: MouseEvent) => e.stopPropagation()} />
+						</button>
+					{/each}
+				</div>
 			</div>
 		</Sheet.Content>
 	</Sheet.Root>

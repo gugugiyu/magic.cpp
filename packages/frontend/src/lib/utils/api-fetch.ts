@@ -1,5 +1,5 @@
 import { base } from '$app/paths';
-import { getJsonHeaders, getAuthHeaders } from './api-headers';
+import { getJsonHeaders } from './api-headers';
 import { UrlProtocol } from '$lib/enums';
 import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 
@@ -13,11 +13,6 @@ import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
  */
 
 export interface ApiFetchOptions extends Omit<RequestInit, 'headers'> {
-	/**
-	 * Use auth-only headers (no Content-Type).
-	 * Default: false (uses JSON headers with Content-Type: application/json)
-	 */
-	authOnly?: boolean;
 	/**
 	 * Additional headers to merge with default headers.
 	 */
@@ -45,9 +40,9 @@ export interface ApiFetchOptions extends Omit<RequestInit, 'headers'> {
  * ```
  */
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-	const { authOnly = false, headers: customHeaders, ...fetchOptions } = options;
+	const { headers: customHeaders, ...fetchOptions } = options;
 
-	const baseHeaders = authOnly ? getAuthHeaders() : getJsonHeaders();
+	const baseHeaders = getJsonHeaders();
 	const headers = { ...baseHeaders, ...customHeaders };
 
 	const url =
@@ -102,9 +97,9 @@ export async function apiFetchWithParams<T>(
 		}
 	}
 
-	const { authOnly = false, headers: customHeaders, ...fetchOptions } = options;
+	const { headers: customHeaders, ...fetchOptions } = options;
 
-	const baseHeaders = authOnly ? getAuthHeaders() : getJsonHeaders();
+	const baseHeaders = getJsonHeaders();
 	const headers = { ...baseHeaders, ...customHeaders };
 
 	const response = await fetch(url.toString(), {

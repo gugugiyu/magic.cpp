@@ -2,6 +2,7 @@ import type { ModelPool } from './pool/model-pool.ts';
 import type { Config } from './config.ts';
 import { handleV1Models, handleModels } from './handlers/models.ts';
 import { handleChat } from './handlers/chat.ts';
+import { handleCompact } from './handlers/compact.ts';
 import { handleProps } from './handlers/props.ts';
 import { handleModelLoad, handleModelUnload } from './handlers/model-ops.ts';
 import { handleCorsProxy } from './handlers/cors-proxy.ts';
@@ -23,6 +24,10 @@ export function createRouter(pool: ModelPool, config: Config) {
 			return handleChat(req, pool);
 		}
 
+		if (pathname === '/compact' && method === 'POST') {
+			return handleCompact(req, pool);
+		}
+
 		if (pathname === '/props' && method === 'GET') {
 			return handleProps(req, pool);
 		}
@@ -39,7 +44,7 @@ export function createRouter(pool: ModelPool, config: Config) {
 			return handleModelUnload(req, pool);
 		}
 
-		if (pathname === '/cors-proxy' && method === 'GET') {
+		if (pathname === '/cors-proxy' && (method === 'GET' || method === 'HEAD')) {
 			return handleCorsProxy(req);
 		}
 
@@ -53,7 +58,7 @@ export function createRouter(pool: ModelPool, config: Config) {
 				status: 204,
 				headers: {
 					'Access-Control-Allow-Origin': '*',
-					'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+					'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, HEAD',
 					'Access-Control-Allow-Headers': '*',
 				},
 			});

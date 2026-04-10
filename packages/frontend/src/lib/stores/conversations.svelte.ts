@@ -21,9 +21,10 @@
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { toast } from 'svelte-sonner';
+import DOMPurify from 'dompurify';
 import { DatabaseService } from '$lib/services/database.service';
 import { config } from '$lib/stores/settings.svelte';
-import { filterByLeafNodeId, findLeafNode, runLegacyMigration } from '$lib/utils';
+import { filterByLeafNodeId, findLeafNode, runLegacyMigration, uuid } from '$lib/utils';
 import type { McpServerOverride } from '$lib/types/database';
 import { MessageRole } from '$lib/enums';
 import {
@@ -66,6 +67,9 @@ class ConversationsStore {
 
 	/** Whether the store has been initialized */
 	isInitialized = $state(false);
+
+	/** Last compaction result (tokens saved) */
+	lastCompactionTokensSaved = $state<number | null>(null);
 
 	/** Pending MCP server overrides for new conversations (before first message) */
 	pendingMcpServerOverrides = $state<McpServerOverride[]>(ConversationsStore.loadMcpDefaults());
@@ -737,6 +741,99 @@ class ConversationsStore {
 			toast.error('Failed to fork conversation');
 
 			return null;
+		}
+	}
+
+	/**
+	 * Compacts the conversation by summarizing old messages and replacing them with a summary message.
+	 *
+	 * @param summary - The generated summary content
+	 * @param messagesToCompact - Array of messages that were compacted (for token calculation)
+	 * @param anchorMessageId - The first anchor message ID (everything before this gets compacted)
+	 * @returns Object with compaction results
+	 */
+	async compactSession(
+		summary: string,
+		messagesToCompact: DatabaseMessage[],
+		anchorMessageId: string,
+		tokensSaved: number
+	): Promise<{ success: boolean; error?: string }> {
+		if (!this.activeConversation) {
+			return { success: false, error: 'No active conversation' };
+		}
+
+		try {
+			const convId = this.activeConversation.id;
+
+			// Find the anchor message to get its parent
+			const anchorMessage = this.activeMessages.find((m) => m.id === anchorMessageId);
+			if (!anchorMessage) {
+				return { success: false, error: 'Anchor message not found' };
+			}
+
+			// Get the parent of the anchor message (could be root or another message)
+			const summaryParentId = anchorMessage.parent;
+
+			// Sanitize the summary content with DOMPurify
+			const sanitizedSummary = DOMPurify.sanitize(summary);
+
+			// Create the summary message
+			const summaryMessage: DatabaseMessage = {
+				id: uuid(),
+				convId,
+				type: 'system',
+				timestamp: Date.now(),
+				role: MessageRole.SYSTEM,
+				content: sanitizedSummary,
+				parent: summaryParentId,
+				children: []
+			};
+
+			// Perform all database operations in a single atomic transaction.
+			// This handles: deleting compacted messages (with child reparenting),
+			// updating anchor's parent to the summary, updating parent's children,
+			// and inserting the summary message.
+			await DatabaseService.compactMessageTree(
+				convId,
+				summaryMessage,
+				messagesToCompact,
+				anchorMessageId
+			);
+
+			// Update active messages array: remove compacted, insert summary.
+			// Also update in-memory references to match the DB state.
+			const compactedIds = new Set(messagesToCompact.map((m) => m.id));
+			this.activeMessages = this.activeMessages.map((m) => {
+				if (m.id === anchorMessageId) {
+					// Update anchor's parent to point to the summary message
+					return { ...m, parent: summaryMessage.id };
+				}
+				return m;
+			});
+			this.activeMessages = this.activeMessages.filter((m) => !compactedIds.has(m.id));
+
+			const anchorIndex = this.activeMessages.findIndex((m) => m.id === anchorMessageId);
+			if (anchorIndex !== -1) {
+				this.activeMessages = [
+					...this.activeMessages.slice(0, anchorIndex),
+					summaryMessage,
+					...this.activeMessages.slice(anchorIndex)
+				];
+			}
+
+			// Update currNode to the new leaf after tree restructuring.
+			// The anchor message's branch is now the active path; find its leaf.
+			const updatedMessages = [...this.activeMessages];
+			const anchorLeafNodeId = findLeafNode(updatedMessages, anchorMessageId);
+			await this.updateCurrentNode(anchorLeafNodeId);
+
+			// Store compaction result for UI display
+			this.lastCompactionTokensSaved = tokensSaved;
+
+			return { success: true };
+		} catch (error) {
+			console.error('Failed to compact conversation:', error);
+			return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
 		}
 	}
 

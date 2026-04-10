@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { fadeInView } from '$lib/actions/fade-in-view.svelte';
-	import { ChatMessage } from '$lib/components/app';
+	import { ChatMessage, CompactionNote } from '$lib/components/app';
 	import { setChatActionsContext } from '$lib/contexts';
 	import { MessageRole } from '$lib/enums';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { conversationsStore, activeConversation } from '$lib/stores/conversations.svelte';
 	import { config } from '$lib/stores/settings.svelte';
+	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import {
 		copyToClipboard,
 		formatMessageForClipboard,
+		formatAgenticTurn,
 		getMessageSiblings,
 		hasAgenticContent
 	} from '$lib/utils';
@@ -25,13 +27,14 @@
 	const currentConfig = config();
 
 	setChatActionsContext({
-		copy: async (message: DatabaseMessage) => {
-			const asPlainText = Boolean(currentConfig.copyTextAttachmentsAsPlainText);
-			const clipboardContent = formatMessageForClipboard(
-				message.content,
-				message.extra,
-				asPlainText
-			);
+		copy: async (message: DatabaseMessage, toolMessages: DatabaseMessage[] = []) => {
+			let clipboardContent: string;
+			if (toolMessages.length > 0 || message.toolCalls) {
+				clipboardContent = formatAgenticTurn(message, toolMessages);
+			} else {
+				const asPlainText = Boolean(currentConfig.copyTextAttachmentsAsPlainText);
+				clipboardContent = formatMessageForClipboard(message.content, message.extra, asPlainText);
+			}
 			await copyToClipboard(clipboardContent, 'Message copied to clipboard');
 		},
 
@@ -115,14 +118,49 @@
 		}
 	});
 
+	// Reset compaction token after messages change (give UI time to render the note)
+	$effect(() => {
+		if (conversationsStore.lastCompactionTokensSaved !== null && messages.length > 0) {
+			const timer = setTimeout(() => {
+				conversationsStore.lastCompactionTokensSaved = null;
+			}, 5000);
+			return () => clearTimeout(timer);
+		}
+	});
+
 	let displayMessages = $derived.by(() => {
 		if (!messages.length) {
-			return [];
+			return {
+				result: [] as Array<{
+					message: DatabaseMessage;
+					toolMessages: DatabaseMessage[];
+					isLastAssistantMessage: boolean;
+					siblingInfo: ChatMessageSiblingInfo;
+				}>,
+				systemMessageBeforeDisplayIndex: new Map<number, number>()
+			};
 		}
 
 		const filteredMessages = currentConfig.showSystemMessage
 			? messages
 			: messages.filter((msg) => msg.type !== MessageRole.SYSTEM);
+
+		// Build a set of indices in filteredMessages where a system/compaction message
+		// was removed from the original messages array. These act as boundaries so
+		// agentic grouping doesn't cross compaction points.
+		const boundaryIndices = new SvelteSet<number>();
+		if (!currentConfig.showSystemMessage) {
+			let filteredIdx = 0;
+			for (let i = 0; i < messages.length; i++) {
+				if (messages[i].type === MessageRole.SYSTEM) {
+					// The position in filteredMessages where this system message would be
+					// is the current filteredIdx. Messages after it start at filteredIdx.
+					boundaryIndices.add(filteredIdx);
+				} else {
+					filteredIdx++;
+				}
+			}
+		}
 
 		// Build display entries, grouping agentic sessions into single entries.
 		// An agentic session = assistant(with tool_calls) → tool → assistant → tool → ... → assistant(final)
@@ -144,6 +182,11 @@
 				let j = i + 1;
 
 				while (j < filteredMessages.length) {
+					// Stop grouping if we hit a boundary (system/compaction summary was here)
+					if (boundaryIndices.has(j)) {
+						break;
+					}
+
 					const next = filteredMessages[j];
 
 					if (next.role === MessageRole.TOOL) {
@@ -164,6 +207,8 @@
 				let j = i + 1;
 
 				while (j < filteredMessages.length && filteredMessages[j].role === MessageRole.TOOL) {
+					// Stop if next tool message is across a boundary
+					if (boundaryIndices.has(j)) break;
 					toolMessages.push(filteredMessages[j]);
 					j++;
 				}
@@ -192,7 +237,39 @@
 			}
 		}
 
-		return result;
+		// Determine which display entry index comes right before each system message
+		// (by position in the original messages array). This is used for placing the
+		// CompactionNote after the correct message when system messages are hidden.
+		const systemMessageBeforeDisplayIndex = new SvelteMap<number, number>();
+		if (!currentConfig.showSystemMessage) {
+			let displayIdx = 0;
+			for (let i = 0; i < messages.length; i++) {
+				if (messages[i].type === MessageRole.SYSTEM) {
+					// The display entry just before this system message is at displayIdx - 1
+					// (displayIdx hasn't been incremented yet for this system message)
+					systemMessageBeforeDisplayIndex.set(i, displayIdx - 1);
+				} else {
+					displayIdx++;
+				}
+			}
+		}
+
+		return { result, systemMessageBeforeDisplayIndex };
+	});
+
+	// Find the system message that should trigger a CompactionNote
+	let compactionNoteDisplayIndex = $derived.by(() => {
+		if (conversationsStore.lastCompactionTokensSaved === null) return -1;
+		if (currentConfig.showSystemMessage) return -1;
+
+		const sysInfo = displayMessages.systemMessageBeforeDisplayIndex;
+		// Find the most recent system message (compaction summary) in the messages array
+		for (let i = messages.length - 1; i >= 0; i--) {
+			if (messages[i].type === MessageRole.SYSTEM) {
+				return sysInfo.get(i) ?? -1;
+			}
+		}
+		return -1;
 	});
 </script>
 
@@ -200,7 +277,7 @@
 	class="flex h-full flex-col space-y-10 pt-24 {className}"
 	style="height: auto; min-height: calc(100dvh - 14rem);"
 >
-	{#each displayMessages as { message, toolMessages, isLastAssistantMessage, siblingInfo } (message.id)}
+	{#each displayMessages.result as { message, toolMessages, isLastAssistantMessage, siblingInfo }, index (message.id)}
 		<div use:fadeInView>
 			<ChatMessage
 				class="mx-auto w-full max-w-[48rem]"
@@ -210,5 +287,19 @@
 				{siblingInfo}
 			/>
 		</div>
+
+		{#if currentConfig.showSystemMessage}
+			<!-- When system messages are visible, show compaction note after system summary messages -->
+			{#if message.role === MessageRole.SYSTEM && message.type === 'system' && conversationsStore.lastCompactionTokensSaved !== null}
+				{@const tokensSaved = conversationsStore.lastCompactionTokensSaved}
+				<CompactionNote {tokensSaved} />
+			{/if}
+		{:else}
+			<!-- When system messages are hidden, show compaction note after the message preceding the system summary -->
+			{#if index === compactionNoteDisplayIndex && conversationsStore.lastCompactionTokensSaved !== null}
+				{@const tokensSaved = conversationsStore.lastCompactionTokensSaved}
+				<CompactionNote {tokensSaved} />
+			{/if}
+		{/if}
 	{/each}
 </div>

@@ -98,6 +98,10 @@ export async function handleProps(req: Request, pool: ModelPool): Promise<Respon
 		if (upstream.type === 'openai') {
 			return Response.json(SYNTHETIC_PROPS);
 		}
+		// Don't proxy to disabled upstreams
+		if (upstream.enabled === false) {
+			return Response.json({ error: `upstream '${upstream.id}' is disabled` }, { status: 503 });
+		}
 		const resp = await proxyRequest(req, upstream, '/props');
 		if (!resp.ok) {
 			console.warn(`[props] upstream ${upstream.id} returned ${resp.status} for /props — falling back to synthetic props`);
@@ -106,8 +110,8 @@ export async function handleProps(req: Request, pool: ModelPool): Promise<Respon
 		return resp;
 	}
 
-	// No model specified — use first llamacpp upstream, or synthesize if all are openai
-	const llamacpp = pool.getAllUpstreams().find((u) => u.type === 'llamacpp');
+	// No model specified — use first ENABLED llamacpp upstream, or synthesize if all are openai or disabled
+	const llamacpp = pool.getAllUpstreams().find((u) => u.type === 'llamacpp' && u.enabled !== false);
 	if (llamacpp) {
 		const resp = await proxyRequest(req, llamacpp, '/props');
 		if (!resp.ok) {

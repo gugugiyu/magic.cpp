@@ -23,7 +23,7 @@
 			"url": "http://localhost:8000/v1",
 			"type": "llamacpp",
 			"apiKey": "$OPENAI_KEY",
-			"enabled": false
+			"enabled": true
 		},
 		{
 			"id": "openrouter",

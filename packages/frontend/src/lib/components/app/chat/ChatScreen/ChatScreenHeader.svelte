@@ -1,11 +1,16 @@
 <script lang="ts">
-	import { Settings } from '@lucide/svelte';
+	import { Settings, Brain } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { useSidebar } from '$lib/components/ui/sidebar';
 	import { getChatSettingsDialogContext } from '$lib/contexts';
+	import { config } from '$lib/stores/settings.svelte';
+	import ChatThinkingDrawer from '$lib/components/app/chat/ChatThinkingDrawer.svelte';
 
 	const sidebar = useSidebar();
 	const chatSettingsDialog = getChatSettingsDialogContext();
+
+	let isThinkingDrawerOpen = $state(false);
+	let isSequentialThinkingEnabled = $derived(config().builtinToolSequentialThinking);
 </script>
 
 <header
@@ -14,6 +19,18 @@
 		: ''}"
 >
 	<div class="pointer-events-auto flex items-center space-x-2">
+		{#if isSequentialThinkingEnabled}
+			<Button
+				variant="ghost"
+				size="icon-lg"
+				onclick={() => (isThinkingDrawerOpen = true)}
+				class="rounded-full backdrop-blur-lg"
+				aria-label="Open reasoning history"
+			>
+				<Brain class="h-4 w-4" />
+			</Button>
+		{/if}
+
 		<Button
 			variant="ghost"
 			size="icon-lg"
@@ -24,3 +41,8 @@
 		</Button>
 	</div>
 </header>
+
+<ChatThinkingDrawer
+	bind:open={isThinkingDrawerOpen}
+	onClose={() => (isThinkingDrawerOpen = false)}
+/>

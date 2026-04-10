@@ -20,11 +20,16 @@
  * @see mcpStore in stores/mcp.svelte.ts for MCP operations
  */
 
+import { toast } from 'svelte-sonner';
+import { SvelteSet } from 'svelte/reactivity';
 import { ChatService } from '$lib/services';
-import { config } from '$lib/stores/settings.svelte';
+import { config, settingsStore } from '$lib/stores/settings.svelte';
 import { mcpStore } from '$lib/stores/mcp.svelte';
 import { modelsStore } from '$lib/stores/models.svelte';
+import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
+import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
 import { isAbortError } from '$lib/utils';
+import { sequentialThinkingStore, type ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
 import {
 	DEFAULT_AGENTIC_CONFIG,
 	NEWLINE_SEPARATOR,
@@ -52,7 +57,8 @@ import type {
 	AgenticConfig,
 	SettingsConfigType,
 	McpServerOverride,
-	MCPToolCall
+	MCPToolCall,
+	OpenAIToolDefinition
 } from '$lib/types';
 import type {
 	AgenticMessage,
@@ -77,6 +83,146 @@ import type {
 	DatabaseMessageExtra,
 	DatabaseMessageExtraImageFile
 } from '$lib/types/database';
+
+// ─── Subagent progress types (exported for UI consumption) ───────────────────
+
+export interface SubagentStep {
+	toolName: string;
+	status: 'calling' | 'done';
+}
+
+export interface SubagentProgress {
+	modelName: string;
+	steps: SubagentStep[];
+}
+
+// ─── Built-in tool definitions ───────────────────────────────────────────────
+
+const TOOL_CALCULATOR: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'calculator',
+		description:
+			'Evaluate a mathematical expression and return the numeric result, use this instead of hallucinating numbers. Javascript-compatible expressions allowed.',
+		parameters: {
+			type: 'object',
+			properties: {
+				expression: {
+					type: 'string',
+					description: 'A valid JavaScript arithmetic expression, e.g. "(3 + 4) * 2 / 1.5"'
+				}
+			},
+			required: ['expression']
+		}
+	}
+};
+
+const TOOL_GET_TIME: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'get_time',
+		description: 'Return the current UTC date and time as an ISO 8601 string.',
+		parameters: {
+			type: 'object',
+			properties: {},
+			required: []
+		}
+	}
+};
+
+const TOOL_GET_LOCATION: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'get_location',
+		description:
+			"Return the user's approximate geolocation (latitude, longitude, accuracy) using the browser Geolocation API. The user must grant permission.",
+		parameters: {
+			type: 'object',
+			properties: {},
+			required: []
+		}
+	}
+};
+
+const TOOL_SEQUENTIAL_THINKING: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'sequential_thinking',
+		description:
+			'Think through a problem step by step before giving a final answer. Call this tool once per reasoning step. Set nextThoughtNeeded=false on the last step.',
+		parameters: {
+			type: 'object',
+			properties: {
+				thought: {
+					type: 'string',
+					description:
+						'The content of this reasoning step. **MAX** 100-120 words. Write it in a narrative way. Use plain text in 1 single paragraph only. (e.g. "Now I\'m pondering about...")'
+				},
+				thoughtNumber: {
+					type: 'integer',
+					description: 'The 1-based index of this thought.'
+				},
+				totalThoughts: {
+					type: 'integer',
+					description: 'Estimated total number of thoughts needed (may be revised upward).'
+				},
+				nextThoughtNeeded: {
+					type: 'boolean',
+					description: 'True if another thought step is needed; false when reasoning is done.'
+				}
+			},
+			required: ['thought', 'thoughtNumber', 'totalThoughts', 'nextThoughtNeeded']
+		}
+	}
+};
+
+const TOOL_CALL_SUBAGENT: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'call_subagent',
+		description: `Delegate a task to a specialized subagent model running on a separate server.
+
+USE THIS TOOL for:
+- Long document analysis, summarization, or data extraction
+- Structured report generation describable in a self-contained prompt
+- Analytically heavy tasks where parallel offloading provides benefit
+- Any prompt that does NOT require the current conversation history
+
+HIGHLY RECOMMENDED for:
+- Delegating web search summarizations
+- Extracting structured data from documents
+
+DO NOT use for short replies, clarifications, or tasks that need current context.
+
+The subagent has no access to this conversation. Your prompt must be fully self-contained.`,
+		parameters: {
+			type: 'object',
+			properties: {
+				prompt: {
+					type: 'string',
+					description:
+						'Complete, self-contained prompt for the subagent. Include all necessary context.'
+				},
+				system: {
+					type: 'string',
+					description: 'Optional system prompt to customise subagent behaviour for this task.'
+				}
+			},
+			required: ['prompt']
+		}
+	}
+};
+
+/** Maps setting key → tool definition for easy lookup. */
+const BUILTIN_TOOL_MAP: Record<string, OpenAIToolDefinition> = {
+	builtinToolCalculator: TOOL_CALCULATOR,
+	builtinToolTime: TOOL_GET_TIME,
+	builtinToolLocation: TOOL_GET_LOCATION,
+	builtinToolSequentialThinking: TOOL_SEQUENTIAL_THINKING,
+	builtinToolCallSubagent: TOOL_CALL_SUBAGENT
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function createDefaultSession(): AgenticSession {
 	return {
@@ -124,6 +270,7 @@ function toAgenticMessages(messages: ApiChatMessageData[]): AgenticMessage[] {
 
 class AgenticStore {
 	private _sessions = $state<Map<string, AgenticSession>>(new Map());
+	private _subagentProgress = $state<Record<string, SubagentProgress | null>>({});
 
 	get isReady(): boolean {
 		return true;
@@ -133,6 +280,10 @@ class AgenticStore {
 			if (session.isRunning) return true;
 		}
 		return false;
+	}
+
+	subagentProgress(conversationId: string): SubagentProgress | null {
+		return this._subagentProgress[conversationId] ?? null;
 	}
 
 	getSession(conversationId: string): AgenticSession {
@@ -188,12 +339,57 @@ class AgenticStore {
 		this.updateSession(conversationId, { lastError: null });
 	}
 
+	private setSubagentProgress(conversationId: string, progress: SubagentProgress | null): void {
+		this._subagentProgress = { ...this._subagentProgress, [conversationId]: progress };
+	}
+
+	private addSubagentStep(conversationId: string, step: SubagentStep): void {
+		const current = this._subagentProgress[conversationId];
+		if (!current) return;
+		this._subagentProgress = {
+			...this._subagentProgress,
+			[conversationId]: { ...current, steps: [...current.steps, step] }
+		};
+	}
+
+	private markLastSubagentStepDone(conversationId: string): void {
+		const current = this._subagentProgress[conversationId];
+		if (!current || current.steps.length === 0) return;
+		const steps = current.steps.map((s, i) =>
+			i === current.steps.length - 1 ? { ...s, status: 'done' as const } : s
+		);
+		this._subagentProgress = {
+			...this._subagentProgress,
+			[conversationId]: { ...current, steps }
+		};
+	}
+
+	private getBuiltinTools(settings: SettingsConfigType): OpenAIToolDefinition[] {
+		const tools: OpenAIToolDefinition[] = [];
+		for (const [key, def] of Object.entries(BUILTIN_TOOL_MAP)) {
+			if (!settings[key]) continue;
+
+			if (key === 'builtinToolCallSubagent' && !subagentConfigStore.isConfigured) {
+				toast.warning("Subagent endpoint wasn't available, this tool will be disabled", {
+					duration: 4000
+				});
+				settingsStore.updateConfig('builtinToolCallSubagent', false);
+				continue;
+			}
+
+			tools.push(def);
+		}
+		return tools;
+	}
+
 	getConfig(settings: SettingsConfigType, perChatOverrides?: McpServerOverride[]): AgenticConfig {
 		const maxTurns = Number(settings.agenticMaxTurns) || DEFAULT_AGENTIC_CONFIG.maxTurns;
 		const maxToolPreviewLines =
 			Number(settings.agenticMaxToolPreviewLines) || DEFAULT_AGENTIC_CONFIG.maxToolPreviewLines;
+		const hasMcp = mcpStore.hasEnabledServers(perChatOverrides);
+		const hasBuiltin = this.getBuiltinTools(settings).length > 0;
 		return {
-			enabled: mcpStore.hasEnabledServers(perChatOverrides) && DEFAULT_AGENTIC_CONFIG.enabled,
+			enabled: (hasMcp || hasBuiltin) && DEFAULT_AGENTIC_CONFIG.enabled,
 			maxTurns,
 			maxToolPreviewLines
 		};
@@ -202,22 +398,45 @@ class AgenticStore {
 	async runAgenticFlow(params: AgenticFlowParams): Promise<AgenticFlowResult> {
 		const { conversationId, messages, options = {}, callbacks, signal, perChatOverrides } = params;
 
-		const agenticConfig = this.getConfig(config(), perChatOverrides);
+		const settings = config();
+		const agenticConfig = this.getConfig(settings, perChatOverrides);
 		if (!agenticConfig.enabled) return { handled: false };
 
-		const initialized = await mcpStore.ensureInitialized(perChatOverrides);
-		if (!initialized) {
-			console.log('[AgenticStore] MCP not initialized, falling back to standard chat');
-			return { handled: false };
+		// Collect built-in tools first (no async needed)
+		const builtinTools = this.getBuiltinTools(settings);
+		const builtinToolNames = new Set(builtinTools.map((t) => t.function.name));
+
+		// Only initialize MCP when there are MCP servers configured
+		const hasMcpServers = mcpStore.hasEnabledServers(perChatOverrides);
+		let mcpTools: ReturnType<typeof mcpStore.getToolDefinitionsForLLM> = [];
+
+		if (hasMcpServers) {
+			const initialized = await mcpStore.ensureInitialized(perChatOverrides);
+			if (!initialized) {
+				console.log('[AgenticStore] MCP not initialized, continuing with built-in tools only');
+			} else {
+				mcpTools = mcpStore.getToolDefinitionsForLLM();
+			}
 		}
 
-		const tools = mcpStore.getToolDefinitionsForLLM();
+		const tools = [...builtinTools, ...mcpTools];
 		if (tools.length === 0) {
 			console.log('[AgenticStore] No tools available, falling back to standard chat');
 			return { handled: false };
 		}
 
-		console.log(`[AgenticStore] Starting agentic flow with ${tools.length} tools`);
+		// Respect per-model tool-calling override set by the user in Settings → Connection.
+		const activeModelId = params.options?.model as string | undefined;
+		if (activeModelId && !modelCapabilityStore.isToolCallingEnabled(activeModelId)) {
+			console.log(
+				`[AgenticStore] Tool-calling disabled for model "${activeModelId}", falling back to standard chat`
+			);
+			return { handled: false };
+		}
+
+		console.log(
+			`[AgenticStore] Starting agentic flow with ${tools.length} tools (${builtinTools.length} built-in, ${mcpTools.length} MCP)`
+		);
 
 		const normalizedMessages: ApiChatMessageData[] = messages
 			.map((msg) => {
@@ -241,7 +460,9 @@ class AgenticStore {
 			totalToolCalls: 0,
 			lastError: null
 		});
-		mcpStore.acquireConnection();
+
+		// Acquire MCP connection only when we actually have MCP tools
+		if (mcpTools.length > 0) mcpStore.acquireConnection();
 
 		try {
 			await this.executeAgenticLoop({
@@ -249,6 +470,7 @@ class AgenticStore {
 				messages: normalizedMessages,
 				options,
 				tools,
+				builtinToolNames,
 				agenticConfig,
 				callbacks,
 				signal
@@ -261,11 +483,13 @@ class AgenticStore {
 			return { handled: true, error: normalizedError };
 		} finally {
 			this.updateSession(conversationId, { isRunning: false });
-			await mcpStore
-				.releaseConnection()
-				.catch((err: unknown) =>
-					console.warn('[AgenticStore] Failed to release MCP connection:', err)
-				);
+			if (mcpTools.length > 0) {
+				await mcpStore
+					.releaseConnection()
+					.catch((err: unknown) =>
+						console.warn('[AgenticStore] Failed to release MCP connection:', err)
+					);
+			}
 		}
 	}
 
@@ -273,12 +497,22 @@ class AgenticStore {
 		conversationId: string;
 		messages: ApiChatMessageData[];
 		options: AgenticFlowOptions;
-		tools: ReturnType<typeof mcpStore.getToolDefinitionsForLLM>;
+		tools: OpenAIToolDefinition[];
+		builtinToolNames: Set<string>;
 		agenticConfig: AgenticConfig;
 		callbacks: AgenticFlowCallbacks;
 		signal?: AbortSignal;
 	}): Promise<void> {
-		const { conversationId, messages, options, tools, agenticConfig, callbacks, signal } = params;
+		const {
+			conversationId,
+			messages,
+			options,
+			tools,
+			builtinToolNames,
+			agenticConfig,
+			callbacks,
+			signal
+		} = params;
 		const {
 			onChunk,
 			onReasoningChunk,
@@ -309,6 +543,11 @@ class AgenticStore {
 
 		const effectiveModel =
 			options.model || modelsStore.selectedModelName || modelsStore.models[0]?.model || '';
+
+		// Capture the first assistant message ID to use for all tool executions
+		// across all turns. This prevents sequential thinking contamination where
+		// each turn would otherwise get its own messageId.
+		let firstAssistantMessageId = '';
 
 		for (let turn = 0; turn < maxTurns; turn++) {
 			this.updateSession(conversationId, { currentTurn: turn + 1 });
@@ -472,12 +711,18 @@ class AgenticStore {
 			});
 
 			// Save the assistant message with its tool calls
-			await onAssistantTurnComplete?.(
-				turnContent,
-				turnReasoningContent || undefined,
-				turnTimings,
-				normalizedCalls
-			);
+			const turnMessageId =
+				(await onAssistantTurnComplete?.(
+					turnContent,
+					turnReasoningContent || undefined,
+					turnTimings,
+					normalizedCalls
+				)) ?? '';
+
+			// Capture the first assistant message ID for cross-turn tool execution
+			if (!firstAssistantMessageId && turnMessageId) {
+				firstAssistantMessageId = turnMessageId;
+			}
 
 			// Add assistant message to session history
 			sessionMessages.push({
@@ -507,8 +752,21 @@ class AgenticStore {
 				let toolSuccess = true;
 
 				try {
-					const executionResult = await mcpStore.executeTool(mcpCall, signal);
-					result = executionResult.content;
+					if (builtinToolNames.has(mcpCall.function.name)) {
+						result = await this.executeBuiltinTool(
+							mcpCall.function.name,
+							typeof mcpCall.function.arguments === 'string'
+								? mcpCall.function.arguments
+								: JSON.stringify(mcpCall.function.arguments),
+							conversationId,
+							firstAssistantMessageId,
+							tools,
+							signal
+						);
+					} else {
+						const executionResult = await mcpStore.executeTool(mcpCall, signal);
+						result = executionResult.content;
+					}
 				} catch (error) {
 					if (isAbortError(error)) {
 						onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
@@ -597,6 +855,296 @@ class AgenticStore {
 			undefined
 		);
 		onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+	}
+
+	private async executeBuiltinTool(
+		name: string,
+		args: string,
+		conversationId: string,
+		messageId: string,
+		allTools?: OpenAIToolDefinition[],
+		signal?: AbortSignal
+	): Promise<string> {
+		let parsed: Record<string, unknown> = {};
+		try {
+			parsed = JSON.parse(args || '{}');
+		} catch {
+			/* use empty object if args are malformed */
+		}
+
+		switch (name) {
+			case 'calculator': {
+				const expression = String(parsed.expression ?? '');
+				if (!expression) return 'Error: missing expression';
+				try {
+					// Only allow safe arithmetic characters to prevent code injection
+					// if (!/^[\d\s+\-*/().%^,eE]+$/.test(expression)) {
+					// 	return 'Error: expression contains disallowed characters';
+					// }
+
+					const result = new Function(`"use strict"; return (${expression})`)();
+					if (typeof result !== 'number' || !isFinite(result)) {
+						return 'Error: expression did not produce a finite number';
+					}
+					return String(result);
+				} catch (err) {
+					return `Error: ${err instanceof Error ? err.message : String(err)}`;
+				}
+			}
+
+			case 'get_time': {
+				return new Date().toISOString();
+			}
+
+			case 'get_location': {
+				if (!navigator.geolocation) {
+					return 'Error: Geolocation is not supported by this browser';
+				}
+				return new Promise<string>((resolve) => {
+					navigator.geolocation.getCurrentPosition(
+						(pos) => {
+							resolve(
+								JSON.stringify({
+									latitude: pos.coords.latitude,
+									longitude: pos.coords.longitude,
+									accuracy_meters: pos.coords.accuracy
+								})
+							);
+						},
+						(err) => {
+							resolve(`Error: ${err.message}`);
+						},
+						{ timeout: 10_000 }
+					);
+				});
+			}
+
+			case 'sequential_thinking': {
+				const thought = String(parsed.thought ?? '');
+				const thoughtNumber = Number(parsed.thoughtNumber ?? 1);
+				const totalThoughts = Number(parsed.totalThoughts ?? 1);
+				const nextThoughtNeeded = Boolean(parsed.nextThoughtNeeded ?? false);
+				const done = !nextThoughtNeeded;
+				const now = Date.now();
+
+				const entry: ThoughtEntry = {
+					thoughtNumber,
+					totalThoughts,
+					thought,
+					nextThoughtNeeded,
+					done,
+					startedAt: now,
+					completedAt: now // Tool execution is synchronous, so it completes immediately
+				};
+
+				// Mark the previous thought in this message as completed
+				const existingTurn = sequentialThinkingStore.getTurn(conversationId, messageId);
+				if (existingTurn && existingTurn.thoughts.length > 0) {
+					const prevThought = existingTurn.thoughts[existingTurn.thoughts.length - 1];
+					if (!prevThought.completedAt) {
+						prevThought.completedAt = now;
+					}
+				}
+
+				sequentialThinkingStore.recordThought({ conversationId, messageId, thought: entry });
+
+				return JSON.stringify({
+					thoughtNumber,
+					totalThoughts,
+					nextThoughtNeeded,
+					comment:
+						'Thought recorded, you should brief the user with a small headup (e.g. Let me continue reasoning.) before registering next thoughts, or proceed with the agentic flow anyways.'
+				});
+			}
+
+			case 'call_subagent': {
+				if (!subagentConfigStore.isConfigured) {
+					return JSON.stringify({
+						error:
+							'Subagent not configured. Please set endpoint, model, and enable the subagent in Settings.'
+					});
+				}
+
+				const subagentModelId = subagentConfigStore.getModel();
+				if (!modelCapabilityStore.isToolCallingEnabled(subagentModelId)) {
+					return JSON.stringify({
+						error:
+							`Subagent model "${subagentModelId}" has tool-calling disabled. ` +
+							'A subagent needs tool-calling capabilities to assist the main model. ' +
+							'Please select another model that supports function calling in Settings → Connection → Subagent.'
+					});
+				}
+
+				const { prompt, system } = parsed as { prompt: string; system?: string };
+				if (!prompt) {
+					return JSON.stringify({ error: 'call_subagent requires a prompt argument' });
+				}
+
+				// Built-in tools the subagent may call (no call_subagent to prevent recursion,
+				// no sequential_thinking since that tool writes to the parent model's reasoning store)
+				const subagentTools = (allTools ?? []).filter((t: OpenAIToolDefinition) => {
+					const tName = t.function?.name;
+					return tName && tName !== 'call_subagent' && tName !== 'sequential_thinking';
+				});
+				const builtinNameSet = new SvelteSet(
+					Object.values(BUILTIN_TOOL_MAP).map((t) => t.function.name)
+				);
+				builtinNameSet.delete('call_subagent');
+
+				const endpoint = subagentConfigStore.getEndpoint();
+				const apiKey = subagentConfigStore.getApiKey();
+				const url = `${endpoint}/v1/chat/completions`;
+				const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+				if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+				const modelDisplayName = subagentModelId.split('/').pop() ?? subagentModelId;
+				this.setSubagentProgress(conversationId, { modelName: modelDisplayName, steps: [] });
+
+				// Running message history for the subagent loop (OpenAI wire format)
+				const loopMessages: Record<string, unknown>[] = [];
+
+				// Default to summarization persona, most common use case
+				if (system) {
+					loopMessages.push({ role: 'system', content: system });
+				} else {
+					loopMessages.push({
+						role: 'system',
+						content:
+							"You are a comprehensive but concise agentic machine. Upon receiving a request, you'll analyze it thoroughly, make appropriate tool calls, before return the condensed version of your findings back. Do not assume or hallucinate. Prefer structured data (like markdown list and tables) over plain description."
+					});
+				}
+
+				loopMessages.push({ role: 'user', content: prompt });
+
+				const SUBAGENT_MAX_TURNS = 10;
+
+				try {
+					for (let subTurn = 0; subTurn < SUBAGENT_MAX_TURNS; subTurn++) {
+						if (signal?.aborted) {
+							this.setSubagentProgress(conversationId, null);
+							return JSON.stringify({ error: 'Subagent aborted' });
+						}
+
+						const requestBody: Record<string, unknown> = {
+							model: subagentModelId,
+							messages: loopMessages,
+							stream: false
+						};
+						if (subagentTools.length > 0) requestBody.tools = subagentTools;
+
+						const response = await fetch(url, {
+							method: 'POST',
+							headers,
+							body: JSON.stringify(requestBody),
+							signal
+						});
+
+						if (!response.ok) {
+							const errorText = await response.text().catch(() => 'Unknown error');
+							this.setSubagentProgress(conversationId, null);
+							return JSON.stringify({
+								error: `Subagent error (${response.status}): ${errorText}`
+							});
+						}
+
+						const data = (await response.json()) as {
+							choices?: {
+								message?: {
+									content?: string | { type: string; text?: string }[] | null;
+									tool_calls?: {
+										id?: string;
+										function?: { name?: string; arguments?: string };
+									}[];
+								};
+								finish_reason?: string;
+							}[];
+						};
+
+						const choice = data.choices?.[0];
+						if (!choice) {
+							this.setSubagentProgress(conversationId, null);
+							return JSON.stringify({ error: 'Invalid subagent response format' });
+						}
+
+						const assistantMsg = choice.message;
+						const finishReason = choice.finish_reason;
+						const toolCalls = assistantMsg?.tool_calls;
+
+						if (finishReason === 'tool_calls' || (toolCalls && toolCalls.length > 0)) {
+							// Append assistant message with tool_calls to history
+							loopMessages.push({
+								role: 'assistant',
+								content: assistantMsg?.content ?? null,
+								tool_calls: toolCalls
+							});
+
+							// Execute each tool call
+							for (const tc of toolCalls ?? []) {
+								const tcName = tc.function?.name ?? '';
+								const tcArgs = tc.function?.arguments ?? '{}';
+								const tcId = tc.id ?? `call_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+								this.addSubagentStep(conversationId, { toolName: tcName, status: 'calling' });
+
+								let toolResult: string;
+								try {
+									if (builtinNameSet.has(tcName)) {
+										toolResult = await this.executeBuiltinTool(
+											tcName,
+											tcArgs,
+											conversationId,
+											messageId,
+											allTools,
+											signal
+										);
+									} else {
+										const mcpResult = await mcpStore.executeTool(
+											{ id: tcId, function: { name: tcName, arguments: tcArgs } },
+											signal
+										);
+										toolResult = mcpResult.content;
+									}
+								} catch (err) {
+									toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`;
+								}
+
+								this.markLastSubagentStepDone(conversationId);
+								loopMessages.push({ role: 'tool', tool_call_id: tcId, content: toolResult });
+							}
+							// Continue to next sub-turn
+						} else {
+							// finish_reason === 'stop' — extract final text content
+							const resultContent =
+								typeof assistantMsg?.content === 'string'
+									? assistantMsg.content
+									: (assistantMsg?.content
+											?.map((c) =>
+												typeof c === 'object' && c !== null && 'text' in c
+													? ((c as { text?: string }).text ?? '')
+													: ''
+											)
+											.join('') ?? '');
+
+							this.setSubagentProgress(conversationId, null);
+							return JSON.stringify({ result: resultContent });
+						}
+					}
+
+					// Max sub-turns exhausted
+					this.setSubagentProgress(conversationId, null);
+					return JSON.stringify({
+						error: 'Subagent reached maximum turn limit without producing a final answer'
+					});
+				} catch (error) {
+					this.setSubagentProgress(conversationId, null);
+					const message = error instanceof Error ? error.message : String(error);
+					return JSON.stringify({ error: `Subagent request failed: ${message}` });
+				}
+			}
+
+			default:
+				return `Error: unknown built-in tool "${name}"`;
+		}
 	}
 
 	private buildFinalTimings(
@@ -699,6 +1247,10 @@ export function agenticLastError(conversationId: string) {
 
 export function agenticStreamingToolCall(conversationId: string) {
 	return agenticStore.streamingToolCall(conversationId);
+}
+
+export function agenticSubagentProgress(conversationId: string) {
+	return agenticStore.subagentProgress(conversationId);
 }
 
 export function agenticIsAnyRunning() {

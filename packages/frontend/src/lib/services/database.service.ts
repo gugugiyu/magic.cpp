@@ -19,6 +19,9 @@ class LlamacppDatabase extends Dexie {
 const db = new LlamacppDatabase();
 import { MessageRole } from '$lib/enums';
 
+/** Export the Dexie instance for callers that need cross-operation transactions. */
+export { db };
+
 export class DatabaseService {
 	/**
 	 *
@@ -221,14 +224,27 @@ export class DatabaseService {
 	}
 
 	/**
-	 * Deletes a message and removes it from its parent's children array.
+	 * Deletes a message, reparents its children to the given newParentId,
+	 * and removes it from its parent's children array.
 	 *
 	 * @param messageId - ID of the message to delete
+	 * @param newParentId - ID of the message to adopt the deleted message's children (optional)
 	 */
-	static async deleteMessage(messageId: string): Promise<void> {
+	static async deleteMessage(messageId: string, newParentId?: string): Promise<void> {
 		await db.transaction('rw', db.messages, async () => {
 			const message = await db.messages.get(messageId);
 			if (!message) return;
+
+			// Reparent children to newParentId before deleting
+			if (newParentId && message.children.length > 0) {
+				for (const childId of message.children) {
+					const child = await db.messages.get(childId);
+					if (child) {
+						child.parent = newParentId;
+						await db.messages.put(child);
+					}
+				}
+			}
 
 			// Remove this message from its parent's children array
 			if (message.parent) {
@@ -360,6 +376,101 @@ export class DatabaseService {
 		updates: Partial<Omit<DatabaseMessage, 'id'>>
 	): Promise<void> {
 		await db.messages.update(id, updates);
+	}
+
+	/**
+	 * Gets a message by ID.
+	 *
+	 * @param id - Message ID
+	 * @returns The message if found, otherwise undefined
+	 */
+	static async getMessageById(id: string): Promise<DatabaseMessage | undefined> {
+		return await db.messages.get(id);
+	}
+
+	/**
+	 * Adds a message directly to the database.
+	 *
+	 * @param message - Message to add
+	 * @returns The added message
+	 */
+	static async addMessageToDatabase(message: DatabaseMessage): Promise<DatabaseMessage> {
+		await db.messages.add(message);
+		return message;
+	}
+
+	/**
+	 * Atomically compacts the conversation tree by deleting compacted messages,
+	 * reparenting their children to the summary, and inserting the summary message.
+	 * All operations run in a single Dexie transaction to prevent partial failure.
+	 *
+	 * @param convId - Conversation ID
+	 * @param summaryMessage - The summary message to insert
+	 * @param messagesToCompact - Messages to delete
+	 * @param anchorMessageId - ID of the first anchor message
+	 * @returns True on success
+	 */
+	static async compactMessageTree(
+		convId: string,
+		summaryMessage: DatabaseMessage,
+		messagesToCompact: DatabaseMessage[],
+		anchorMessageId: string
+	): Promise<void> {
+		await db.transaction('rw', db.messages, async () => {
+			const compactedIds = new Set(messagesToCompact.map((m) => m.id));
+
+			// 1. Delete each compacted message, reparenting its children to the summary
+			for (const msg of messagesToCompact) {
+				const message = await db.messages.get(msg.id);
+				if (!message) continue;
+
+				// Reparent children to summary message
+				if (message.children.length > 0) {
+					for (const childId of message.children) {
+						const child = await db.messages.get(childId);
+						if (child && !compactedIds.has(childId)) {
+							// Only reparent children that aren't also being compacted
+							child.parent = summaryMessage.id;
+							await db.messages.put(child);
+						}
+					}
+				}
+
+				// Remove from parent's children array
+				if (message.parent) {
+					const parent = await db.messages.get(message.parent);
+					if (parent) {
+						parent.children = parent.children.filter((cid: string) => cid !== message.id);
+						await db.messages.put(parent);
+					}
+				}
+
+				// Delete the message
+				await db.messages.delete(message.id);
+			}
+
+			// 2. Update anchor message: set its parent to the summary message
+			const anchorMessage = await db.messages.get(anchorMessageId);
+			if (anchorMessage) {
+				anchorMessage.parent = summaryMessage.id;
+				await db.messages.put(anchorMessage);
+			}
+
+			// 3. Update the summary's parent's children array: remove compacted, add summary
+			if (summaryMessage.parent) {
+				const summaryParent = await db.messages.get(summaryMessage.parent);
+				if (summaryParent) {
+					summaryParent.children = summaryParent.children.filter(
+						(cid: string) => !compactedIds.has(cid)
+					);
+					summaryParent.children.push(summaryMessage.id);
+					await db.messages.put(summaryParent);
+				}
+			}
+
+			// 4. Add the summary message
+			await db.messages.add(summaryMessage);
+		});
 	}
 
 	/**

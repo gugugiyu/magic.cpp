@@ -4,12 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`llamagic.cpp` is a Bun-workspace monorepo fork of the llama.cpp WebUI — a SvelteKit-based chat frontend for llama-server. Only `packages/frontend/` is implemented; `packages/backend/` is intentionally blank (planned for CORS resolution against external endpoints).
-
-## Git Workflow
-
-- **Never commit to `master`** — each feature gets its own branch.
-- No commit history yet; branches are the source of truth for in-progress work.
+`magic.cpp` is a Bun-workspace monorepo fork of the llama.cpp WebUI — a SvelteKit-based chat frontend for llama-server. Only `packages/frontend/` is implemented; `packages/backend/` is intentionally blank (planned for CORS resolution against external endpoints).
 
 ## Setup
 
@@ -144,7 +139,7 @@ UI primitives live in `src/lib/components/ui/` (shadcn-svelte + bits-ui).
 
 ### Build Output
 
-`npm run build` produces a self-contained single-file bundle (`bundle.js` + `bundle.css` + `index.html`) in `./public` via a custom Vite plugin (`llamaCppBuildPlugin`) that inlines the favicon, applies GZIP compression, and zeroes timestamps for deterministic output. The `_app/` directory is removed in post-build.
+`bun run build` produces a self-contained single-file bundle (`bundle.js` + `bundle.css` + `index.html`) in `./public` via a custom Vite plugin (`llamaCppBuildPlugin`) that inlines the favicon, applies GZIP compression, and zeroes timestamps for deterministic output. The `_app/` directory is removed in post-build.
 
 ## Tech Stack Summary
 

@@ -3,6 +3,7 @@ import { toast } from 'svelte-sonner';
 import { ServerModelStatus, ModelModality } from '$lib/enums';
 import { ModelsService, PropsService } from '$lib/services';
 import { serverStore } from '$lib/stores/server.svelte';
+import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
 import { TTLCache } from '$lib/utils';
 import {
 	MODEL_PROPS_CACHE_TTL_MS,
@@ -150,17 +151,29 @@ class ModelsStore {
 	}
 
 	/**
-	 * Check if a model supports vision modality
+	 * Check if a model supports vision modality.
+	 * Applies user force-enable overrides on top of server-detected value.
 	 */
 	modelSupportsVision(modelId: string): boolean {
-		return this.getModelModalities(modelId)?.vision ?? false;
+		const serverDetected = this.getModelModalities(modelId)?.vision ?? false;
+		return modelCapabilityStore.isVisionEnabled(modelId, serverDetected);
 	}
 
 	/**
-	 * Check if a model supports audio modality
+	 * Check if a model supports audio modality.
+	 * Applies user force-enable overrides on top of server-detected value.
 	 */
 	modelSupportsAudio(modelId: string): boolean {
-		return this.getModelModalities(modelId)?.audio ?? false;
+		const serverDetected = this.getModelModalities(modelId)?.audio ?? false;
+		return modelCapabilityStore.isAudioEnabled(modelId, serverDetected);
+	}
+
+	/**
+	 * Check if a model supports tool-calling (function calling).
+	 * Not detected by the server — defaults to true unless the user has explicitly disabled it.
+	 */
+	modelSupportsToolCalling(modelId: string): boolean {
+		return modelCapabilityStore.isToolCallingEnabled(modelId);
 	}
 
 	/**

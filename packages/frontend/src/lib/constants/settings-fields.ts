@@ -9,6 +9,7 @@ export const NUMERIC_FIELDS = [
 	'min_p',
 	'max_tokens',
 	'pasteLongTextToFileLen',
+	'anchorMessagesCount',
 	'dynatemp_range',
 	'dynatemp_exponent',
 	'typ_p',
@@ -30,4 +31,8 @@ export const NUMERIC_FIELDS = [
  * Fields that must be positive integers (>= 1).
  * These will be clamped to minimum 1 and rounded during save.
  */
-export const POSITIVE_INTEGER_FIELDS = ['agenticMaxTurns', 'agenticMaxToolPreviewLines'] as const;
+export const POSITIVE_INTEGER_FIELDS = [
+	'agenticMaxTurns',
+	'agenticMaxToolPreviewLines',
+	'anchorMessagesCount'
+] as const;

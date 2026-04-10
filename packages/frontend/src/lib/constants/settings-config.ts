@@ -4,7 +4,7 @@ import { Monitor, Moon, Sun } from '@lucide/svelte';
 export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | undefined> = {
 	// Note: in order not to introduce breaking changes, please keep the same data type (number, string, etc) if you want to change the default value.
 	// Do not use nested objects, keep it single level. Prefix the key if you need to group them.
-	apiKey: '',
+	// apiKey: removed - backend handles API key centrally
 	systemMessage: '',
 	showSystemMessage: true,
 	theme: ColorMode.SYSTEM,
@@ -16,6 +16,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	showMessageStats: true,
 	askForTitleConfirmation: false,
 	pasteLongTextToFileLen: 2500,
+	anchorMessagesCount: 3,
 	copyTextAttachmentsAsPlainText: false,
 	pdfAsImage: false,
 	disableAutoScroll: false,
@@ -61,19 +62,27 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	dry_penalty_last_n: undefined,
 	max_tokens: undefined,
 	custom: '', // custom json-stringified object
+	// built-in tools
+	builtinToolCalculator: false,
+	builtinToolTime: false,
+	builtinToolLocation: false,
+	builtinToolSequentialThinking: false,
+	builtinToolCallSubagent: false,
 	// experimental features
 	pyInterpreterEnabled: false,
 	enableContinueGeneration: false
 };
 
 export const SETTING_CONFIG_INFO: Record<string, string> = {
-	apiKey: 'Set the API Key if you are using <code>--api-key</code> option for the server.',
+	// apiKey: removed - backend handles API key centrally
 	systemMessage: 'The starting message that defines how model should behave.',
 	showSystemMessage: 'Display the system message at the top of each conversation.',
 	theme:
 		'Choose the color theme for the interface. You can choose between System (follows your device settings), Light, or Dark.',
 	pasteLongTextToFileLen:
 		'On pasting long text, it will be converted to a file. You can control the file length by setting the value of this parameter. Value 0 means disable.',
+	anchorMessagesCount:
+		'Number of recent messages to keep when compacting a session. Older messages will be summarized into a single context message.',
 	copyTextAttachmentsAsPlainText:
 		'When copying a message with text attachments, combine them into a single plain text string instead of a special format that can be pasted back as attachments.',
 	samplers:
@@ -153,6 +162,16 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 	filterRawMode: 'Strip all Markdown formatting and display responses as plain text.',
 	filterLanguagePinner:
 		'Detect a language tag in your message (e.g. ![en] or ![fr]) and automatically instruct the model to respond in that language.',
+	builtinToolCalculator:
+		'Inject a calculator tool the model can call to evaluate arithmetic expressions without hallucinating results.',
+	builtinToolTime:
+		'Inject a get_time tool the model can call to retrieve the current UTC date and time.',
+	builtinToolLocation:
+		'Inject a get_location tool the model can call to retrieve your browser-reported geolocation (requires permission).',
+	builtinToolSequentialThinking:
+		'Inject a sequential_thinking tool that lets the model break problems into explicit reasoning steps before answering.',
+	builtinToolCallSubagent:
+		'Inject a call_subagent tool that delegates tasks to a separate subagent model on a different endpoint.',
 	pyInterpreterEnabled:
 		'Enable Python interpreter using Pyodide. Allows running Python code in markdown code blocks.',
 	enableContinueGeneration:

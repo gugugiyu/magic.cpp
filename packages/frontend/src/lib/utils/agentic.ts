@@ -18,6 +18,8 @@ export interface AgenticSection {
 	toolArgs?: string;
 	toolResult?: string;
 	toolResultExtras?: DatabaseMessageExtra[];
+	/** The message ID this section's content originated from. Used for per-section editing. */
+	sourceMessageId?: string;
 }
 
 /**
@@ -51,7 +53,8 @@ function deriveSingleTurnSections(
 		const isPending = isStreaming && !hasContentAfterReasoning;
 		sections.push({
 			type: isPending ? AgenticSectionType.REASONING_PENDING : AgenticSectionType.REASONING,
-			content: message.reasoningContent
+			content: message.reasoningContent,
+			sourceMessageId: message.id
 		});
 	}
 
@@ -59,7 +62,8 @@ function deriveSingleTurnSections(
 	if (message.content?.trim()) {
 		sections.push({
 			type: AgenticSectionType.TEXT,
-			content: message.content
+			content: message.content,
+			sourceMessageId: message.id
 		});
 	}
 
@@ -73,7 +77,8 @@ function deriveSingleTurnSections(
 			toolName: tc.function?.name,
 			toolArgs: tc.function?.arguments,
 			toolResult: resultMsg?.content,
-			toolResultExtras: resultMsg?.extra
+			toolResultExtras: resultMsg?.extra,
+			sourceMessageId: message.id
 		});
 	}
 
@@ -85,7 +90,8 @@ function deriveSingleTurnSections(
 			type: AgenticSectionType.TOOL_CALL_STREAMING,
 			content: '',
 			toolName: tc.function?.name,
-			toolArgs: tc.function?.arguments
+			toolArgs: tc.function?.arguments,
+			sourceMessageId: message.id
 		});
 	}
 

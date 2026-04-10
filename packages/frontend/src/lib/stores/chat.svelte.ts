@@ -664,7 +664,7 @@ class ChatStore {
 				reasoningContent: string | undefined,
 				timings: ChatMessageTimings | undefined,
 				toolCalls: import('$lib/types/api').ApiChatCompletionToolCall[] | undefined
-			) => {
+			): Promise<string> => {
 				const updateData: Record<string, unknown> = {
 					content,
 					reasoningContent: reasoningContent || undefined,
@@ -683,6 +683,7 @@ class ChatStore {
 				if (resolvedModel) uiUpdate.model = resolvedModel;
 				conversationsStore.updateMessageAtIndex(idx, uiUpdate);
 				await conversationsStore.updateCurrentNode(currentMessageId);
+				return currentMessageId;
 			},
 			createToolResultMessage: async (
 				toolCallId: string,
@@ -971,15 +972,39 @@ class ChatStore {
 		const activeConv = conversationsStore.activeConversation;
 		if (!activeConv || this.isChatLoadingInternal(activeConv.id)) return;
 		try {
+			console.log('[DEBUG Regenerate] Starting regeneration for message:', messageId);
 			const idx = conversationsStore.findMessageIndex(messageId);
-			if (idx === -1) return;
+			if (idx === -1) {
+				console.error('[DEBUG Regenerate] Message not found at index');
+				return;
+			}
 			const msg = conversationsStore.activeMessages[idx];
-			if (msg.role !== MessageRole.ASSISTANT) return;
+			console.log('[DEBUG Regenerate] Found message:', {
+				id: msg.id,
+				role: msg.role,
+				parent: msg.parent,
+				content: msg.content?.substring(0, 50)
+			});
+			if (msg.role !== MessageRole.ASSISTANT) {
+				console.error('[DEBUG Regenerate] Message is not an assistant message, role:', msg.role);
+				return;
+			}
 			const allMessages = await conversationsStore.getConversationMessages(activeConv.id);
+			console.log('[DEBUG Regenerate] All messages count:', allMessages.length);
 			const parentMessage = findMessageById(allMessages, msg.parent);
-			if (!parentMessage) return;
+			if (!parentMessage) {
+				console.error('[DEBUG Regenerate] Parent message not found:', msg.parent);
+				return;
+			}
+			console.log('[DEBUG Regenerate] Parent message:', {
+				id: parentMessage.id,
+				role: parentMessage.role,
+				content: parentMessage.content?.substring(0, 50)
+			});
+
 			this.setChatLoading(activeConv.id, true);
 			this.clearChatStreaming(activeConv.id);
+
 			const newAssistantMessage = await DatabaseService.createMessageBranch(
 				{
 					convId: msg.convId,
@@ -993,15 +1018,31 @@ class ChatStore {
 				},
 				parentMessage.id
 			);
+			console.log('[DEBUG Regenerate] Created new branch:', newAssistantMessage.id);
+
 			await conversationsStore.updateCurrentNode(newAssistantMessage.id);
 			conversationsStore.updateConversationTimestamp();
 			await conversationsStore.refreshActiveMessages();
+
 			const conversationPath = filterByLeafNodeId(
 				allMessages,
 				parentMessage.id,
 				false
 			) as DatabaseMessage[];
+			console.log('[DEBUG Regenerate] Conversation path length:', conversationPath.length);
+			console.log(
+				'[DEBUG Regenerate] Conversation path roles:',
+				conversationPath.map((m) => m.role)
+			);
+			console.log(
+				'[DEBUG Regenerate] Last message in path:',
+				conversationPath[conversationPath.length - 1]?.content?.substring(0, 50)
+			);
+
 			const modelToUse = modelOverride || selectedModelName() || msg.model || undefined;
+			console.log('[DEBUG Regenerate] Model to use:', modelToUse);
+			console.log('[DEBUG Regenerate] Starting stream chat completion...');
+
 			await this.streamChatCompletion(
 				conversationPath,
 				newAssistantMessage,
@@ -1009,9 +1050,10 @@ class ChatStore {
 				undefined,
 				modelToUse
 			);
+			console.log('[DEBUG Regenerate] Stream completed successfully');
 		} catch (error) {
 			if (!isAbortError(error))
-				console.error('Failed to regenerate message with branching:', error);
+				console.error('[DEBUG Regenerate] Failed to regenerate message with branching:', error);
 			this.setChatLoading(activeConv?.id || '', false);
 		}
 	}

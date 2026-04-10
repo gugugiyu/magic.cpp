@@ -11,6 +11,7 @@
 		cancelText?: string;
 		variant?: 'default' | 'destructive';
 		icon?: Component;
+		disabled?: boolean;
 		onConfirm: () => void;
 		onCancel: () => void;
 		onKeydown?: (event: KeyboardEvent) => void;
@@ -25,6 +26,7 @@
 		cancelText = 'Cancel',
 		variant = 'default',
 		icon,
+		disabled = false,
 		onConfirm,
 		onCancel,
 		onKeydown,
@@ -70,7 +72,10 @@
 			<AlertDialog.Cancel onclick={onCancel}>{cancelText}</AlertDialog.Cancel>
 			<AlertDialog.Action
 				onclick={onConfirm}
-				class={variant === 'destructive' ? 'bg-destructive text-white hover:bg-destructive/80' : ''}
+				{disabled}
+				class="{variant === 'destructive'
+					? 'bg-destructive text-white hover:bg-destructive/80'
+					: ''} {disabled ? 'cursor-not-allowed opacity-50' : ''}"
 			>
 				{confirmText}
 			</AlertDialog.Action>

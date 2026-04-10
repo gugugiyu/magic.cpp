@@ -21,6 +21,7 @@
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { activeMessages, conversationsStore } from '$lib/stores/conversations.svelte';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte';
+	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 
 	interface Props {
 		canSend?: boolean;
@@ -161,6 +162,12 @@
 		return '';
 	});
 
+	let subagentModel = $derived.by(() => {
+		if (!subagentConfigStore.isConfigured) return null;
+		const model = subagentConfigStore.getModel();
+		return model.split('/').pop() ?? model;
+	});
+
 	let selectorModelRef: ModelsSelector | ModelsSelectorSheet | undefined = $state(undefined);
 
 	let isMobile = new IsMobile();
@@ -221,6 +228,16 @@
 	</div>
 
 	<div class="ml-auto flex items-center gap-1.5">
+		{#if subagentModel}
+			<span
+				class="hidden items-center gap-1 rounded-full border border-border/50 bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground sm:flex"
+				title="Subagent model"
+			>
+				<span class="h-1.5 w-1.5 rounded-full bg-primary/60"></span>
+				{subagentModel}
+			</span>
+		{/if}
+
 		{#if isMobile.current}
 			<ModelsSelectorSheet
 				disabled={disabled || isOffline}

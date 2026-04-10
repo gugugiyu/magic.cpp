@@ -4,3 +4,5 @@ export const FAVORITE_MODELS_LOCALSTORAGE_KEY = 'LlamaCppWebui.favoriteModels';
 export const MCP_DEFAULT_ENABLED_LOCALSTORAGE_KEY = 'LlamaCppWebui.mcpDefaultEnabled';
 export const SERVER_ENDPOINT_LOCALSTORAGE_KEY = 'LlamaCppWebui.serverEndpoint';
 export const SELECTED_MODEL_LOCALSTORAGE_KEY = 'LlamaCppWebui.selectedModel';
+export const SUBAGENT_CONFIG_LOCALSTORAGE_KEY = 'LlamaCppWebui.subagentConfig';
+export const MODEL_CAPABILITIES_LOCALSTORAGE_KEY = 'LlamaCppWebui.modelCapabilities';

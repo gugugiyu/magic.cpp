@@ -92,13 +92,13 @@ export interface AgenticFlowCallbacks {
 	onAttachments?: (messageId: string, extras: DatabaseMessageExtra[]) => void;
 	/** Model name detected from response */
 	onModel?: (model: string) => void;
-	/** Current assistant turn's streaming is complete - save to DB */
+	/** Current assistant turn's streaming is complete - save to DB. Returns the message ID. */
 	onAssistantTurnComplete?: (
 		content: string,
 		reasoningContent: string | undefined,
 		timings: ChatMessageTimings | undefined,
 		toolCalls: ApiChatCompletionToolCall[] | undefined
-	) => Promise<void>;
+	) => Promise<string>;
 	/** Create a tool result message in the DB tree */
 	createToolResultMessage?: (
 		toolCallId: string,

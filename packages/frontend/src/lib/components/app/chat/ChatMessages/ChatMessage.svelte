@@ -41,8 +41,14 @@
 		messageTypes: string[];
 	} | null>(null);
 	let editDraft = $state<string>('');
-	let editedExtras = $state<DatabaseMessageExtra[]>(message.extra ? [...message.extra] : []);
+	let editedExtras = $state<DatabaseMessageExtra[]>([]);
 	let editedUploadedFiles = $state<ChatUploadedFile[]>([]);
+
+	$effect(() => {
+		if (!isEditing) {
+			editedExtras = message.extra ? [...message.extra] : [];
+		}
+	});
 	let isEditing = $state(false);
 	let showDeleteDialog = $state(false);
 	let shouldBranchAfterEdit = $state(false);
@@ -297,6 +303,7 @@
 		onForkConversation={handleForkConversation}
 		onNavigateToSibling={handleNavigateToSibling}
 		onShowDeleteDialogChange={handleShowDeleteDialogChange}
+		onCompactConversation={() => {}}
 		{showDeleteDialog}
 		{siblingInfo}
 	/>

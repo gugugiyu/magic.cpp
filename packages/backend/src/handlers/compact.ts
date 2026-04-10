@@ -1,5 +1,6 @@
 import type { ModelPool } from '../pool/model-pool.ts';
 import { estimateTokenCount, estimateMessagesTokenCount } from '../utils/token-estimator.ts';
+import { buildCompactSystemMessage } from '#shared/constants/prompts-and-tools.ts'
 
 interface CompactRequest {
   messages: Array<{
@@ -75,24 +76,7 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
     const tokensBefore = estimateTokenCount(compactedContent);
 
     // Build summarization prompt
-    const previousSummarySection = previousSummary
-      ? `\n\nPreviously Compacted Context:\nThe following summary was generated from a previous compaction of earlier messages. You MUST incorporate its key context into your new summary to preserve conversation continuity.\n\n<PREVIOUS_COMPACT_SUMMARY>\n${previousSummary}\n</PREVIOUS_COMPACT_SUMMARY>`
-      : '';
-
-    const systemMessage = {
-      role: 'system',
-      content: `You are an expert conversation summarizer. Your task is to create a concise but comprehensive summary of a conversation history that can be used as context for future interactions.${previousSummarySection}
-
-The summary should:
-- Capture all key points, decisions, and important information
-- Preserve context about user preferences, goals, and constraints
-- Be concise but thorough enough that the conversation can continue naturally
-- Be written as a single paragraph or a few short paragraphs
-- NOT include the anchor messages that follow this summary${previousSummary ? '\n- MUST incorporate key context from the <PREVIOUS_COMPACT_SUMMARY> section above' : ''}
-- Be strictly under 1000 words
-
-Format: Provide the summary directly without preamble.`
-    };
+    const systemMessage = buildCompactSystemMessage(previousSummary);
 
     const userMessage = {
       role: 'user',

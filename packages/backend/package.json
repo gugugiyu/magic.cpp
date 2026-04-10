@@ -3,6 +3,9 @@
 	"private": true,
 	"version": "1.0.0",
 	"type": "module",
+	"imports": {
+		"#shared/*": "../shared/*"
+	},
 	"scripts": {
 		"dev": "bun run --watch src/index.ts",
 		"start": "bun run src/index.ts",

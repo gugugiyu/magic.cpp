@@ -95,7 +95,8 @@ function llamaCppBuildPlugin() {
 export default defineConfig({
 	resolve: {
 		alias: {
-			'katex-fonts': resolve('node_modules/katex/dist/fonts')
+			'katex-fonts': resolve('node_modules/katex/dist/fonts'),
+			'@shared': resolve(__dirname, '../shared')
 		}
 	},
 	build: {

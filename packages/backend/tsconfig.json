@@ -4,6 +4,9 @@
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"types": ["bun-types"],
+		"paths": {
+			"#shared/*": ["../shared/*"]
+		},
 		"strict": true,
 		"skipLibCheck": true,
 		"allowImportingTsExtensions": true,

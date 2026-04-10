@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Plus, MessageSquare, Settings, Zap, FolderOpen } from '@lucide/svelte';
+	import { Plus, MessageSquare, Settings, Zap, FolderOpen, Wrench } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Tooltip from '$lib/components/ui/tooltip';

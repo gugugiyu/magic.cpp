@@ -130,25 +130,12 @@
 			const anchorMessages = messages.slice(messages.length - anchorCount);
 			const anchorMessageId = anchorMessages[0].id;
 
-			// Detect a previous compaction summary (system-type message) and exclude it
-			// from the messages sent for summarization, but include it as chained context.
-			let previousSummary: string | undefined;
-			const messagesForApi: typeof messagesToCompact = [];
-			for (const msg of messagesToCompact) {
-				if (msg.type === 'system' && msg.role === MessageRole.SYSTEM) {
-					// This is likely a previous compaction summary
-					previousSummary = msg.content || undefined;
-				} else {
-					messagesForApi.push(msg);
-				}
-			}
-
 			// Convert to API format, pairing each assistant message with its following tool messages
 			// so tool results are included. TOOL-role messages are skipped as standalone entries.
 			const apiMessages: { role: string; content: string }[] = [];
 			let i = 0;
-			while (i < messagesForApi.length) {
-				const msg = messagesForApi[i];
+			while (i < messagesToCompact.length) {
+				const msg = messagesToCompact[i];
 				if (msg.role === MessageRole.TOOL) {
 					// Handled as part of the preceding assistant message
 					i++;
@@ -158,8 +145,8 @@
 					// Collect consecutive tool messages that follow this assistant message
 					const toolMsgs: DatabaseMessage[] = [];
 					let j = i + 1;
-					while (j < messagesForApi.length && messagesForApi[j].role === MessageRole.TOOL) {
-						toolMsgs.push(messagesForApi[j]);
+					while (j < messagesToCompact.length && messagesToCompact[j].role === MessageRole.TOOL) {
+						toolMsgs.push(messagesToCompact[j]);
 						j++;
 					}
 					apiMessages.push({ role: msg.role, content: formatAgenticTurn(msg, toolMsgs) });
@@ -173,8 +160,7 @@
 
 			const request: CompactSessionRequest = {
 				messages: apiMessages,
-				anchorMessagesCount: anchorCount,
-				previousSummary
+				anchorMessagesCount: anchorCount
 			};
 
 			const response = await apiPost<CompactSessionResponse>('/compact', request);

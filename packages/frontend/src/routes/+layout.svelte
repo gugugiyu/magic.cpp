@@ -143,6 +143,28 @@
 		}
 	});
 
+	// Fallback sync for OpenAI-compatible endpoints that lack /props.
+	// When /props fails with a non-transient error (e.g. 404), trigger
+	// a minimal sync so sampling param overrides are cleared and the
+	// server can decide defaults.
+	let openAICompatibleFallbackTriggered = false;
+
+	$effect(() => {
+		const err = serverStore.error;
+
+		if (
+			err &&
+			!openAICompatibleFallbackTriggered &&
+			!serverStore.loading &&
+			(err.includes('not found') || err.includes('404') || err.includes('Failed to connect'))
+		) {
+			openAICompatibleFallbackTriggered = true;
+			untrack(() => {
+				settingsStore.syncWithOpenAICompatibleDefaults();
+			});
+		}
+	});
+
 	// Fetch router models when in router mode (for status and modalities)
 	// Wait for models to be loaded first, run only once
 	let routerModelsFetched = false;

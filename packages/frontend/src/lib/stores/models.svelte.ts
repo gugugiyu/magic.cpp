@@ -384,7 +384,21 @@ class ModelsStore {
 	 */
 	async fetchModelProps(modelId: string): Promise<ApiLlamaCppServerProps | null> {
 		const cached = this.modelPropsCache.get(modelId);
-		if (cached) return cached;
+		if (cached) {
+			// Invalidate stale cache entries where model metadata changed
+			// (e.g., model reloaded with different quantization or settings)
+			const currentModel = this.routerModels.find((m) => m.id === modelId);
+			const currentSize = currentModel?.status?.args
+				? this.extractModelSizeFromArgs(currentModel.status.args)
+				: null;
+			const cachedSize = cached.model_path ? this.extractModelSizeFromPath(cached.model_path) : null;
+
+			if (currentSize && cachedSize && currentSize !== cachedSize) {
+				this.modelPropsCache.delete(modelId);
+			} else if (cached) {
+				return cached;
+			}
+		}
 
 		if (serverStore.isRouterMode && !this.isModelLoaded(modelId)) {
 			return null;
@@ -404,6 +418,28 @@ class ModelsStore {
 		} finally {
 			this.modelPropsFetching.delete(modelId);
 		}
+	}
+
+	/**
+	 * Extract a model size identifier from the model path for staleness detection.
+	 * E.g., "/path/to/model-Q4_K_M.gguf" → "Q4_K_M"
+	 */
+	private extractModelSizeFromPath(modelPath: string): string | null {
+		const match = modelPath.match(/[-_](Q\d[_A-Z0-9]+)\.gguf/i);
+		return match?.[1] ?? null;
+	}
+
+	/**
+	 * Extract model size from command-line args array.
+	 * Looks for --model or -m flag containing the model path.
+	 */
+	private extractModelSizeFromArgs(args: string[]): string | null {
+		const modelArg = args.find((a) => a.startsWith('--model=') || a.startsWith('-m='))
+			?.split('=')[1]
+			?? args[args.indexOf('--model') + 1]
+			?? args[args.indexOf('-m') + 1]
+			?? null;
+		return modelArg ? this.extractModelSizeFromPath(modelArg) : null;
 	}
 
 	/**

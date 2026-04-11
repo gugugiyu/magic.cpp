@@ -2,7 +2,7 @@
 	import { Package, Filter } from '@lucide/svelte';
 	import { BadgeInfo, ActionIconCopyToClipboard } from '$lib/components/app';
 	import ModelId from './ModelId.svelte';
-	import { modelsStore } from '$lib/stores/models.svelte';
+	import { modelsStore, modelOptions } from '$lib/stores/models.svelte';
 	import { serverStore } from '$lib/stores/server.svelte';
 	import { config } from '$lib/stores/settings.svelte';
 	import { getActiveFilters } from '$lib/utils';
@@ -27,7 +27,9 @@
 	let model = $derived(
 		modelProp ||
 			modelsStore.singleModelName ||
-			(!serverStore.isRouterMode ? modelsStore.selectedModel?.name : null)
+			(!serverStore.isRouterMode
+				? modelsStore.selectedModel?.name ?? modelOptions()[0]?.name ?? null
+				: null)
 	);
 	// Show badge when: a model is known AND (explicitly provided, or not in router mode)
 	// In router mode without an explicit modelProp, each conversation has its own model badge

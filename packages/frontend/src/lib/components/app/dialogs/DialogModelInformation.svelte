@@ -21,6 +21,7 @@
 	// per-model props fetched from the child process
 	let routerModelProps = $state<ApiLlamaCppServerProps | null>(null);
 	let isLoadingRouterProps = $state(false);
+	let modelPropsError = $state<string | null>(null);
 
 	// in router mode use per-model props, otherwise use global props
 	let serverProps = $derived(isRouter && modelId ? routerModelProps : serverStore.props);
@@ -59,13 +60,15 @@
 	$effect(() => {
 		if (open && isRouter && modelId) {
 			isLoadingRouterProps = true;
+			modelPropsError = null;
 			modelsStore
 				.fetchModelProps(modelId)
 				.then((props) => {
 					routerModelProps = props;
 				})
-				.catch(() => {
+				.catch((err) => {
 					routerModelProps = null;
+					modelPropsError = err?.message ?? 'Failed to load model properties';
 				})
 				.finally(() => {
 					isLoadingRouterProps = false;
@@ -73,6 +76,7 @@
 		}
 		if (!open) {
 			routerModelProps = null;
+			modelPropsError = null;
 		}
 	});
 </script>
@@ -309,11 +313,19 @@
 						{/if}
 					</Table.Root>
 
-					<div
-						class="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground"
-					>
-						Extended server properties are not available for this endpoint type.
-					</div>
+					{#if modelPropsError}
+						<div
+							class="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
+						>
+							Could not load extended model properties: {modelPropsError}
+						</div>
+					{:else}
+						<div
+							class="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground"
+						>
+							Extended server properties are not available for this endpoint type.
+						</div>
+					{/if}
 				{/if}
 			{:else if !isLoadingModels}
 				<div class="flex items-center justify-center py-8">

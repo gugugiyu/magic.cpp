@@ -297,6 +297,8 @@ class SettingsStore {
 			setConfigValue(this.config, key, '');
 		} else if (key in SETTING_CONFIG_DEFAULT) {
 			setConfigValue(this.config, key, getConfigValue(SETTING_CONFIG_DEFAULT, key));
+		} else {
+			console.warn(`[settingsStore] No default found for parameter: ${key}`);
 		}
 
 		this.userOverrides.delete(key);
@@ -343,7 +345,33 @@ class SettingsStore {
 		}
 
 		this.saveConfig();
-		console.log('User overrides after sync:', Array.from(this.userOverrides));
+		if (import.meta.env.DEV) {
+			console.log('User overrides after sync:', Array.from(this.userOverrides));
+		}
+	}
+
+	/**
+	 * Fallback sync for OpenAI-compatible endpoints that lack /props.
+	 * When the server doesn't support /props, this ensures the config
+	 * is clean so API requests don't send stale user overrides that
+	 * no longer apply to the current endpoint.
+	 */
+	syncWithOpenAICompatibleDefaults(): void {
+		// No server defaults available — clear any user overrides
+		// for sampling params so the OpenAI-compatible server can decide.
+		const samplingParamKeys = ParameterSyncService.getSyncableParameterKeys().filter((key) => {
+			const def = SETTING_CONFIG_DEFAULT[key];
+			return def === undefined; // sampling params default to undefined
+		});
+
+		for (const key of samplingParamKeys) {
+			this.userOverrides.delete(key);
+		}
+
+		this.saveConfig();
+		if (import.meta.env.DEV) {
+			console.log('[settingsStore] OpenAI-compatible sync cleared overrides for:', samplingParamKeys);
+		}
 	}
 
 	/**

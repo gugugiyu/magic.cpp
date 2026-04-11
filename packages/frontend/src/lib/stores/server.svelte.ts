@@ -33,6 +33,17 @@ class ServerStore {
 	private fetchPromise: Promise<void> | null = null;
 
 	/**
+	 * Maximum retries for transient /props failures (network blips, 5xx).
+	 * 404s are not retried — they indicate an unsupported endpoint.
+	 */
+	private static readonly MAX_RETRIES = 2;
+
+	/**
+	 * Base delay in ms for exponential backoff (1s, 2s, 4s, ...).
+	 */
+	private static readonly RETRY_BASE_DELAY_MS = 1000;
+
+	/**
 	 *
 	 *
 	 * Getters
@@ -78,7 +89,7 @@ class ServerStore {
 
 		const fetchPromise = (async () => {
 			try {
-				const props = await PropsService.fetch();
+				const props = await this.fetchWithRetry();
 				this.props = props;
 				this.error = null;
 				this.detectRole(props);
@@ -93,6 +104,66 @@ class ServerStore {
 
 		this.fetchPromise = fetchPromise;
 		await fetchPromise;
+	}
+
+	/**
+	 * Fetch /props with exponential backoff retry for transient errors.
+	 * Skips retry for 404s (endpoint not supported) — these are permanent.
+	 */
+	private async fetchWithRetry(): Promise<ApiLlamaCppServerProps> {
+		let lastError: unknown;
+
+		for (let attempt = 0; attempt <= ServerStore.MAX_RETRIES; attempt++) {
+			try {
+				const props = await PropsService.fetch();
+
+				// Guard: if the response lacks the expected llama.cpp shape,
+				// treat it as a permanent error so callers can fall back gracefully.
+				if (!this.isValidPropsShape(props)) {
+					throw new Error('Server response is not a recognized llama.cpp /props shape');
+				}
+
+				return props;
+			} catch (error) {
+				lastError = error;
+
+				const isRetryable = !this.isPermanentError(error);
+				if (!isRetryable || attempt === ServerStore.MAX_RETRIES) {
+					throw error;
+				}
+
+				const delay = ServerStore.RETRY_BASE_DELAY_MS * 2 ** attempt;
+				await new Promise((resolve) => setTimeout(resolve, delay));
+			}
+		}
+
+		throw lastError;
+	}
+
+	/**
+	 * Validate that the /props response has the expected llama.cpp shape.
+	 * OpenAI-compatible endpoints may return a different structure.
+	 */
+	private isValidPropsShape(props: unknown): props is ApiLlamaCppServerProps {
+		if (!props || typeof props !== 'object') return false;
+		const obj = props as Record<string, unknown>;
+		// At minimum, expect model_path (llama.cpp) or default_generation_settings
+		return 'model_path' in obj || 'default_generation_settings' in obj;
+	}
+
+	/**
+	 * Determine if an error is permanent (not worth retrying).
+	 * 404s indicate the endpoint doesn't exist — no point retrying.
+	 */
+	private isPermanentError(error: unknown): boolean {
+		if (error instanceof Error) {
+			const message = error.message || '';
+			// 404 means endpoint not found — permanent
+			if (message.includes('404')) return true;
+			// 401/403 means auth failure — retrying won't help
+			if (message.includes('401') || message.includes('403')) return true;
+		}
+		return false;
 	}
 
 	private getErrorMessage(error: unknown): string {

@@ -1,5 +1,8 @@
 This project is a fork from the llama.cpp webui with additional feature based on the original one.
 
+## AI Disclosure
+This project was modified with AI, they were used for some hard implementations that I couldn't make sense of regarding the original agentic loop from llama.cpp. All of the expanded features were planned and code by me.
+
 ## Why
 I really like the sleek, clean, and minimal style of llama.cpp, but it just seems quite falling behind against the other webui projects. So I decided to fork it and add some features that I think are missing.
 

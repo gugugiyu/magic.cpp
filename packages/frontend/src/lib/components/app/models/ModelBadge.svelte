@@ -24,9 +24,14 @@
 		showTooltip = false
 	}: Props = $props();
 
-	let model = $derived(modelProp || modelsStore.singleModelName);
-	let isModelMode = $derived(serverStore.isModelMode);
-	let shouldShow = $derived(model && (modelProp !== undefined || isModelMode));
+	let model = $derived(
+		modelProp ||
+			modelsStore.singleModelName ||
+			(!serverStore.isRouterMode ? modelsStore.selectedModel?.name : null)
+	);
+	// Show badge when: a model is known AND (explicitly provided, or not in router mode)
+	// In router mode without an explicit modelProp, each conversation has its own model badge
+	let shouldShow = $derived(!!model && (modelProp !== undefined || !serverStore.isRouterMode));
 
 	const filterOptions = $derived({
 		filterEmojiRemoval: config().filterEmojiRemoval as boolean,

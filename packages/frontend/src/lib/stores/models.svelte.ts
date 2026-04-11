@@ -115,7 +115,6 @@ class ModelsStore {
 		if (serverStore.isRouterMode) return null;
 
 		const props = serverStore.props;
-		if (props?.model_alias) return props.model_alias;
 		if (!props?.model_path) return null;
 
 		return props.model_path.split(/(\\|\/)/).pop() || null;

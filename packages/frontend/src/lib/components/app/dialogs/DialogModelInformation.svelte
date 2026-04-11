@@ -25,10 +25,6 @@
 	// in router mode use per-model props, otherwise use global props
 	let serverProps = $derived(isRouter && modelId ? routerModelProps : serverStore.props);
 
-	let modelName = $derived(isRouter && modelId ? modelId : modelsStore.singleModelName);
-	let models = $derived(modelOptions());
-	let isLoadingModels = $derived(modelsLoading());
-
 	// in router mode, find the model option matching modelId
 	// in single mode, use the first model as before
 	let firstModel = $derived.by(() => {
@@ -37,6 +33,14 @@
 		}
 		return models[0] ?? null;
 	});
+
+	let modelName = $derived(
+		isRouter && modelId
+			? modelId
+			: (modelsStore.singleModelName ?? firstModel?.name ?? firstModel?.model ?? null)
+	);
+	let models = $derived(modelOptions());
+	let isLoadingModels = $derived(modelsLoading());
 
 	// Get modalities from modelStore using the model ID from the first model
 	let modalities = $derived.by(() => {
@@ -259,6 +263,57 @@
 							{/if}
 						</Table.Body>
 					</Table.Root>
+				{:else}
+					<!-- Generic OpenAI-compatible endpoint: /props not available, show what we have from /models -->
+					<Table.Root>
+						<Table.Header>
+							<Table.Row>
+								<Table.Head class="w-[10rem]">Model</Table.Head>
+
+								<Table.Head>
+									<div class="inline-flex items-center gap-2">
+										<span class="min-w-0 flex-1 truncate">
+											{modelName ?? firstModel.model}
+										</span>
+
+										<ActionIconCopyToClipboard
+											text={modelName ?? firstModel.model ?? ''}
+											canCopy={!!(modelName ?? firstModel.model)}
+											ariaLabel="Copy model name to clipboard"
+										/>
+									</div>
+								</Table.Head>
+							</Table.Row>
+						</Table.Header>
+
+						{#if firstModel.description || (modalities && modalities.length > 0)}
+							<Table.Body>
+								{#if firstModel.description}
+									<Table.Row>
+										<Table.Cell class="align-middle font-medium">Description</Table.Cell>
+										<Table.Cell class="text-sm">{firstModel.description}</Table.Cell>
+									</Table.Row>
+								{/if}
+
+								{#if modalities.length > 0}
+									<Table.Row>
+										<Table.Cell class="align-middle font-medium">Modalities</Table.Cell>
+										<Table.Cell>
+											<div class="flex flex-wrap gap-1">
+												<BadgeModality {modalities} />
+											</div>
+										</Table.Cell>
+									</Table.Row>
+								{/if}
+							</Table.Body>
+						{/if}
+					</Table.Root>
+
+					<div
+						class="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground"
+					>
+						Extended server properties are not available for this endpoint type.
+					</div>
 				{/if}
 			{:else if !isLoadingModels}
 				<div class="flex items-center justify-center py-8">

@@ -1,5 +1,5 @@
 import type { ModelPool } from '../pool/model-pool.ts';
-import { estimateTokenCount, estimateMessagesTokenCount } from '../utils/token-estimator.ts';
+import { getTokenCount } from '../utils/token-count.ts';
 import { buildCompactSystemMessage } from '#shared/constants/prompts-and-tools.ts'
 
 interface CompactRequest {
@@ -22,7 +22,7 @@ interface CompactResponse {
 
 /**
  * POST /compact — Summarize conversation history while preserving recent context.
- * 
+ *
  * Compacts all messages except the last N anchor messages by:
  * 1. Extracting messages to compact
  * 2. Building a summarization prompt
@@ -57,7 +57,6 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
 
     // Split messages into compacted and anchor
     const messagesToCompact = messages.slice(0, messages.length - anchorMessagesCount);
-    const anchorMessages = messages.slice(messages.length - anchorMessagesCount);
 
     if (messagesToCompact.length === 0) {
       return Response.json(
@@ -71,19 +70,7 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       .map(msg => `[${msg.role.toUpperCase()}]: ${msg.content}`)
       .join('\n\n');
 
-    // Calculate tokens before compaction — estimate on the actual formatted content
-    // that will be sent to the LLM (includes [ROLE]: prefixes and separators).
-    const tokensBefore = estimateTokenCount(compactedContent);
-
-    // Build summarization prompt
-    const systemMessage = buildCompactSystemMessage(previousSummary);
-
-    const userMessage = {
-      role: 'user',
-      content: `Please summarize the following conversation history:\n\n${compactedContent}`
-    };
-
-    // Resolve upstream model
+    // Resolve upstream model (needed for both summarization and token counting)
     let upstream;
     const allUpstreams = pool.getAllUpstreams();
 
@@ -120,6 +107,19 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       );
     }
 
+    // Calculate tokens before compaction — try upstream /tokenize, fall back to
+    // heuristic estimation on the actual formatted content that will be sent to
+    // the LLM (includes [ROLE]: prefixes and separators).
+    const tokensBefore = await getTokenCount(compactedContent, pool, model || upstream.id);
+
+    // Build summarization prompt
+    const systemMessage = buildCompactSystemMessage(previousSummary);
+
+    const userMessage = {
+      role: 'user',
+      content: `Please summarize the following conversation history:\n\n${compactedContent}`
+    };
+
     // Call LLM for summarization
     const upstreamUrl = `${upstream.url}/v1/chat/completions`;
     const headers: Record<string, string> = {
@@ -129,21 +129,42 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       headers['Authorization'] = `Bearer ${upstream.resolvedApiKey}`;
     }
 
+    // Use a reasonable max_tokens that fits a concise summary without truncation.
+    // 800 tokens ≈ ~600 words, which is ample for a compact summary and avoids
+    // the waste of generating 1000+ words only to truncate afterward.
+    const MAX_SUMMARY_TOKENS = 800;
+
     const requestBody = {
       model: model || upstream.modelList[0] || '',
       messages: [systemMessage, userMessage],
       temperature: 0.3,
-      max_tokens: 1000,
+      max_tokens: MAX_SUMMARY_TOKENS,
       stream: false,
     };
 
     console.log('[compact] requesting summarization from:', upstream.id);
 
-    const response = await fetch(upstreamUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody),
-    });
+    // Use AbortController to avoid hanging requests — cap at 60s for summarization.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60_000);
+
+    let response: Response;
+    try {
+      response = await fetch(upstreamUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      const status = fetchError instanceof Error && fetchError.name === 'AbortError' ? 504 : 502;
+      return Response.json(
+        { error: `Summarization request failed: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}` },
+        { status }
+      );
+    }
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -164,14 +185,11 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       );
     }
 
-    // Enforce strict 1000-word limit
-    const words = summary.trim().split(/\s+/);
-    if (words.length > 1000) {
-      summary = words.slice(0, 1000).join(' ');
-    }
+    summary = summary.trim();
 
-    // Calculate tokens after compaction
-    const tokensAfter = estimateTokenCount(summary) + estimateMessagesTokenCount(anchorMessages);
+    // Calculate tokens after compaction — only the summary itself.
+    // Try upstream /tokenize first, fall back to heuristic.
+    const tokensAfter = await getTokenCount(summary, pool, model || upstream.id);
     const tokensSaved = tokensBefore - tokensAfter;
 
     const result: CompactResponse = {

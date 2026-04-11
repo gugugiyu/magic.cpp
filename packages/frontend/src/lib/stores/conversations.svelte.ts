@@ -26,7 +26,7 @@ import { DatabaseService } from '$lib/services/database.service';
 import { config } from '$lib/stores/settings.svelte';
 import { filterByLeafNodeId, findLeafNode, runLegacyMigration, uuid } from '$lib/utils';
 import type { McpServerOverride } from '$lib/types/database';
-import { MessageRole } from '$lib/enums';
+import { MessageRole, AttachmentType } from '$lib/enums';
 import {
 	ISO_DATE_TIME_SEPARATOR,
 	ISO_DATE_TIME_SEPARATOR_REPLACEMENT,
@@ -70,6 +70,9 @@ class ConversationsStore {
 
 	/** Last compaction result (tokens saved) */
 	lastCompactionTokensSaved = $state<number | null>(null);
+
+	/** ID of the most recently created compaction summary message, used to anchor CompactionNote rendering */
+	lastCompactionSummaryId = $state<string | null>(null);
 
 	/** Pending MCP server overrides for new conversations (before first message) */
 	pendingMcpServerOverrides = $state<McpServerOverride[]>(ConversationsStore.loadMcpDefaults());
@@ -777,7 +780,9 @@ class ConversationsStore {
 			// Sanitize the summary content with DOMPurify
 			const sanitizedSummary = DOMPurify.sanitize(summary);
 
-			// Create the summary message
+			// Create the summary message with a dedicated compaction_summary extra
+			// to distinguish it from generic system messages and enable reliable
+			// identification during chained compactions.
 			const summaryMessage: DatabaseMessage = {
 				id: uuid(),
 				convId,
@@ -786,7 +791,14 @@ class ConversationsStore {
 				role: MessageRole.SYSTEM,
 				content: sanitizedSummary,
 				parent: summaryParentId,
-				children: []
+				children: [],
+				extra: [
+					{
+						type: AttachmentType.COMPACTION_SUMMARY,
+						name: 'compaction_summary',
+						tokensSaved
+					}
+				]
 			};
 
 			// Perform all database operations in a single atomic transaction.
@@ -825,9 +837,17 @@ class ConversationsStore {
 			// The anchor message's branch is now the active path; find its leaf.
 			const updatedMessages = [...this.activeMessages];
 			const anchorLeafNodeId = findLeafNode(updatedMessages, anchorMessageId);
-			await this.updateCurrentNode(anchorLeafNodeId);
+			try {
+				await this.updateCurrentNode(anchorLeafNodeId);
+			} catch (nodeErr) {
+				// DB committed successfully; currNode is the only casualty.
+				// Reload the conversation to restore consistent navigation state.
+				console.error('currNode update failed after compaction, reloading:', nodeErr);
+				await this.loadConversation(convId);
+			}
 
 			// Store compaction result for UI display
+			this.lastCompactionSummaryId = summaryMessage.id;
 			this.lastCompactionTokensSaved = tokensSaved;
 
 			return { success: true };

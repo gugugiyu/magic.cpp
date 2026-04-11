@@ -12,6 +12,7 @@
 		variant?: 'default' | 'destructive';
 		icon?: Component;
 		disabled?: boolean;
+		disabledCancel?: boolean;
 		onConfirm: () => void;
 		onCancel: () => void;
 		onKeydown?: (event: KeyboardEvent) => void;
@@ -27,6 +28,7 @@
 		variant = 'default',
 		icon,
 		disabled = false,
+		disabledCancel = false,
 		onConfirm,
 		onCancel,
 		onKeydown,
@@ -42,7 +44,7 @@
 	}
 
 	function handleOpenChange(newOpen: boolean) {
-		if (!newOpen) {
+		if (!newOpen && !disabledCancel) {
 			onCancel();
 		}
 	}
@@ -69,7 +71,12 @@
 		{/if}
 
 		<AlertDialog.Footer>
-			<AlertDialog.Cancel onclick={onCancel}>{cancelText}</AlertDialog.Cancel>
+			<AlertDialog.Cancel
+				onclick={disabledCancel ? undefined : onCancel}
+				disabled={disabledCancel}
+				class={disabledCancel ? 'cursor-not-allowed opacity-50' : ''}
+				>{cancelText}</AlertDialog.Cancel
+			>
 			<AlertDialog.Action
 				onclick={onConfirm}
 				{disabled}

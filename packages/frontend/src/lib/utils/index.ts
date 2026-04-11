@@ -182,6 +182,9 @@ export {
 	withAbortSignal
 } from './abort';
 
+// Safe number utility
+export { safeNumber } from './safe-number';
+
 // Cryptography utilities
 
 export { uuid } from './uuid';

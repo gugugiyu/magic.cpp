@@ -119,7 +119,7 @@
 
 	async function handleCancelEdit() {
 		// If canceling a new system message with placeholder content, remove it without deleting children
-		if (message.role === MessageRole.SYSTEM) {
+		if (message.role === MessageRole.SYSTEM && message.content === SYSTEM_MESSAGE_PLACEHOLDER) {
 			const conversationDeleted = await chatStore.removeSystemPromptPlaceholder(message.id);
 
 			if (conversationDeleted) {
@@ -303,7 +303,6 @@
 		onForkConversation={handleForkConversation}
 		onNavigateToSibling={handleNavigateToSibling}
 		onShowDeleteDialogChange={handleShowDeleteDialogChange}
-		onCompactConversation={() => {}}
 		{showDeleteDialog}
 		{siblingInfo}
 	/>

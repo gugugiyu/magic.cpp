@@ -445,7 +445,9 @@
 		</div>
 	{:else if section.type === AgenticSectionType.TOOL_CALL || section.type === AgenticSectionType.TOOL_CALL_PENDING}
 		{@const isPending = section.type === AgenticSectionType.TOOL_CALL_PENDING}
-		{@const hasError = section.toolResult?.startsWith('Error:')}
+		{@const hasError =
+			section.toolResult?.startsWith('Error:') ||
+			(section.toolResult?.startsWith('{') && section.toolResult.includes('"error"'))}
 
 		<div class="agentic-inline-block">
 			<button

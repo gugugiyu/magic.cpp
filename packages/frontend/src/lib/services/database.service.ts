@@ -404,6 +404,9 @@ export class DatabaseService {
 	 * reparenting their children to the summary, and inserting the summary message.
 	 * All operations run in a single Dexie transaction to prevent partial failure.
 	 *
+	 * Optimization: batches all reads/writes using bulkGet/bulkPut to minimize
+	 * IndexedDB round-trips from O(N*M) to O(1) batches.
+	 *
 	 * @param convId - Conversation ID
 	 * @param summaryMessage - The summary message to insert
 	 * @param messagesToCompact - Messages to delete
@@ -419,56 +422,93 @@ export class DatabaseService {
 		await db.transaction('rw', db.messages, async () => {
 			const compactedIds = new Set(messagesToCompact.map((m) => m.id));
 
-			// 1. Delete each compacted message, reparenting its children to the summary
+			// Collect all IDs we need to read upfront (compacted msgs + their parents + children + anchor + summary parent)
+			const idsToFetch = new Set<string>();
 			for (const msg of messagesToCompact) {
-				const message = await db.messages.get(msg.id);
+				idsToFetch.add(msg.id);
+				if (msg.parent) idsToFetch.add(msg.parent);
+				for (const cid of msg.children) idsToFetch.add(cid);
+			}
+			idsToFetch.add(anchorMessageId);
+			if (summaryMessage.parent) idsToFetch.add(summaryMessage.parent);
+
+			// Bulk fetch all messages in one call
+			const allMessages = await db.messages.bulkGet([...idsToFetch]);
+			const messageMap = new Map<string, DatabaseMessage>();
+			for (const msg of allMessages) {
+				if (msg) messageMap.set(msg.id, msg);
+			}
+
+			const messagesToPut: DatabaseMessage[] = [];
+
+			// 1. Reparent children of compacted messages to the summary
+			const orphanedChildIds = new Set<string>();
+			for (const msg of messagesToCompact) {
+				const message = messageMap.get(msg.id);
 				if (!message) continue;
 
-				// Reparent children to summary message
-				if (message.children.length > 0) {
-					for (const childId of message.children) {
-						const child = await db.messages.get(childId);
-						if (child && !compactedIds.has(childId)) {
-							// Only reparent children that aren't also being compacted
-							child.parent = summaryMessage.id;
-							await db.messages.put(child);
-						}
+				for (const childId of message.children) {
+					if (compactedIds.has(childId)) continue;
+					const child = messageMap.get(childId);
+					if (child) {
+						child.parent = summaryMessage.id;
+						messagesToPut.push(child);
+					} else {
+						// Child was deleted concurrently — track as orphaned
+						// so we don't leave a dangling reference in the summary's children
+						orphanedChildIds.add(childId);
 					}
 				}
-
-				// Remove from parent's children array
-				if (message.parent) {
-					const parent = await db.messages.get(message.parent);
-					if (parent) {
-						parent.children = parent.children.filter((cid: string) => cid !== message.id);
-						await db.messages.put(parent);
-					}
-				}
-
-				// Delete the message
-				await db.messages.delete(message.id);
 			}
 
-			// 2. Update anchor message: set its parent to the summary message
-			const anchorMessage = await db.messages.get(anchorMessageId);
+			// 2. Remove compacted messages from their parents' children arrays
+			const parentIdsToUpdate = new Set<string>();
+			for (const msg of messagesToCompact) {
+				if (msg.parent) parentIdsToUpdate.add(msg.parent);
+			}
+			for (const parentId of parentIdsToUpdate) {
+				const parent = messageMap.get(parentId);
+				if (parent) {
+					parent.children = parent.children.filter((cid: string) => !compactedIds.has(cid));
+					messagesToPut.push(parent);
+				}
+			}
+
+			// 3. Update anchor message: set its parent to the summary message
+			const anchorMessage = messageMap.get(anchorMessageId);
 			if (anchorMessage) {
 				anchorMessage.parent = summaryMessage.id;
-				await db.messages.put(anchorMessage);
+				messagesToPut.push(anchorMessage);
 			}
 
-			// 3. Update the summary's parent's children array: remove compacted, add summary
+			// 4. Update the summary's parent's children array
 			if (summaryMessage.parent) {
-				const summaryParent = await db.messages.get(summaryMessage.parent);
+				const summaryParent = messageMap.get(summaryMessage.parent);
 				if (summaryParent) {
 					summaryParent.children = summaryParent.children.filter(
 						(cid: string) => !compactedIds.has(cid)
 					);
 					summaryParent.children.push(summaryMessage.id);
-					await db.messages.put(summaryParent);
+					messagesToPut.push(summaryParent);
 				}
 			}
 
-			// 4. Add the summary message
+			// Execute all puts in one batch, then delete compacted messages, then add summary
+			if (messagesToPut.length > 0) {
+				await db.messages.bulkPut(messagesToPut);
+			}
+
+			// Delete compacted messages
+			await db.messages.bulkDelete([...compactedIds]);
+
+			// Clean up orphaned child references from the summary before inserting
+			if (orphanedChildIds.size > 0) {
+				summaryMessage.children = summaryMessage.children.filter(
+					(cid: string) => !orphanedChildIds.has(cid)
+				);
+			}
+
+			// Add the summary message
 			await db.messages.add(summaryMessage);
 		});
 	}

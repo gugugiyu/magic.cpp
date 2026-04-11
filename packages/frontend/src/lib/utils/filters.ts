@@ -27,7 +27,6 @@ export function applyRawMode(text: string): string {
 	return result;
 }
 
-
 // Ported from openwebui filter called markdown normalizer
 // Credit: https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/markdown_normalizer/test_markdown_normalizer.py
 export function normalizeMarkdown(message: string): string {

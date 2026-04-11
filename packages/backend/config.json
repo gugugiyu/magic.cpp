@@ -32,7 +32,7 @@
 			"type": "openai",
 			"apiKey": "$OPENROUTER_KEY",
 			"enabled": true,
-			"modelList": ["openai/gpt-oss-20b", "google/gemma-3-4b-it:free", "qwen/qwen3-8b"]
+			"modelList": ["openai/gpt-oss-20b", "google/gemma-3-4b-it:free", "qwen/qwen3-8b", "qwen/qwen3.5-35b-a3b"]
 		}
 	]
 }

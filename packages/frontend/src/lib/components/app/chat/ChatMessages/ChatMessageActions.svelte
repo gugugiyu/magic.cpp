@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { Edit, Copy, RefreshCw, Trash2, ArrowRight, GitBranch, Package } from '@lucide/svelte';
+	import {
+		Edit,
+		Copy,
+		RefreshCw,
+		Trash2,
+		ArrowRight,
+		GitBranch,
+		Package,
+		Loader2
+	} from '@lucide/svelte';
 	import {
 		ActionIcon,
 		ChatMessageBranchingControls,
@@ -10,6 +19,7 @@
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import { MessageRole } from '$lib/enums';
+	import type { DatabaseMessageExtra } from '$lib/types/database';
 	import {
 		activeConversation,
 		conversationsStore,
@@ -17,9 +27,10 @@
 	} from '$lib/stores/conversations.svelte';
 	import { config } from '$lib/stores/settings.svelte';
 	import { apiPost } from '$lib/utils/api-fetch';
+	import { agenticIsAnyRunning } from '$lib/stores/agentic.svelte';
 	import type { CompactSessionRequest, CompactSessionResponse } from '$lib/types/compact';
 	import { toast } from 'svelte-sonner';
-	import { formatAgenticTurn } from '$lib/utils/formatters';
+	import { modelsStore } from '$lib/stores/models.svelte';
 
 	interface Props {
 		role: MessageRole.USER | MessageRole.ASSISTANT;
@@ -76,6 +87,7 @@
 
 	let showCompactDialog = $state(false);
 	let isCompacting = $state(false);
+	let compactAbortController = $state<AbortController | null>(null);
 
 	function handleConfirmDelete() {
 		onConfirmDelete();
@@ -91,6 +103,11 @@
 	}
 
 	async function handleCompactSession() {
+		if (agenticIsAnyRunning()) {
+			toast.error('Cannot compact while the agentic loop is running');
+			return;
+		}
+
 		if (!activeConversation() || activeMessages().length === 0) {
 			toast.error('No messages to compact');
 			return;
@@ -114,6 +131,8 @@
 
 		const currentConfig = config();
 		const anchorCount = currentConfig.anchorMessagesCount ?? 3;
+
+		// Snapshot once — avoids race between validation and slice
 		const messages = activeMessages();
 
 		if (messages.length <= anchorCount) {
@@ -123,6 +142,7 @@
 		}
 
 		isCompacting = true;
+		compactAbortController = new AbortController();
 
 		try {
 			// Get messages to compact (all except last N anchor messages)
@@ -130,26 +150,55 @@
 			const anchorMessages = messages.slice(messages.length - anchorCount);
 			const anchorMessageId = anchorMessages[0].id;
 
-			// Convert to API format, pairing each assistant message with its following tool messages
-			// so tool results are included. TOOL-role messages are skipped as standalone entries.
-			const apiMessages: { role: string; content: string }[] = [];
-			let i = 0;
+			// Convert to API format — preserve tool-call structure for the backend.
+			// The compact handler joins messages as "[ROLE]: content", so we keep
+			// assistant and tool messages as separate entries with proper OpenAI roles.
+			const apiMessages: { role: string; content: string; tool_call_id?: string }[] = [];
+
+			// Detect whether we're compacting for the first time. If the first message
+			// in the conversation is a system prompt (not a compaction summary), we
+			// skip it from the compacted set so it persists alongside the new summary.
+			// On the second+ compaction, the first SYSTEM message will be a prior
+			// compaction summary (marked with COMPACTION_SUMMARY extra), so we include
+			// it and let the backend produce a unified chained summary.
+			const firstMsg = messagesToCompact[0];
+			const isFirstSystemPrompt =
+				firstMsg?.role === MessageRole.SYSTEM &&
+				!firstMsg.extra?.some(
+					(e: DatabaseMessageExtra) =>
+						e.type === 'COMPACTION_SUMMARY' || e.name === 'compaction_summary'
+				);
+			const startIndex = isFirstSystemPrompt ? 1 : 0;
+
+			let i = startIndex;
 			while (i < messagesToCompact.length) {
 				const msg = messagesToCompact[i];
 				if (msg.role === MessageRole.TOOL) {
-					// Handled as part of the preceding assistant message
+					// Standalone tool message (no preceding assistant — edge case)
+					const toolContent = (msg.content || '').trim();
+					if (toolContent) {
+						apiMessages.push({
+							role: 'tool',
+							content: toolContent,
+							tool_call_id: msg.tool_call_id || ''
+						});
+					}
 					i++;
-					continue;
-				}
-				if (msg.role === MessageRole.ASSISTANT) {
+				} else if (msg.role === MessageRole.ASSISTANT) {
+					const parts: string[] = [];
+					if (msg.content?.trim()) parts.push(msg.content.trim());
+
 					// Collect consecutive tool messages that follow this assistant message
-					const toolMsgs: DatabaseMessage[] = [];
 					let j = i + 1;
 					while (j < messagesToCompact.length && messagesToCompact[j].role === MessageRole.TOOL) {
-						toolMsgs.push(messagesToCompact[j]);
+						const toolMsg = messagesToCompact[j];
+						const toolContent = (toolMsg.content || '').trim();
+						if (toolContent) {
+							parts.push(`[Tool: ${toolMsg.tool_call_id || 'unknown'}] ${toolContent}`);
+						}
 						j++;
 					}
-					apiMessages.push({ role: msg.role, content: formatAgenticTurn(msg, toolMsgs) });
+					apiMessages.push({ role: msg.role, content: parts.join('\n\n') });
 					i = j;
 				} else {
 					// USER / SYSTEM — plain content
@@ -158,12 +207,28 @@
 				}
 			}
 
+			// If the first message being compacted is a prior compaction summary
+			// (identified by the COMPACTION_SUMMARY extra), forward its content so
+			// the backend can build a richer chained prompt. On the first compaction,
+			// the original system prompt was skipped above, so this will be undefined.
+			const firstToCompact = messagesToCompact[startIndex];
+			const previousSummary = firstToCompact?.extra?.some(
+				(e: DatabaseMessageExtra) =>
+					e.type === 'COMPACTION_SUMMARY' || e.name === 'compaction_summary'
+			)
+				? firstToCompact.content
+				: undefined;
+
 			const request: CompactSessionRequest = {
 				messages: apiMessages,
-				anchorMessagesCount: anchorCount
+				anchorMessagesCount: anchorCount,
+				model: modelsStore.selectedModelName || undefined,
+				previousSummary
 			};
 
-			const response = await apiPost<CompactSessionResponse>('/compact', request);
+			const response = await apiPost<CompactSessionResponse>('/compact', request, {
+				signal: compactAbortController.signal
+			});
 
 			// Compact the session in the store
 			const result = await conversationsStore.compactSession(
@@ -174,16 +239,23 @@
 			);
 
 			if (result.success) {
-				toast.success(`Session compacted, ${response.tokensSaved.toLocaleString()} tokens saved`);
+				toast.success(
+					`Session compacted, ~${response.tokensSaved.toLocaleString()} estimated tokens saved`
+				);
 			} else {
 				toast.error(`Failed to compact: ${result.error}`);
 			}
 		} catch (error) {
-			console.error('Compact session error:', error);
-			const errorMessage = error instanceof Error ? error.message : 'Failed to compact session';
-			toast.error(errorMessage);
+			if (error instanceof DOMException && error.name === 'AbortError') {
+				toast.info('Compaction cancelled');
+			} else {
+				console.error('Compact session error:', error);
+				const errorMessage = error instanceof Error ? error.message : 'Failed to compact session';
+				toast.error(errorMessage);
+			}
 		} finally {
 			isCompacting = false;
+			compactAbortController = null;
 			showCompactDialog = false;
 		}
 	}
@@ -304,12 +376,26 @@
 	bind:open={showCompactDialog}
 	title="Compact Session"
 	description={isCompacting
-		? 'Compacting conversation history...'
+		? 'Compacting conversation history... This may take up to a minute.'
 		: `This will summarize all messages except the last ${config().anchorMessagesCount ?? 3} messages. Older messages will be replaced with a concise summary. This action cannot be undone.`}
 	confirmText={isCompacting ? 'Compacting...' : 'Compact'}
-	cancelText="Cancel"
-	icon={Package}
+	cancelText={isCompacting ? 'Cancel' : 'Cancel'}
+	icon={isCompacting ? Loader2 : Package}
 	onConfirm={executeCompact}
-	onCancel={() => (showCompactDialog = false)}
+	onCancel={() => {
+		if (isCompacting && compactAbortController) {
+			compactAbortController.abort();
+		} else {
+			showCompactDialog = false;
+		}
+	}}
 	disabled={isCompacting}
-/>
+	disabledCancel={false}
+>
+	{#if isCompacting}
+		<div class="flex items-center gap-2 text-sm text-muted-foreground">
+			<Loader2 class="h-4 w-4 animate-spin" />
+			<span>Generating summary...</span>
+		</div>
+	{/if}
+</DialogConfirmation>

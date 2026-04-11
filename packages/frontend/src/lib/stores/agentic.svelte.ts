@@ -28,7 +28,7 @@ import { mcpStore } from '$lib/stores/mcp.svelte';
 import { modelsStore } from '$lib/stores/models.svelte';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
-import { isAbortError } from '$lib/utils';
+import { isAbortError, safeNumber } from '$lib/utils';
 import { sequentialThinkingStore, type ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
 import {
 	DEFAULT_AGENTIC_CONFIG,
@@ -376,12 +376,8 @@ class AgenticStore {
 				builtinToolNames,
 				agenticConfig,
 				mcpSummarizeOutputs: Boolean(settings.mcpSummarizeOutputs),
-				mcpSummarizeLineThreshold: ((n) => (Number.isNaN(n) ? 400 : n))(
-					Number(settings.mcpSummarizeLineThreshold)
-				),
-				mcpSummarizeHardCap: ((n) => (Number.isNaN(n) ? 800 : n))(
-					Number(settings.mcpSummarizeHardCap)
-				),
+				mcpSummarizeLineThreshold: safeNumber(settings.mcpSummarizeLineThreshold, 400),
+				mcpSummarizeHardCap: safeNumber(settings.mcpSummarizeHardCap, 800),
 				mcpSummarizeAllTools: Boolean(settings.mcpSummarizeAllTools),
 				callbacks,
 				signal

@@ -402,6 +402,11 @@
 	}
 
 	function handleConfigChange(key: string, value: string | boolean) {
+		if (key === SETTINGS_KEYS.FILTER_NORMALIZE_MARKDOWN && value === true) {
+			localConfig[SETTINGS_KEYS.FILTER_RAW_MODE] = false;
+		} else if (key === SETTINGS_KEYS.FILTER_RAW_MODE && value === true) {
+			localConfig[SETTINGS_KEYS.FILTER_NORMALIZE_MARKDOWN] = false;
+		}
 		localConfig[key] = value;
 	}
 

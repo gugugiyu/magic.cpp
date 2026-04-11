@@ -77,6 +77,13 @@ export interface DatabaseMessageExtraMcpSummary {
 	originalLineCount: number;
 }
 
+export interface DatabaseMessageExtraCompactionSummary {
+	type: AttachmentType.COMPACTION_SUMMARY;
+	name: string;
+	/** Token count saved from the compaction operation */
+	tokensSaved: number;
+}
+
 export type DatabaseMessageExtra =
 	| DatabaseMessageExtraImageFile
 	| DatabaseMessageExtraTextFile
@@ -85,6 +92,7 @@ export type DatabaseMessageExtra =
 	| DatabaseMessageExtraMcpPrompt
 	| DatabaseMessageExtraMcpResource
 	| DatabaseMessageExtraMcpSummary
+	| DatabaseMessageExtraCompactionSummary
 	| DatabaseMessageExtraLegacyContext;
 
 export interface DatabaseMessage {

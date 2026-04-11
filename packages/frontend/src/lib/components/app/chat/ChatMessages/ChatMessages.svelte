@@ -2,11 +2,12 @@
 	import { fadeInView } from '$lib/actions/fade-in-view.svelte';
 	import { ChatMessage, CompactionNote } from '$lib/components/app';
 	import { setChatActionsContext } from '$lib/contexts';
-	import { MessageRole } from '$lib/enums';
+	import { MessageRole, AttachmentType } from '$lib/enums';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { conversationsStore, activeConversation } from '$lib/stores/conversations.svelte';
 	import { config } from '$lib/stores/settings.svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
+	import type { DatabaseMessageExtra } from '$lib/types/database';
 	import {
 		copyToClipboard,
 		formatMessageForClipboard,
@@ -118,15 +119,12 @@
 		}
 	});
 
-	// Reset compaction token after messages change (give UI time to render the note)
-	$effect(() => {
-		if (conversationsStore.lastCompactionTokensSaved !== null && messages.length > 0) {
-			const timer = setTimeout(() => {
-				conversationsStore.lastCompactionTokensSaved = null;
-			}, 5000);
-			return () => clearTimeout(timer);
-		}
-	});
+	// Hide the compaction note 5 s after it appears. Only re-runs when a new
+	// compaction occurs (lastCompactionTokensSaved changes), not on every message
+	// update — otherwise each incoming message would restart the countdown.
+	// REMOVED: The compaction note is now a persistent UI element tied to the
+	// summary message itself. The store fields are cleared only when the
+	// conversation changes or a new compaction supersedes the previous one.
 
 	let displayMessages = $derived.by(() => {
 		if (!messages.length) {
@@ -240,14 +238,17 @@
 		// Determine which display entry index comes right before each system message
 		// (by position in the original messages array). This is used for placing the
 		// CompactionNote after the correct message when system messages are hidden.
+		// Only build this map when compaction has occurred to avoid unnecessary work.
 		const systemMessageBeforeDisplayIndex = new SvelteMap<number, number>();
-		if (!currentConfig.showSystemMessage) {
+		if (!currentConfig.showSystemMessage && conversationsStore.lastCompactionTokensSaved !== null) {
 			let displayIdx = 0;
 			for (let i = 0; i < messages.length; i++) {
 				if (messages[i].type === MessageRole.SYSTEM) {
-					// The display entry just before this system message is at displayIdx - 1
-					// (displayIdx hasn't been incremented yet for this system message)
-					systemMessageBeforeDisplayIndex.set(i, displayIdx - 1);
+					// Store the display index of the first visible message that follows
+					// this system message. The CompactionNote is rendered *before* that
+					// message, which correctly places it at the compaction boundary even
+					// when the summary is the very first entry (displayIdx === 0).
+					systemMessageBeforeDisplayIndex.set(i, displayIdx);
 				} else {
 					displayIdx++;
 				}
@@ -257,19 +258,71 @@
 		return { result, systemMessageBeforeDisplayIndex };
 	});
 
-	// Find the system message that should trigger a CompactionNote
+	// Find the display index where the CompactionNote should appear.
+	// Uses the persistent COMPACTION_SUMMARY extra on the summary message,
+	// falling back to the transient store value for recent compactions before
+	// the page reloads.
 	let compactionNoteDisplayIndex = $derived.by(() => {
-		if (conversationsStore.lastCompactionTokensSaved === null) return -1;
 		if (currentConfig.showSystemMessage) return -1;
 
+		// First, try to find a compaction summary message in the original messages array
+		for (let i = 0; i < messages.length; i++) {
+			if (messages[i].type === MessageRole.SYSTEM) {
+				const extra = messages[i].extra?.find(
+					(e: DatabaseMessageExtra) =>
+						e.type === AttachmentType.COMPACTION_SUMMARY && 'tokensSaved' in e
+				);
+				if (extra) {
+					// This is the most recent (and only) compaction summary.
+					// Compute its display index: count non-system messages before it.
+					let displayIdx = 0;
+					for (let j = 0; j < i; j++) {
+						if (messages[j].type !== MessageRole.SYSTEM) {
+							displayIdx++;
+						}
+					}
+					return displayIdx;
+				}
+			}
+		}
+
+		// Fallback: use the transient store value for very recent compactions
+		if (conversationsStore.lastCompactionTokensSaved === null) return -1;
 		const sysInfo = displayMessages.systemMessageBeforeDisplayIndex;
-		// Find the most recent system message (compaction summary) in the messages array
+		if (sysInfo.size === 0) return -1;
 		for (let i = messages.length - 1; i >= 0; i--) {
 			if (messages[i].type === MessageRole.SYSTEM) {
 				return sysInfo.get(i) ?? -1;
 			}
 		}
 		return -1;
+	});
+
+	/**
+	 * Extract tokensSaved from a compaction summary message's extras.
+	 * Returns null if the message is not a compaction summary.
+	 */
+	function getCompactionTokensSaved(message: DatabaseMessage): number | null {
+		const extra = message.extra?.find(
+			(e: DatabaseMessageExtra) =>
+				e.type === AttachmentType.COMPACTION_SUMMARY && 'tokensSaved' in e
+		);
+		return extra ? (extra as { tokensSaved: number }).tokensSaved : null;
+	}
+
+	/**
+	 * Resolve the tokensSaved value for the CompactionNote — prefers the
+	 * persistent message extra, falls back to the transient store value.
+	 */
+	let resolvedCompactionTokens = $derived.by(() => {
+		// Try persistent source first
+		for (const msg of messages) {
+			if (msg.type === MessageRole.SYSTEM) {
+				const t = getCompactionTokensSaved(msg);
+				if (t !== null) return t;
+			}
+		}
+		return conversationsStore.lastCompactionTokensSaved ?? 0;
 	});
 </script>
 
@@ -278,6 +331,15 @@
 	style="height: auto; min-height: calc(100dvh - 14rem);"
 >
 	{#each displayMessages.result as { message, toolMessages, isLastAssistantMessage, siblingInfo }, index (message.id)}
+		{@const showCompactionAfterThis =
+			currentConfig.showSystemMessage &&
+			message.type === MessageRole.SYSTEM &&
+			getCompactionTokensSaved(message) !== null}
+
+		{#if showCompactionAfterThis}
+			<CompactionNote tokensSaved={getCompactionTokensSaved(message)!} />
+		{/if}
+
 		<div use:fadeInView>
 			<ChatMessage
 				class="mx-auto w-full max-w-[48rem]"
@@ -288,18 +350,9 @@
 			/>
 		</div>
 
-		{#if currentConfig.showSystemMessage}
-			<!-- When system messages are visible, show compaction note after system summary messages -->
-			{#if message.role === MessageRole.SYSTEM && message.type === 'system' && conversationsStore.lastCompactionTokensSaved !== null}
-				{@const tokensSaved = conversationsStore.lastCompactionTokensSaved}
-				<CompactionNote {tokensSaved} />
-			{/if}
-		{:else}
-			<!-- When system messages are hidden, show compaction note after the message preceding the system summary -->
-			{#if index === compactionNoteDisplayIndex && conversationsStore.lastCompactionTokensSaved !== null}
-				{@const tokensSaved = conversationsStore.lastCompactionTokensSaved}
-				<CompactionNote {tokensSaved} />
-			{/if}
+		{#if !currentConfig.showSystemMessage && compactionNoteDisplayIndex >= 0 && index === compactionNoteDisplayIndex}
+			<!-- When system messages are hidden, show the note at the compaction boundary -->
+			<CompactionNote tokensSaved={resolvedCompactionTokens} />
 		{/if}
 	{/each}
 </div>

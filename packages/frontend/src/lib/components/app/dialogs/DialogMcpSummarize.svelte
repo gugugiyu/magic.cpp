@@ -22,7 +22,7 @@
 	);
 	let isSubagentConfigured = $derived(subagentConfigStore.isConfigured);
 
-	let chatSettingsDialog: ReturnType<typeof getChatSettingsDialogContext> | null = null;
+	let chatSettingsDialog = $state<ReturnType<typeof getChatSettingsDialogContext> | null>(null);
 	try {
 		chatSettingsDialog = getChatSettingsDialogContext();
 	} catch {

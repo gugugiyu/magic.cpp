@@ -153,6 +153,8 @@ function toAgenticMessages(messages: ApiChatMessageData[]): AgenticMessage[] {
 class AgenticStore {
 	private _sessions = $state<Map<string, AgenticSession>>(new Map());
 	private _subagentProgress = $state<Record<string, SubagentProgress | null>>({});
+	/** Tracks startedAt timestamps for sequential_thinking tool calls by tool call ID. */
+	private _sequentialThinkingStartedAt = $state<Map<string, number>>(new Map());
 
 	get isReady(): boolean {
 		return true;
@@ -219,6 +221,18 @@ class AgenticStore {
 
 	clearError(conversationId: string): void {
 		this.updateSession(conversationId, { lastError: null });
+	}
+
+	/** Record the startedAt timestamp for a sequential_thinking tool call. */
+	recordSequentialThinkingStartedAt(toolCallId: string, timestamp: number): void {
+		this._sequentialThinkingStartedAt.set(toolCallId, timestamp);
+	}
+
+	/** Retrieve and consume the startedAt timestamp for a sequential_thinking tool call. */
+	consumeSequentialThinkingStartedAt(toolCallId: string): number | undefined {
+		const val = this._sequentialThinkingStartedAt.get(toolCallId);
+		this._sequentialThinkingStartedAt.delete(toolCallId);
+		return val;
 	}
 
 	private setSubagentProgress(conversationId: string, progress: SubagentProgress | null): void {
@@ -515,6 +529,15 @@ class AgenticStore {
 										this.updateSession(conversationId, {
 											streamingToolCall: { name, arguments: args }
 										});
+
+										// Track startedAt for sequential_thinking tool calls
+										if (
+											name === 'sequential_thinking' &&
+											turnToolCalls[0].id &&
+											!this._sequentialThinkingStartedAt.has(turnToolCalls[0].id)
+										) {
+											this._sequentialThinkingStartedAt.set(turnToolCalls[0].id, Date.now());
+										}
 									}
 								}
 							} catch {
@@ -666,7 +689,8 @@ class AgenticStore {
 							conversationId,
 							firstAssistantMessageId,
 							tools,
-							signal
+							signal,
+							mcpCall.id
 						);
 					} else {
 						const executionResult = await mcpStore.executeTool(mcpCall, signal);
@@ -814,7 +838,8 @@ class AgenticStore {
 		conversationId: string,
 		messageId: string,
 		allTools?: OpenAIToolDefinition[],
-		signal?: AbortSignal
+		signal?: AbortSignal,
+		toolCallId?: string
 	): Promise<string> {
 		let parsed: Record<string, unknown> = {};
 		try {
@@ -876,7 +901,12 @@ class AgenticStore {
 				const totalThoughts = Number(parsed.totalThoughts ?? 1);
 				const nextThoughtNeeded = Boolean(parsed.nextThoughtNeeded ?? false);
 				const done = !nextThoughtNeeded;
-				const now = Date.now();
+				const completedAt = Date.now();
+
+				// Retrieve the startedAt that was recorded when the tool call chunk arrived
+				const startedAt = toolCallId
+					? this.consumeSequentialThinkingStartedAt(toolCallId)
+					: undefined;
 
 				const entry: ThoughtEntry = {
 					thoughtNumber,
@@ -884,8 +914,8 @@ class AgenticStore {
 					thought,
 					nextThoughtNeeded,
 					done,
-					startedAt: now,
-					completedAt: now // Tool execution is synchronous, so it completes immediately
+					startedAt: startedAt ?? completedAt,
+					completedAt
 				};
 
 				// Mark the previous thought in this message as completed
@@ -893,7 +923,7 @@ class AgenticStore {
 				if (existingTurn && existingTurn.thoughts.length > 0) {
 					const prevThought = existingTurn.thoughts[existingTurn.thoughts.length - 1];
 					if (!prevThought.completedAt) {
-						prevThought.completedAt = now;
+						prevThought.completedAt = completedAt;
 					}
 				}
 
@@ -1043,7 +1073,8 @@ class AgenticStore {
 											conversationId,
 											messageId,
 											allTools,
-											signal
+											signal,
+											tcId
 										);
 									} else {
 										const mcpResult = await mcpStore.executeTool(

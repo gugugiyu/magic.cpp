@@ -1,5 +1,6 @@
 import { AgenticSectionType, MessageRole, AttachmentType } from '$lib/enums';
 import { ATTACHMENT_SAVED_REGEX, NEWLINE_SEPARATOR } from '$lib/constants';
+import { DATA_URI_BASE64_REGEX } from '$lib/constants/mcp-resource';
 import type { ApiChatCompletionToolCall } from '$lib/types/api';
 import type {
 	DatabaseMessage,
@@ -31,6 +32,8 @@ export interface AgenticSection {
 export type ToolResultLine = {
 	text: string;
 	image?: DatabaseMessageExtraImageFile;
+	/** Raw data URI for inline images not going through the attachment system */
+	dataUri?: string;
 };
 
 /**
@@ -188,6 +191,7 @@ function collectToolMessages(messages: DatabaseMessage[], startIndex: number): D
 
 /**
  * Parse tool result text into lines, matching image attachments by name.
+ * Also detects base64 data URIs directly embedded in tool result text.
  */
 export function parseToolResultWithImages(
 	toolResult: string,
@@ -195,16 +199,29 @@ export function parseToolResultWithImages(
 ): ToolResultLine[] {
 	const lines = toolResult.split(NEWLINE_SEPARATOR);
 	return lines.map((line) => {
-		const match = line.match(ATTACHMENT_SAVED_REGEX);
-		if (!match || !extras) return { text: line };
+		// First, check for [Attachment saved: <name>] pattern
+		const attachmentMatch = line.match(ATTACHMENT_SAVED_REGEX);
+		if (attachmentMatch && extras) {
+			const attachmentName = attachmentMatch[1];
+			const image = extras.find(
+				(e): e is DatabaseMessageExtraImageFile =>
+					e.type === AttachmentType.IMAGE && e.name === attachmentName
+			);
+			if (image) return { text: line, image };
+		}
 
-		const attachmentName = match[1];
-		const image = extras.find(
-			(e): e is DatabaseMessageExtraImageFile =>
-				e.type === AttachmentType.IMAGE && e.name === attachmentName
-		);
+		// Fallback: check if the line itself is a base64 data URI
+		const trimmedLine = line.trim();
+		const dataUriMatch = trimmedLine.match(DATA_URI_BASE64_REGEX);
+		if (dataUriMatch) {
+			const mimeType = dataUriMatch[1];
+			// Only render image types
+			if (mimeType.startsWith('image/')) {
+				return { text: line, dataUri: trimmedLine };
+			}
+		}
 
-		return { text: line, image };
+		return { text: line };
 	});
 }
 

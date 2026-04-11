@@ -12,13 +12,16 @@
 	let { open = $bindable(), code, language, onOpenChange }: Props = $props();
 
 	let iframeRef = $state<HTMLIFrameElement | null>(null);
+	let previousCode = $state<string | null>(null);
 
 	$effect(() => {
 		if (!iframeRef) return;
 
-		if (open) {
+		// Only update srcdoc when code actually changed to avoid unnecessary iframe reloads
+		if (open && code !== previousCode) {
 			iframeRef.srcdoc = code;
-		} else {
+			previousCode = code;
+		} else if (!open) {
 			iframeRef.srcdoc = '';
 		}
 	});

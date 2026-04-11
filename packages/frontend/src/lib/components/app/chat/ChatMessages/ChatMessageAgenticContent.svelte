@@ -38,6 +38,7 @@
 	import { ChatMessageStatsView } from '$lib/enums';
 	import { DatabaseService } from '$lib/services/database.service';
 	import { conversationsStore } from '$lib/stores/conversations.svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		message: DatabaseMessage;
@@ -49,6 +50,8 @@
 	let { message, toolMessages = [], isStreaming = false, highlightTurns = false }: Props = $props();
 
 	let expandedStates: Record<number, boolean> = $state({});
+	/** Track which sequential_thinking section indices have been expanded during streaming. */
+	let seqThinkingExpanded = new SvelteSet();
 
 	// Per-section editing state
 	let editingSectionIndex = $state<number | null>(null);
@@ -71,7 +74,7 @@
 
 	// Parse tool results with images
 	const sectionsParsed = $derived(
-		sections.map((section) => ({
+		sections.map((section: any) => ({
 			...section,
 			parsedLines: section.toolResult
 				? parseToolResultWithImages(section.toolResult, section.toolResultExtras || message?.extra)
@@ -127,7 +130,42 @@
 		return false;
 	}
 
+	/**
+	 * Determines if a section is expanded.
+	 * For sequential_thinking sections: auto-expands the latest one per turn and keeps previously
+	 * expanded ones expanded during streaming (no flash/collapse).
+	 * For other sections: respects manual toggle state or default expansion rules.
+	 */
 	function isExpanded(index: number, section: AgenticSection): boolean {
+		// For sequential_thinking sections, use auto-expand logic
+		if (section.toolName === 'sequential_thinking') {
+			// Check if user manually toggled this specific index
+			if (expandedStates[index] !== undefined) {
+				return expandedStates[index];
+			}
+			// During streaming: expand the latest sequential thinking section per turn,
+			// and keep all previously-expanded sections expanded (no flash/collapse)
+			for (const turn of turnGroups) {
+				if (turn.flatIndices.includes(index)) {
+					const seqThinkingInTurn = turn.flatIndices.filter(
+						(idx) => sectionsParsed[idx]?.toolName === 'sequential_thinking'
+					);
+					const lastIndex = seqThinkingInTurn[seqThinkingInTurn.length - 1];
+					// Auto-expand the latest one and track it
+					if (isStreaming) {
+						if (index === lastIndex) {
+							seqThinkingExpanded.add(index);
+						}
+						return seqThinkingExpanded.has(index);
+					}
+					// When not streaming, collapse all (user can re-expand manually)
+					return false;
+				}
+			}
+			return false;
+		}
+
+		// For all other sections, check manual toggle then defaults
 		if (expandedStates[index] !== undefined) {
 			return expandedStates[index];
 		}
@@ -159,30 +197,69 @@
 		}
 	}
 
-	/** Flat list of all sequential_thinking section indices (in render order). */
-	const sequentialThinkingIndices = $derived(
-		sectionsParsed.reduce<number[]>((acc, s, i) => {
-			if (s.toolName === 'sequential_thinking') acc.push(i);
-			return acc;
-		}, [])
-	);
-
 	/**
-	 * All thought entries in order.
-	 * Prefers live store data when available so that edits made in the drawer
-	 * propagate here reactively. Falls back to parsing from persisted message
-	 * sections (e.g. after a page reload when the store is empty).
+	 * Check if this section is the first sequential_thinking section across ALL sections (global, not per-turn).
+	 * Used to determine where to render the single header-only stepper.
 	 */
-	const allThoughts = $derived.by((): ThoughtEntry[] => {
-		const storeThoughts = sequentialThinkingStore.getThoughtsForMessage(message.convId, message.id);
-		if (storeThoughts.length > 0) {
-			return storeThoughts;
+	function isFirstSeqThinkingGlobally(flatIndex: number): boolean {
+		const firstSeqThinkingIndex = sectionsParsed.findIndex(
+			(s: any) => s?.toolName === 'sequential_thinking'
+		);
+		return flatIndex === firstSeqThinkingIndex;
+	}
+
+	/** Get all sequential thinking thoughts across all turns. */
+	function getAllSeqThinkingThoughts(): ThoughtEntry[] {
+		const allThoughts: ThoughtEntry[] = [];
+		for (const turn of turnGroups) {
+			allThoughts.push(...getThoughtsForTurn(turn.flatIndices));
 		}
-		const fallbackThoughts = sequentialThinkingIndices
-			.map((i) => parseThoughtFromSection(sectionsParsed[i]))
-			.filter((t): t is ThoughtEntry => t !== null);
-		return fallbackThoughts;
-	});
+		// Deduplicate by thoughtNumber (same thought might appear from multiple source messages)
+		const seen = new SvelteMap<number, ThoughtEntry>();
+		for (const thought of allThoughts) {
+			if (!seen.has(thought.thoughtNumber)) {
+				seen.set(thought.thoughtNumber, thought);
+			}
+		}
+		const result = Array.from(seen.values());
+		result.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+		return result;
+	}
+
+	/** Get all thoughts for a specific turn group (by flat indices). */
+	function getThoughtsForTurn(turnFlatIndices: number[]): ThoughtEntry[] {
+		// Collect unique sourceMessageIds in this turn
+		const sourceIds = new SvelteSet<string>();
+		for (const idx of turnFlatIndices) {
+			const section = sectionsParsed[idx];
+			if (section?.toolName === 'sequential_thinking') {
+				sourceIds.add(section.sourceMessageId ?? message.id);
+			}
+		}
+		// Aggregate thoughts from all source messages in this turn
+		const allThoughts: ThoughtEntry[] = [];
+		for (const sourceId of sourceIds) {
+			const storeThoughts = sequentialThinkingStore.getThoughtsForMessage(message.convId, sourceId);
+			if (storeThoughts.length > 0) {
+				allThoughts.push(...storeThoughts);
+			} else {
+				// Fallback: parse from sections
+				for (const idx of turnFlatIndices) {
+					const section = sectionsParsed[idx];
+					if (
+						section?.toolName === 'sequential_thinking' &&
+						(section.sourceMessageId ?? message.id) === sourceId
+					) {
+						const parsed = parseThoughtFromSection(section);
+						if (parsed) allThoughts.push(parsed);
+					}
+				}
+			}
+		}
+		// Sort by thoughtNumber
+		allThoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+		return allThoughts;
+	}
 
 	function buildTurnAgenticTimings(stats: ChatMessageAgenticTurnStats): ChatMessageAgenticTimings {
 		return {
@@ -193,16 +270,6 @@
 			llm: stats.llm
 		};
 	}
-
-	// Auto-expand the latest sequential thought, collapse all previous ones.
-	$effect(() => {
-		const count = allThoughts.length;
-		const indices = sequentialThinkingIndices;
-		for (let k = 0; k < indices.length; k++) {
-			const flatIdx = indices[k];
-			expandedStates[flatIdx] = k === count - 1;
-		}
-	});
 
 	function handleSectionCopy(content: string) {
 		void copyToClipboard(content);
@@ -245,11 +312,10 @@
 
 {#snippet renderSection(section: (typeof sectionsParsed)[number], index: number)}
 	{#if section.toolName === 'sequential_thinking'}
-		{@const thoughtIdx = sequentialThinkingIndices.indexOf(index)}
-		{@const thought = thoughtIdx >= 0 ? (allThoughts[thoughtIdx] ?? null) : null}
-		{@const isThisStepActive =
-			isStreaming && thought != null && !thought.done && thoughtIdx === allThoughts.length - 1}
-		{#if sequentialThinkingIndices[0] === index}
+		{@const thought = parseThoughtFromSection(section)}
+		{@const isThisStepActive = isStreaming && thought != null && !thought.done}
+		{#if isFirstSeqThinkingGlobally(index)}
+			{@const allThoughts = getAllSeqThinkingThoughts()}
 			{#if allThoughts.length > 0 || isStreaming}
 				<div class="agentic-inline-block">
 					<ChatMessageThinkingSteps
@@ -457,6 +523,13 @@
 									<img
 										src={line.image.base64Url}
 										alt={line.image.name}
+										class="mt-2 mb-2 h-auto max-w-full rounded-lg"
+										loading="lazy"
+									/>
+								{:else if line.dataUri}
+									<img
+										src={line.dataUri}
+										alt=""
 										class="mt-2 mb-2 h-auto max-w-full rounded-lg"
 										loading="lazy"
 									/>

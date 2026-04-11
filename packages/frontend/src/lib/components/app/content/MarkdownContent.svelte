@@ -12,7 +12,6 @@
 	import type { Root as MdastRoot } from 'mdast';
 	import { browser } from '$app/environment';
 	import { onDestroy, tick } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
 	import { rehypeRestoreTableHtml } from '$lib/markdown/table-html-restorer';
 	import { rehypeEnhanceLinks } from '$lib/markdown/enhance-links';
 	import { rehypeEnhanceCodeBlocks } from '$lib/markdown/enhance-code-blocks';
@@ -70,9 +69,40 @@
 	let pendingMarkdown: string | null = null;
 	let isProcessing = false;
 
-	// Per-instance transform cache, avoids re-transforming stable blocks during streaming
-	// Garbage collected when component is destroyed (on conversation change)
-	const transformCache = new SvelteMap<string, string>();
+	// LRU cache for transformed MDAST nodes to avoid re-transforming stable blocks during streaming.
+	// Max size prevents unbounded growth during long conversations with many messages.
+	const TRANSFORM_CACHE_MAX_SIZE = 500;
+
+	class LruCache {
+		private map = new Map<string, string>();
+
+		get(key: string): string | undefined {
+			const val = this.map.get(key);
+			if (val !== undefined) {
+				// Re-insert to mark as most recently used
+				this.map.delete(key);
+				this.map.set(key, val);
+			}
+			return val;
+		}
+
+		set(key: string, value: string): void {
+			if (this.map.has(key)) {
+				this.map.delete(key);
+			} else if (this.map.size >= TRANSFORM_CACHE_MAX_SIZE) {
+				// Evict least recently used entry (first in Map insertion order)
+				const firstKey = this.map.keys().next().value;
+				if (firstKey !== undefined) this.map.delete(firstKey);
+			}
+			this.map.set(key, value);
+		}
+
+		clear(): void {
+			this.map.clear();
+		}
+	}
+
+	const transformCache = new LruCache();
 	let previousContent = '';
 
 	const themeStyleId = `highlight-theme-${(window.idxThemeStyle = (window.idxThemeStyle ?? 0) + 1)}`;
@@ -337,8 +367,9 @@
 	/**
 	 * Attaches pointer-based zoom/pan interaction to a rendered diagram container.
 	 * Supports mouse wheel zoom and pointer drag panning.
+	 * @returns A cleanup function that removes all attached event listeners.
 	 */
-	function attachZoomPan(container: HTMLElement) {
+	function attachZoomPan(container: HTMLElement): () => void {
 		let scale = 1;
 		let translateX = 0;
 		let translateY = 0;
@@ -383,6 +414,14 @@
 		container.addEventListener('pointermove', onPointerMove);
 		container.addEventListener('pointerup', onPointerUp);
 		container.addEventListener('pointercancel', onPointerUp);
+
+		return () => {
+			container.removeEventListener('wheel', onWheel);
+			container.removeEventListener('pointerdown', onPointerDown);
+			container.removeEventListener('pointermove', onPointerMove);
+			container.removeEventListener('pointerup', onPointerUp);
+			container.removeEventListener('pointercancel', onPointerUp);
+		};
 	}
 
 	/**
@@ -408,6 +447,9 @@
 		// Toggle back to code view if already rendered
 		const existing = wrapper.querySelector<HTMLElement>('.mermaid-render-container');
 		if (existing) {
+			// Clean up zoom/pan listeners before removing
+			const cleanup = (existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup;
+			cleanup?.();
 			existing.remove();
 			scrollContainer.style.display = '';
 			target.title = 'Render diagram';
@@ -439,7 +481,8 @@
 			scrollContainer.style.display = 'none';
 			wrapper.appendChild(renderContainer);
 
-			attachZoomPan(inner);
+			const cleanup = attachZoomPan(inner);
+			(renderContainer as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup = cleanup;
 
 			target.title = 'Show source';
 		} catch (err) {
@@ -473,6 +516,9 @@
 		// Toggle back to code view if already rendered
 		const existing = wrapper.querySelector<HTMLElement>('.svg-render-container');
 		if (existing) {
+			// Clean up zoom/pan listeners before removing
+			const cleanup = (existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup;
+			cleanup?.();
 			existing.remove();
 			scrollContainer.style.display = '';
 			target.title = 'Render SVG';
@@ -498,7 +544,8 @@
 			scrollContainer.style.display = 'none';
 			wrapper.appendChild(renderContainer);
 
-			attachZoomPan(inner);
+			const cleanup = attachZoomPan(inner);
+			(renderContainer as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup = cleanup;
 
 			target.title = 'Show source';
 		} catch (err) {

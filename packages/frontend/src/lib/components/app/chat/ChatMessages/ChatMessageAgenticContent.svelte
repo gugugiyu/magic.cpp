@@ -69,7 +69,8 @@
 	const filterOptions = $derived({
 		filterEmojiRemoval: config().filterEmojiRemoval as boolean,
 		filterCodeblockOnly: config().filterCodeblockOnly as boolean,
-		filterRawMode: config().filterRawMode as boolean
+		filterRawMode: config().filterRawMode as boolean,
+		filterNormalizeMarkdown: config().filterNormalizeMarkdown as boolean
 	});
 
 	const sections = $derived(deriveAgenticSections(message, toolMessages, [], isStreaming));

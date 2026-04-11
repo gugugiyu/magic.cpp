@@ -41,6 +41,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	filterCodeblockOnly: false,
 	filterRawMode: false,
 	filterLanguagePinner: false,
+	filterNormalizeMarkdown: true,
 	// sampling params: empty means "use server default"
 	// the server / preset is the source of truth
 	// empty values are shown as placeholders from /props in the UI
@@ -174,6 +175,8 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 	filterRawMode: 'Strip all Markdown formatting and display responses as plain text.',
 	filterLanguagePinner:
 		'Detect a language tag in your message (e.g. ![en] or ![fr]) and automatically instruct the model to respond in that language.',
+	filterNormalizeMarkdown:
+		'Perform various normalization and correction tasks on LLM output, recommended.',
 	builtinToolCalculator:
 		'Inject a calculator tool the model can call to evaluate arithmetic expressions without hallucinating results.',
 	builtinToolTime:

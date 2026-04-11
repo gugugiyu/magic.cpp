@@ -68,6 +68,7 @@ export const SETTINGS_KEYS = {
 	FILTER_CODEBLOCK_ONLY: 'filterCodeblockOnly',
 	FILTER_RAW_MODE: 'filterRawMode',
 	FILTER_LANGUAGE_PINNER: 'filterLanguagePinner',
+	FILTER_NORMALIZE_MARKDOWN: 'filterNormalizeMarkdown',
 	// Developer
 	DISABLE_REASONING_PARSING: 'disableReasoningParsing',
 	EXCLUDE_REASONING_FROM_CONTEXT: 'excludeReasoningFromContext',

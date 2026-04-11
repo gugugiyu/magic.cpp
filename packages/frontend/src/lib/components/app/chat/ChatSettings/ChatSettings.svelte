@@ -310,6 +310,11 @@
 			icon: ListFilter,
 			fields: [
 				{
+					key: SETTINGS_KEYS.FILTER_NORMALIZE_MARKDOWN,
+					label: 'Markdown normalizer',
+					type: SettingsFieldType.CHECKBOX
+				},
+				{
 					key: SETTINGS_KEYS.FILTER_EMOJI_REMOVAL,
 					label: 'Emoji removal',
 					type: SettingsFieldType.CHECKBOX

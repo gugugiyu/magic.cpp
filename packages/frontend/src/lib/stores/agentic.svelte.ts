@@ -362,8 +362,12 @@ class AgenticStore {
 				builtinToolNames,
 				agenticConfig,
 				mcpSummarizeOutputs: Boolean(settings.mcpSummarizeOutputs),
-				mcpSummarizeWordThreshold: (n => (Number.isNaN(n) ? 400 : n))(Number(settings.mcpSummarizeWordThreshold)),
-				mcpSummarizeHardCap: (n => (Number.isNaN(n) ? 800 : n))(Number(settings.mcpSummarizeHardCap)),
+				mcpSummarizeWordThreshold: ((n) => (Number.isNaN(n) ? 400 : n))(
+					Number(settings.mcpSummarizeWordThreshold)
+				),
+				mcpSummarizeHardCap: ((n) => (Number.isNaN(n) ? 800 : n))(
+					Number(settings.mcpSummarizeHardCap)
+				),
 				mcpSummarizeAllTools: Boolean(settings.mcpSummarizeAllTools),
 				callbacks,
 				signal

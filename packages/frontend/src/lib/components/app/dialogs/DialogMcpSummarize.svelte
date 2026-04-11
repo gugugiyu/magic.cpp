@@ -18,7 +18,7 @@
 
 	let settings = $derived(config());
 	let threshold = $derived(
-		(n => (Number.isNaN(n) ? 400 : n))(Number(settings.mcpSummarizeWordThreshold))
+		((n) => (Number.isNaN(n) ? 400 : n))(Number(settings.mcpSummarizeWordThreshold))
 	);
 	let isSubagentConfigured = $derived(subagentConfigStore.isConfigured);
 
@@ -99,7 +99,9 @@
 				<div class="space-y-1">
 					<Dialog.Title class="text-lg font-semibold">Long tool output detected</Dialog.Title>
 					<Dialog.Description class="text-sm text-muted-foreground">
-						<span class="font-mono text-xs font-medium text-foreground">{pendingRequest.toolName}</span>
+						<span class="font-mono text-xs font-medium text-foreground"
+							>{pendingRequest.toolName}</span
+						>
 						returned {wordCountLabel(pendingRequest.wordCount)} (soft threshold: {threshold} words, hard
 						cap: {pendingRequest.hardCap >= 0 ? pendingRequest.hardCap : 'disabled'} words).
 					</Dialog.Description>
@@ -120,11 +122,13 @@
 				<pre
 					class="font-mono text-xs break-words whitespace-pre-wrap text-muted-foreground {showFullPreview
 						? 'max-h-64 overflow-y-auto'
-						: ''}">{showFullPreview ? pendingRequest.rawOutput : previewSnippet(pendingRequest.rawOutput)}</pre>
+						: ''}">{showFullPreview
+						? pendingRequest.rawOutput
+						: previewSnippet(pendingRequest.rawOutput)}</pre>
 				{#if hasMore}
 					<button
 						type="button"
-						class="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+						class="mt-2 flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
 						onclick={() => (showFullPreview = !showFullPreview)}
 					>
 						{#if showFullPreview}
@@ -140,7 +144,9 @@
 
 			<!-- Subagent warning if not configured -->
 			{#if !isSubagentConfigured}
-				<div class="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-600 dark:text-amber-400">
+				<div
+					class="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-600 dark:text-amber-400"
+				>
 					<AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0" />
 					<span>
 						Subagent endpoint not configured — auto-summarize will not work.
@@ -181,7 +187,13 @@
 							fill="none"
 							viewBox="0 0 24 24"
 						>
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+							<circle
+								class="opacity-25"
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								stroke-width="4"
 							></circle>
 							<path
 								class="opacity-75"

@@ -2,7 +2,7 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { afterNavigate } from '$app/navigation';
-	import { ChatScreen, DialogModelNotAvailable } from '$lib/components/app';
+	import { ChatScreen, DialogModelNotAvailable, DialogMcpSummarize } from '$lib/components/app';
 	import { chatStore, isLoading } from '$lib/stores/chat.svelte';
 	import {
 		conversationsStore,
@@ -176,3 +176,5 @@
 	modelName={requestedModelName}
 	availableModels={availableModelNames}
 />
+
+<DialogMcpSummarize />

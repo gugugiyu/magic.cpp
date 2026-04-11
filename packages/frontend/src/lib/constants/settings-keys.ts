@@ -50,6 +50,10 @@ export const SETTINGS_KEYS = {
 	DRY_PENALTY_LAST_N: 'dry_penalty_last_n',
 	// MCP
 	AGENTIC_MAX_TURNS: 'agenticMaxTurns',
+	MCP_SUMMARIZE_OUTPUTS: 'mcpSummarizeOutputs',
+	MCP_SUMMARIZE_WORD_THRESHOLD: 'mcpSummarizeWordThreshold',
+	MCP_SUMMARIZE_HARD_CAP: 'mcpSummarizeHardCap',
+	MCP_SUMMARIZE_ALL_TOOLS: 'mcpSummarizeAllTools',
 	// Built-in tools
 	BUILTIN_TOOL_CALCULATOR: 'builtinToolCalculator',
 	BUILTIN_TOOL_TIME: 'builtinToolTime',

@@ -1,4 +1,4 @@
-import { AgenticSectionType, MessageRole } from '$lib/enums';
+import { AgenticSectionType, MessageRole, AttachmentType } from '$lib/enums';
 import { ATTACHMENT_SAVED_REGEX, NEWLINE_SEPARATOR } from '$lib/constants';
 import type { ApiChatCompletionToolCall } from '$lib/types/api';
 import type {
@@ -6,7 +6,6 @@ import type {
 	DatabaseMessageExtra,
 	DatabaseMessageExtraImageFile
 } from '$lib/types/database';
-import { AttachmentType } from '$lib/enums';
 
 /**
  * Represents a parsed section of agentic content for display
@@ -18,6 +17,10 @@ export interface AgenticSection {
 	toolArgs?: string;
 	toolResult?: string;
 	toolResultExtras?: DatabaseMessageExtra[];
+	/** Whether this tool result was summarized via the MCP harness */
+	wasSummarized?: boolean;
+	/** Whether this tool result was auto-cropped by the hard cap */
+	wasCropped?: boolean;
 	/** The message ID this section's content originated from. Used for per-section editing. */
 	sourceMessageId?: string;
 }
@@ -71,6 +74,14 @@ function deriveSingleTurnSections(
 	const toolCalls = parseToolCalls(message.toolCalls);
 	for (const tc of toolCalls) {
 		const resultMsg = toolMessages.find((m) => m.toolCallId === tc.id);
+		const wasSummarized =
+			resultMsg?.extra?.some(
+				(e) => e.type === AttachmentType.MCP_SUMMARY && e.name === 'summarized'
+			) ?? false;
+		const wasCropped =
+			resultMsg?.extra?.some(
+				(e) => e.type === AttachmentType.MCP_SUMMARY && e.name === 'cropped'
+			) ?? false;
 		sections.push({
 			type: resultMsg ? AgenticSectionType.TOOL_CALL : AgenticSectionType.TOOL_CALL_PENDING,
 			content: resultMsg?.content || '',
@@ -78,6 +89,8 @@ function deriveSingleTurnSections(
 			toolArgs: tc.function?.arguments,
 			toolResult: resultMsg?.content,
 			toolResultExtras: resultMsg?.extra,
+			wasSummarized,
+			wasCropped,
 			sourceMessageId: message.id
 		});
 	}

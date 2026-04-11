@@ -71,6 +71,12 @@ export interface DatabaseMessageExtraMcpResource {
 	mimeType?: string;
 }
 
+export interface DatabaseMessageExtraMcpSummary {
+	type: AttachmentType.MCP_SUMMARY;
+	name: string;
+	originalWordCount: number;
+}
+
 export type DatabaseMessageExtra =
 	| DatabaseMessageExtraImageFile
 	| DatabaseMessageExtraTextFile
@@ -78,6 +84,7 @@ export type DatabaseMessageExtra =
 	| DatabaseMessageExtraPdfFile
 	| DatabaseMessageExtraMcpPrompt
 	| DatabaseMessageExtraMcpResource
+	| DatabaseMessageExtraMcpSummary
 	| DatabaseMessageExtraLegacyContext;
 
 export interface DatabaseMessage {

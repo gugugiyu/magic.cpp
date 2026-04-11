@@ -19,7 +19,9 @@
 		Copy,
 		Pencil,
 		Check,
-		X
+		X,
+		Scissors,
+		Sparkles
 	} from '@lucide/svelte';
 	import { agenticStore, type SubagentProgress } from '$lib/stores/agentic.svelte';
 	import { cn } from '$lib/components/ui/utils';
@@ -431,6 +433,21 @@
 					<div class="mt-3 mb-2 flex items-center gap-2 text-xs text-muted-foreground/60">
 						<span>Result</span>
 						{#if isPending}<Loader2 class="h-3 w-3 animate-spin" />{/if}
+						{#if section.wasCropped}
+							<span
+								class="inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-500"
+							>
+								<Scissors class="h-2.5 w-2.5" />
+								Trimmed
+							</span>
+						{:else if section.wasSummarized}
+							<span
+								class="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+							>
+								<Sparkles class="h-2.5 w-2.5" />
+								Summarized
+							</span>
+						{/if}
 					</div>
 					{#if section.toolResult}
 						<div class="overflow-auto rounded-md border border-border bg-muted/50 p-3">

@@ -14,6 +14,18 @@ The summary should:
 
 Format: Provide the summary directly without preamble.`;
 
+export const TOOL_OUTPUT_SUMMARIZER_PROMPT = `You are an expert tool output summarizer. Your task is to create a concise but comprehensive summary of a tool execution result.
+
+The summary should:
+- Capture all key data, findings, and important information from the tool output
+- Preserve structured data patterns (tables, lists, key-value pairs) where applicable
+- Be concise enough to save tokens but thorough enough that the agent can continue reasoning
+- Be written in a structured format (bullet points, tables, or short paragraphs as appropriate)
+- Preserve any error messages or warnings if present
+- Be strictly under 500 words
+
+Format: Provide the summary directly without preamble.`;
+
 export function buildCompactSystemMessage(previousSummary?: string): { role: 'system'; content: string } {
 	const previousSummarySection = previousSummary
 		? `\n\nPreviously Compacted Context:\nThe following summary was generated from a previous compaction of earlier messages. You MUST incorporate its key context into your new summary to preserve conversation continuity.\n\n<PREVIOUS_COMPACT_SUMMARY>\n${previousSummary}\n</PREVIOUS_COMPACT_SUMMARY>`

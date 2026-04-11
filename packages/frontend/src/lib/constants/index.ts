@@ -39,4 +39,4 @@ export * from './tooltip-config';
 export * from './ui';
 export * from './uri-template';
 export * from './viewport';
-export * from '../../../../shared/constants/prompts-and-tools'
+export * from '../../../../shared/constants/prompts-and-tools';

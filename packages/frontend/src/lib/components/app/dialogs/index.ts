@@ -468,3 +468,22 @@ export { default as DialogMcpResources } from './DialogMcpResources.svelte';
  * ```
  */
 export { default as DialogMcpResourcePreview } from './DialogMcpResourcePreview.svelte';
+
+/**
+ * **DialogMcpSummarize** - MCP tool output summarization dialog
+ *
+ * Modal dialog shown when an MCP tool output exceeds the configured word threshold.
+ * Lets the user choose between keeping the raw output or auto-summarizing via
+ * the subagent endpoint for token efficiency.
+ *
+ * **Architecture:**
+ * - Uses ShadCN Dialog with blocking overlay (no close on outside click)
+ * - Integrates with mcpSummarizeHarness service for pause/resume
+ * - Reads pending request from reactive store
+ *
+ * @example
+ * ```svelte
+ * <DialogMcpSummarize />
+ * ```
+ */
+export { default as DialogMcpSummarize } from './DialogMcpSummarize.svelte';

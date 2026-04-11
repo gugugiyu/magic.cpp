@@ -297,6 +297,11 @@
 					key: SETTINGS_KEYS.SHOW_TOOL_CALL_IN_PROGRESS,
 					label: 'Show tool call in progress',
 					type: SettingsFieldType.CHECKBOX
+				},
+				{
+					key: SETTINGS_KEYS.MCP_SUMMARIZE_OUTPUTS,
+					label: 'Auto-summarize long tool outputs',
+					type: SettingsFieldType.CHECKBOX
 				}
 			]
 		},
@@ -606,6 +611,33 @@
 							onConfigChange={handleConfigChange}
 							onThemeChange={handleThemeChange}
 						/>
+
+						{#if localConfig.mcpSummarizeOutputs}
+							<div class="ml-1 space-y-4 border-l-2 border-border/40 pl-4">
+								<ChatSettingsFields
+									fields={[
+										{
+											key: SETTINGS_KEYS.MCP_SUMMARIZE_WORD_THRESHOLD,
+											label: 'Soft word threshold',
+											type: SettingsFieldType.INPUT
+										},
+										{
+											key: SETTINGS_KEYS.MCP_SUMMARIZE_HARD_CAP,
+											label: 'Hard word cap (-1 to disable)',
+											type: SettingsFieldType.INPUT
+										},
+										{
+											key: SETTINGS_KEYS.MCP_SUMMARIZE_ALL_TOOLS,
+											label: 'Apply to all tools (including built-in)',
+											type: SettingsFieldType.CHECKBOX
+										}
+									]}
+									{localConfig}
+									onConfigChange={handleConfigChange}
+									onThemeChange={handleThemeChange}
+								/>
+							</div>
+						{/if}
 
 						<div class="border-t border-border/30 pt-6">
 							<McpServersSettings />

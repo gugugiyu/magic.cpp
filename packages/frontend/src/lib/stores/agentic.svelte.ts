@@ -39,6 +39,11 @@ import {
 } from '$lib/constants';
 import { SUBAGENT_DEFAULT_PROMPT, BUILTIN_TOOLS } from '@shared/constants/prompts-and-tools';
 import {
+	processToolOutput as processMcpToolOutput,
+	countWords,
+	McpSummarizeCancelledError
+} from '$lib/services/mcp-summarize-harness';
+import {
 	IMAGE_MIME_TO_EXTENSION,
 	DATA_URI_BASE64_REGEX,
 	MCP_ATTACHMENT_NAME_PREFIX,
@@ -356,6 +361,10 @@ class AgenticStore {
 				tools,
 				builtinToolNames,
 				agenticConfig,
+				mcpSummarizeOutputs: Boolean(settings.mcpSummarizeOutputs),
+				mcpSummarizeWordThreshold: (n => (Number.isNaN(n) ? 400 : n))(Number(settings.mcpSummarizeWordThreshold)),
+				mcpSummarizeHardCap: (n => (Number.isNaN(n) ? 800 : n))(Number(settings.mcpSummarizeHardCap)),
+				mcpSummarizeAllTools: Boolean(settings.mcpSummarizeAllTools),
 				callbacks,
 				signal
 			});
@@ -384,6 +393,10 @@ class AgenticStore {
 		tools: OpenAIToolDefinition[];
 		builtinToolNames: Set<string>;
 		agenticConfig: AgenticConfig;
+		mcpSummarizeOutputs: boolean;
+		mcpSummarizeWordThreshold: number;
+		mcpSummarizeHardCap: number;
+		mcpSummarizeAllTools: boolean;
 		callbacks: AgenticFlowCallbacks;
 		signal?: AbortSignal;
 	}): Promise<void> {
@@ -394,6 +407,10 @@ class AgenticStore {
 			tools,
 			builtinToolNames,
 			agenticConfig,
+			mcpSummarizeOutputs,
+			mcpSummarizeWordThreshold,
+			mcpSummarizeHardCap,
+			mcpSummarizeAllTools,
 			callbacks,
 			signal
 		} = params;
@@ -678,7 +695,53 @@ class AgenticStore {
 					return;
 				}
 
-				const { cleanedResult, attachments } = this.extractBase64Attachments(result);
+				const { cleanedResult: rawCleanedResult, attachments } =
+					this.extractBase64Attachments(result);
+
+				// MCP response length harness: check if output exceeds threshold
+				const isMcpTool = !builtinToolNames.has(toolCall.function.name);
+				const summarizeEnabled = mcpSummarizeOutputs && (mcpSummarizeAllTools || isMcpTool);
+				let cleanedResult: string;
+				let wasSummarized: boolean;
+				let wasCropped: boolean;
+				try {
+					({
+						content: cleanedResult,
+						wasSummarized,
+						wasCropped
+					} = await processMcpToolOutput(
+						toolCall.function.name,
+						rawCleanedResult,
+						summarizeEnabled,
+						mcpSummarizeWordThreshold,
+						mcpSummarizeHardCap,
+						signal
+					));
+				} catch (error) {
+					if (error instanceof McpSummarizeCancelledError) {
+						onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+						return;
+					}
+					throw error;
+				}
+
+				// Build summary metadata extra if summarized or cropped
+				const summaryExtras: DatabaseMessageExtra[] = [];
+				if (wasSummarized) {
+					summaryExtras.push({
+						type: AttachmentType.MCP_SUMMARY,
+						name: 'summarized',
+						originalWordCount: countWords(rawCleanedResult)
+					});
+				} else if (wasCropped) {
+					summaryExtras.push({
+						type: AttachmentType.MCP_SUMMARY,
+						name: 'cropped',
+						originalWordCount: countWords(rawCleanedResult)
+					});
+				}
+
+				const allExtras = [...summaryExtras, ...attachments];
 
 				// Create the tool result message in the DB
 				let toolResultMessage: DatabaseMessage | undefined;
@@ -686,12 +749,12 @@ class AgenticStore {
 					toolResultMessage = await createToolResultMessage(
 						toolCall.id,
 						cleanedResult,
-						attachments.length > 0 ? attachments : undefined
+						allExtras.length > 0 ? allExtras : undefined
 					);
 				}
 
-				if (attachments.length > 0 && toolResultMessage) {
-					onAttachments?.(toolResultMessage.id, attachments);
+				if (allExtras.length > 0 && toolResultMessage) {
+					onAttachments?.(toolResultMessage.id, allExtras);
 				}
 
 				// Build content parts for session history (including images for vision models)
@@ -870,9 +933,7 @@ class AgenticStore {
 					const tName = t.function?.name;
 					return tName && tName !== 'call_subagent' && tName !== 'sequential_thinking';
 				});
-				const builtinNameSet = new SvelteSet(
-					BUILTIN_TOOLS.map((t) => t.function.name)
-				);
+				const builtinNameSet = new SvelteSet(BUILTIN_TOOLS.map((t) => t.function.name));
 				builtinNameSet.delete('call_subagent');
 
 				const endpoint = subagentConfigStore.getEndpoint();

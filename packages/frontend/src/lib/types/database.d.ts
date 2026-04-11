@@ -74,7 +74,7 @@ export interface DatabaseMessageExtraMcpResource {
 export interface DatabaseMessageExtraMcpSummary {
 	type: AttachmentType.MCP_SUMMARY;
 	name: string;
-	originalWordCount: number;
+	originalLineCount: number;
 }
 
 export type DatabaseMessageExtra =

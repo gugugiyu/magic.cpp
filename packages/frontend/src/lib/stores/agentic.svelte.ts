@@ -40,7 +40,7 @@ import {
 import { SUBAGENT_DEFAULT_PROMPT, BUILTIN_TOOLS } from '@shared/constants/prompts-and-tools';
 import {
 	processToolOutput as processMcpToolOutput,
-	countWords,
+	countLines,
 	McpSummarizeCancelledError
 } from '$lib/services/mcp-summarize-harness';
 import {
@@ -376,8 +376,8 @@ class AgenticStore {
 				builtinToolNames,
 				agenticConfig,
 				mcpSummarizeOutputs: Boolean(settings.mcpSummarizeOutputs),
-				mcpSummarizeWordThreshold: ((n) => (Number.isNaN(n) ? 400 : n))(
-					Number(settings.mcpSummarizeWordThreshold)
+				mcpSummarizeLineThreshold: ((n) => (Number.isNaN(n) ? 400 : n))(
+					Number(settings.mcpSummarizeLineThreshold)
 				),
 				mcpSummarizeHardCap: ((n) => (Number.isNaN(n) ? 800 : n))(
 					Number(settings.mcpSummarizeHardCap)
@@ -412,7 +412,7 @@ class AgenticStore {
 		builtinToolNames: Set<string>;
 		agenticConfig: AgenticConfig;
 		mcpSummarizeOutputs: boolean;
-		mcpSummarizeWordThreshold: number;
+		mcpSummarizeLineThreshold: number;
 		mcpSummarizeHardCap: number;
 		mcpSummarizeAllTools: boolean;
 		callbacks: AgenticFlowCallbacks;
@@ -426,7 +426,7 @@ class AgenticStore {
 			builtinToolNames,
 			agenticConfig,
 			mcpSummarizeOutputs,
-			mcpSummarizeWordThreshold,
+			mcpSummarizeLineThreshold,
 			mcpSummarizeHardCap,
 			mcpSummarizeAllTools,
 			callbacks,
@@ -514,6 +514,15 @@ class AgenticStore {
 						onToolCallChunk: (serialized: string) => {
 							try {
 								turnToolCalls = JSON.parse(serialized) as ApiChatCompletionToolCall[];
+								if (import.meta.env.DEV) {
+									console.log(
+										'[agentic onToolCallChunk] turn=',
+										turn + 1,
+										'count=',
+										turnToolCalls.length,
+										turnToolCalls.map((c) => c.function?.name).join(', ') || '(empty)'
+									);
+								}
 								onToolCallsStreaming?.(turnToolCalls);
 
 								if (turnToolCalls.length > 0 && turnToolCalls[0]?.function) {
@@ -540,8 +549,15 @@ class AgenticStore {
 										}
 									}
 								}
-							} catch {
-								/* Ignore parse errors during streaming */
+							} catch (e) {
+								if (import.meta.env.DEV) {
+									console.warn(
+										'[agentic onToolCallChunk] JSON parse error:',
+										e,
+										'raw:',
+										serialized.slice(0, 200)
+									);
+								}
 							}
 						},
 						onModel,
@@ -601,7 +617,22 @@ class AgenticStore {
 			}
 
 			// No tool calls = final turn, save and complete
+			if (import.meta.env.DEV) {
+				console.log(
+					'[agentic turn complete] turn=',
+					turn + 1,
+					'content_len=',
+					turnContent.length,
+					'toolCalls=',
+					turnToolCalls.length,
+					'reasoning_len=',
+					turnReasoningContent.length
+				);
+			}
 			if (turnToolCalls.length === 0) {
+				if (import.meta.env.DEV) {
+					console.log('[agentic] FINAL TURN detected (no tool calls)');
+				}
 				agenticTimings.perTurn!.push(turnStats);
 
 				const finalTimings = this.buildFinalTimings(capturedTimings, agenticTimings);
@@ -741,7 +772,7 @@ class AgenticStore {
 						toolCall.function.name,
 						rawCleanedResult,
 						summarizeEnabled,
-						mcpSummarizeWordThreshold,
+						mcpSummarizeLineThreshold,
 						mcpSummarizeHardCap,
 						signal
 					));
@@ -759,13 +790,13 @@ class AgenticStore {
 					summaryExtras.push({
 						type: AttachmentType.MCP_SUMMARY,
 						name: 'summarized',
-						originalWordCount: countWords(rawCleanedResult)
+						originalLineCount: countLines(rawCleanedResult)
 					});
 				} else if (wasCropped) {
 					summaryExtras.push({
 						type: AttachmentType.MCP_SUMMARY,
 						name: 'cropped',
-						originalWordCount: countWords(rawCleanedResult)
+						originalLineCount: countLines(rawCleanedResult)
 					});
 				}
 

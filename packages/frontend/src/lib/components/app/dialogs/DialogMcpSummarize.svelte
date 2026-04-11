@@ -18,7 +18,7 @@
 
 	let settings = $derived(config());
 	let threshold = $derived(
-		((n) => (Number.isNaN(n) ? 400 : n))(Number(settings.mcpSummarizeWordThreshold))
+		((n) => (Number.isNaN(n) ? 400 : n))(Number(settings.mcpSummarizeLineThreshold))
 	);
 	let isSubagentConfigured = $derived(subagentConfigStore.isConfigured);
 
@@ -68,7 +68,7 @@
 	}
 
 	function wordCountLabel(count: number): string {
-		return `${count.toLocaleString()} words`;
+		return `${count.toLocaleString()} lines`;
 	}
 
 	const PREVIEW_LINES = 6;
@@ -102,8 +102,8 @@
 						<span class="font-mono text-xs font-medium text-foreground"
 							>{pendingRequest.toolName}</span
 						>
-						returned {wordCountLabel(pendingRequest.wordCount)} (soft threshold: {threshold} words, hard
-						cap: {pendingRequest.hardCap >= 0 ? pendingRequest.hardCap : 'disabled'} words).
+						returned {wordCountLabel(pendingRequest.lineCount)} (soft threshold: {threshold} lines, hard
+						cap: {pendingRequest.hardCap >= 0 ? pendingRequest.hardCap : 'disabled'} lines).
 					</Dialog.Description>
 				</div>
 				<button

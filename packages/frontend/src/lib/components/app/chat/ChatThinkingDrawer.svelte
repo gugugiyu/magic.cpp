@@ -7,6 +7,7 @@
 	import { agenticStreamingToolCall } from '$lib/stores/agentic.svelte';
 	import { isChatStreaming } from '$lib/stores/chat.svelte';
 	import { config } from '$lib/stores/settings.svelte';
+	import { countWords, truncateToWords } from '$lib/utils/text';
 
 	interface Props {
 		open: boolean;
@@ -21,16 +22,6 @@
 	let scrollContainer = $state<HTMLDivElement | undefined>(undefined);
 
 	const DEFAULT_VISIBLE_WORDS = 110;
-
-	function countWords(text: string): number {
-		return text.trim().split(/\s+/).length;
-	}
-
-	function truncateToWords(text: string, maxWords: number): string {
-		const words = text.trim().split(/\s+/);
-		if (words.length <= maxWords) return text.trim();
-		return words.slice(0, maxWords).join(' ') + '…';
-	}
 
 	function stepKey(messageId: string, stepIndex: number): string {
 		return `${messageId}-${stepIndex}`;

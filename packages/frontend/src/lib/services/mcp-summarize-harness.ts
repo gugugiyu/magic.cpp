@@ -58,10 +58,10 @@ export function countLines(text: string): number {
 }
 
 /**
- * Check if tool output exceeds the word threshold
+ * Check if tool output exceeds the line threshold
  */
 export function exceedsThreshold(output: string, threshold: number): boolean {
-	return countWords(output) > threshold;
+	return countLines(output) > threshold;
 }
 
 /**
@@ -72,30 +72,33 @@ export function isHardCapEnabled(hardCap: number): boolean {
 }
 
 /**
- * Crop output to the hard cap word limit, preserving line structure.
- * Returns cropped content + lines remaining after the cut point.
+ * Crop output to the hard cap line limit using a head + tail approach.
+ * Keeps the first (hardCap - tailLines) lines and the last tailLines lines,
+ * with a "[... X lines trimmed ...]" marker in the middle.
+ * Default tail is 100 lines.
  */
 export function cropToHardCap(
 	output: string,
-	hardCap: number
+	hardCap: number,
+	tailLines: number = 100
 ): { content: string; linesLeft: number } {
 	const lines = output.split('\n');
-	let wordCount = 0;
+	const totalLines = lines.length;
 
-	for (let i = 0; i < lines.length; i++) {
-		const trimmed = lines[i].trim();
-		const lineWords = trimmed ? trimmed.split(/\s+/).length : 0;
-		if (wordCount + lineWords > hardCap) {
-			const linesLeft = lines.length - i;
-			return {
-				content: `${lines.slice(0, i).join('\n')}\n\n[trimmed output, ~${linesLeft} lines left]`,
-				linesLeft
-			};
-		}
-		wordCount += lineWords;
+	if (totalLines <= hardCap) {
+		return { content: output, linesLeft: 0 };
 	}
 
-	return { content: output, linesLeft: 0 };
+	const headLines = Math.max(0, hardCap - tailLines);
+	const trimmedCount = totalLines - hardCap;
+
+	const head = lines.slice(0, headLines);
+	const tail = lines.slice(totalLines - tailLines);
+
+	return {
+		content: [...head, `\n[... ${trimmedCount} lines trimmed ...]\n`, ...tail].join('\n'),
+		linesLeft: 0
+	};
 }
 
 /**
@@ -192,7 +195,7 @@ export interface PendingSummarizeRequest {
 	id: string;
 	toolName: string;
 	rawOutput: string;
-	wordCount: number;
+	lineCount: number;
 	hardCap: number;
 	resolve: (result: false | 'cancel' | string) => void;
 }
@@ -285,7 +288,7 @@ export async function processToolOutput(
 		return { content: output, wasSummarized: false, wasCropped: false, linesLeft: 0 };
 	}
 
-	const wordCount = countWords(output);
+	const lineCount = countLines(output);
 	const id = `summarize_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
 	// result:
@@ -297,7 +300,7 @@ export async function processToolOutput(
 			id,
 			toolName,
 			rawOutput: output,
-			wordCount,
+			lineCount,
 			hardCap,
 			resolve
 		};

@@ -10,7 +10,6 @@
 	import rehypeStringify from 'rehype-stringify';
 	import type { Root as HastRoot, RootContent as HastRootContent } from 'hast';
 	import type { Root as MdastRoot } from 'mdast';
-	import { browser } from '$app/environment';
 	import { onDestroy, tick } from 'svelte';
 	import { rehypeRestoreTableHtml } from '$lib/markdown/table-html-restorer';
 	import { rehypeEnhanceLinks } from '$lib/markdown/enhance-links';
@@ -30,11 +29,16 @@
 	import { FileTypeText } from '$lib/enums/files';
 	import { highlightCode, detectIncompleteCodeBlock, type IncompleteCodeBlock } from '$lib/utils';
 	import '$styles/katex-custom.scss';
-	import githubDarkCss from 'highlight.js/styles/github-dark.css?inline';
-	import githubLightCss from 'highlight.js/styles/github.css?inline';
 	import { mode } from 'mode-watcher';
+	import {
+		acquireHighlightTheme,
+		releaseHighlightTheme,
+		applyHighlightTheme
+	} from '$lib/utils/highlight-theme';
+	import { renderMermaidDiagram, renderSvgDiagram } from '$lib/utils/diagram-renderer';
 	import { ActionIconsCodeBlock, DialogCodePreview } from '$lib/components/app';
 	import { createAutoScrollController } from '$lib/hooks/use-auto-scroll.svelte';
+	import { ArrowDown } from '@lucide/svelte';
 	import type { DatabaseMessageExtra } from '$lib/types/database';
 	import { config } from '$lib/stores/settings.svelte';
 	import { fadeInView } from '$lib/actions/fade-in-view.svelte';
@@ -62,6 +66,7 @@
 	let previewCode = $state('');
 	let previewLanguage = $state('text');
 	let streamingCodeScrollContainer = $state<HTMLDivElement>();
+	let showScrollToBottom = $state(false);
 
 	// Auto-scroll controller for streaming code block content
 	const streamingAutoScroll = createAutoScrollController();
@@ -105,7 +110,7 @@
 	const transformCache = new LruCache();
 	let previousContent = '';
 
-	const themeStyleId = `highlight-theme-${(window.idxThemeStyle = (window.idxThemeStyle ?? 0) + 1)}`;
+	acquireHighlightTheme();
 
 	let processor = $derived(() => {
 		void attachments;
@@ -165,35 +170,6 @@
 		for (const button of svgButtons) {
 			button.removeEventListener('click', handleSvgRenderClick);
 		}
-	}
-
-	/**
-	 * Removes this component's highlight.js theme style from the document head.
-	 * Called on component destroy to clean up injected styles.
-	 */
-	function cleanupHighlightTheme() {
-		if (!browser) return;
-
-		const existingTheme = document.getElementById(themeStyleId);
-		existingTheme?.remove();
-	}
-
-	/**
-	 * Loads the appropriate highlight.js theme based on dark/light mode.
-	 * Injects a scoped style element into the document head.
-	 * @param isDark - Whether to load the dark theme (true) or light theme (false)
-	 */
-	function loadHighlightTheme(isDark: boolean) {
-		if (!browser) return;
-
-		const existingTheme = document.getElementById(themeStyleId);
-		existingTheme?.remove();
-
-		const style = document.createElement('style');
-		style.id = themeStyleId;
-		style.textContent = isDark ? githubDarkCss : githubLightCss;
-
-		document.head.appendChild(style);
 	}
 
 	/**
@@ -365,66 +341,6 @@
 	}
 
 	/**
-	 * Attaches pointer-based zoom/pan interaction to a rendered diagram container.
-	 * Supports mouse wheel zoom and pointer drag panning.
-	 * @returns A cleanup function that removes all attached event listeners.
-	 */
-	function attachZoomPan(container: HTMLElement): () => void {
-		let scale = 1;
-		let translateX = 0;
-		let translateY = 0;
-		let isDragging = false;
-		let lastX = 0;
-		let lastY = 0;
-
-		function applyTransform() {
-			container.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-			container.style.transformOrigin = '0 0';
-		}
-
-		function onWheel(e: WheelEvent) {
-			e.preventDefault();
-			const delta = e.deltaY > 0 ? 0.9 : 1.1;
-			scale = Math.min(Math.max(scale * delta, 0.2), 8);
-			applyTransform();
-		}
-
-		function onPointerDown(e: PointerEvent) {
-			isDragging = true;
-			lastX = e.clientX;
-			lastY = e.clientY;
-			container.setPointerCapture(e.pointerId);
-		}
-
-		function onPointerMove(e: PointerEvent) {
-			if (!isDragging) return;
-			translateX += e.clientX - lastX;
-			translateY += e.clientY - lastY;
-			lastX = e.clientX;
-			lastY = e.clientY;
-			applyTransform();
-		}
-
-		function onPointerUp() {
-			isDragging = false;
-		}
-
-		container.addEventListener('wheel', onWheel, { passive: false });
-		container.addEventListener('pointerdown', onPointerDown);
-		container.addEventListener('pointermove', onPointerMove);
-		container.addEventListener('pointerup', onPointerUp);
-		container.addEventListener('pointercancel', onPointerUp);
-
-		return () => {
-			container.removeEventListener('wheel', onWheel);
-			container.removeEventListener('pointerdown', onPointerDown);
-			container.removeEventListener('pointermove', onPointerMove);
-			container.removeEventListener('pointerup', onPointerUp);
-			container.removeEventListener('pointercancel', onPointerUp);
-		};
-	}
-
-	/**
 	 * Handles click on "Render diagram" button for mermaid code blocks.
 	 * Lazy-loads mermaid, renders the diagram as SVG, and replaces the code view.
 	 */
@@ -447,9 +363,7 @@
 		// Toggle back to code view if already rendered
 		const existing = wrapper.querySelector<HTMLElement>('.mermaid-render-container');
 		if (existing) {
-			// Clean up zoom/pan listeners before removing
-			const cleanup = (existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup;
-			cleanup?.();
+			(existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup?.();
 			existing.remove();
 			scrollContainer.style.display = '';
 			target.title = 'Render diagram';
@@ -460,30 +374,12 @@
 		target.title = 'Rendering…';
 
 		try {
-			const mermaid = (await import('mermaid')).default;
-			const isDark = mode.current === ColorMode.DARK;
-
-			mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
-
-			const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-			const { svg } = await mermaid.render(id, info.rawCode);
-
-			const renderContainer = document.createElement('div');
-			renderContainer.className = 'mermaid-render-container';
-			renderContainer.style.cssText =
-				'overflow:hidden;cursor:grab;position:relative;min-height:200px;';
-
-			const inner = document.createElement('div');
-			inner.innerHTML = svg;
-			inner.style.cssText = 'display:inline-block;';
-			renderContainer.appendChild(inner);
-
-			scrollContainer.style.display = 'none';
-			wrapper.appendChild(renderContainer);
-
-			const cleanup = attachZoomPan(inner);
-			(renderContainer as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup = cleanup;
-
+			await renderMermaidDiagram(
+				wrapper,
+				scrollContainer,
+				info.rawCode,
+				mode.current === ColorMode.DARK
+			);
 			target.title = 'Show source';
 		} catch (err) {
 			console.error('Mermaid render failed:', err);
@@ -516,40 +412,24 @@
 		// Toggle back to code view if already rendered
 		const existing = wrapper.querySelector<HTMLElement>('.svg-render-container');
 		if (existing) {
-			// Clean up zoom/pan listeners before removing
-			const cleanup = (existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup;
-			cleanup?.();
+			(existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup?.();
 			existing.remove();
 			scrollContainer.style.display = '';
 			target.title = 'Render SVG';
 			return;
 		}
 
+		target.disabled = true;
+		target.title = 'Rendering…';
+
 		try {
-			const DOMPurify = (await import('dompurify')).default;
-			const clean = DOMPurify.sanitize(info.rawCode, {
-				USE_PROFILES: { svg: true, svgFilters: true }
-			});
-
-			const renderContainer = document.createElement('div');
-			renderContainer.className = 'svg-render-container';
-			renderContainer.style.cssText =
-				'overflow:hidden;cursor:grab;position:relative;min-height:80px;';
-
-			const inner = document.createElement('div');
-			inner.innerHTML = clean;
-			inner.style.cssText = 'display:inline-block;';
-			renderContainer.appendChild(inner);
-
-			scrollContainer.style.display = 'none';
-			wrapper.appendChild(renderContainer);
-
-			const cleanup = attachZoomPan(inner);
-			(renderContainer as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup = cleanup;
-
+			await renderSvgDiagram(wrapper, scrollContainer, info.rawCode);
 			target.title = 'Show source';
 		} catch (err) {
 			console.error('SVG render failed:', err);
+			target.title = 'Render SVG';
+		} finally {
+			target.disabled = false;
 		}
 	}
 
@@ -804,7 +684,7 @@
 		const currentMode = mode.current;
 		const isDark = currentMode === ColorMode.DARK;
 
-		loadHighlightTheme(isDark);
+		applyHighlightTheme(isDark);
 	});
 
 	$effect(() => {
@@ -832,7 +712,7 @@
 
 	onDestroy(() => {
 		cleanupEventListeners();
-		cleanupHighlightTheme();
+		releaseHighlightTheme();
 		streamingAutoScroll.destroy();
 	});
 </script>
@@ -875,7 +755,10 @@
 			<div
 				bind:this={streamingCodeScrollContainer}
 				class="streaming-code-scroll-container"
-				onscroll={() => streamingAutoScroll.handleScroll()}
+				onscroll={() => {
+					streamingAutoScroll.handleScroll();
+					showScrollToBottom = !streamingAutoScroll.autoScrollEnabled;
+				}}
 			>
 				<pre class="streaming-code-pre"><code
 						class="hljs language-{incompleteCodeBlock.language || 'text'}"
@@ -885,6 +768,20 @@
 						)}</code
 					></pre>
 			</div>
+			{#if showScrollToBottom}
+				<button
+					type="button"
+					class="scroll-to-bottom-btn"
+					onclick={() => {
+						streamingAutoScroll.scrollToBottom('smooth');
+						streamingAutoScroll.enable();
+						showScrollToBottom = false;
+					}}
+					title="Scroll to bottom"
+				>
+					<ArrowDown class="h-4 w-4" />
+				</button>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -910,6 +807,30 @@
 		border-radius: 0;
 		border: none;
 		font-size: 0.875rem;
+	}
+
+	.scroll-to-bottom-btn {
+		position: absolute;
+		bottom: 0.75rem;
+		right: 0.75rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 9999px;
+		border: 1px solid hsl(var(--border));
+		background: hsl(var(--background) / 0.9);
+		color: hsl(var(--foreground));
+		cursor: pointer;
+		transition: all 0.15s ease;
+		backdrop-filter: blur(8px);
+		z-index: 10;
+	}
+
+	.scroll-to-bottom-btn:hover {
+		background: hsl(var(--muted));
+		transform: scale(1.05);
 	}
 
 	/* Base typography styles */
@@ -1460,5 +1381,28 @@
 	div :global(.image-error-link:hover) {
 		background: var(--muted);
 		border-color: var(--primary);
+	}
+
+	div :global(.diagram-render-skeleton) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 120px;
+		width: 100%;
+	}
+
+	div :global(.diagram-render-spinner) {
+		width: 28px;
+		height: 28px;
+		border: 3px solid var(--border);
+		border-top-color: var(--primary);
+		border-radius: 50%;
+		animation: diagram-spin 0.7s linear infinite;
+	}
+
+	@keyframes diagram-spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>

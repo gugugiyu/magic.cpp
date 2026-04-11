@@ -1,11 +1,13 @@
 <script lang="ts">
 	import hljs from 'highlight.js';
-	import { browser } from '$app/environment';
+	import { onDestroy } from 'svelte';
 	import { mode } from 'mode-watcher';
-
-	import githubDarkCss from 'highlight.js/styles/github-dark.css?inline';
-	import githubLightCss from 'highlight.js/styles/github.css?inline';
 	import { ColorMode } from '$lib/enums';
+	import {
+		acquireHighlightTheme,
+		releaseHighlightTheme,
+		applyHighlightTheme
+	} from '$lib/utils/highlight-theme';
 
 	interface Props {
 		code: string;
@@ -25,24 +27,11 @@
 
 	let highlightedHtml = $state('');
 
-	function loadHighlightTheme(isDark: boolean) {
-		if (!browser) return;
-
-		const existingThemes = document.querySelectorAll('style[data-highlight-theme-preview]');
-		existingThemes.forEach((style) => style.remove());
-
-		const style = document.createElement('style');
-		style.setAttribute('data-highlight-theme-preview', 'true');
-		style.textContent = isDark ? githubDarkCss : githubLightCss;
-
-		document.head.appendChild(style);
-	}
+	acquireHighlightTheme();
+	onDestroy(releaseHighlightTheme);
 
 	$effect(() => {
-		const currentMode = mode.current;
-		const isDark = currentMode === ColorMode.DARK;
-
-		loadHighlightTheme(isDark);
+		applyHighlightTheme(mode.current === ColorMode.DARK);
 	});
 
 	$effect(() => {

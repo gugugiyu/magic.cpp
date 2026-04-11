@@ -7,7 +7,6 @@ import { applyCorsHeaders, corsHeaders } from './utils/cors.ts';
 const config = loadConfig();
 const pool = new ModelPool(config);
 const heartbeat = new Heartbeat(pool, config);
-
 if (config.debug) {
 	console.log('[debug] DEBUG MODE ON, DO NOT USE IN PRODUCTION');
 }

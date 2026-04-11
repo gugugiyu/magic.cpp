@@ -408,7 +408,11 @@ export class ChatService {
 			const serializedToolCalls = JSON.stringify(aggregatedToolCalls);
 
 			if (import.meta.env.DEV) {
-				console.log('[ChatService] Aggregated tool calls:', serializedToolCalls);
+				console.log(
+					'[ChatService] toolCall delta, aggregated:',
+					aggregatedToolCalls.length,
+					aggregatedToolCalls.map((c) => c.function?.name || '?').join(', ')
+				);
 			}
 
 			if (!serializedToolCalls) {
@@ -502,6 +506,27 @@ export class ChatService {
 				const finalToolCalls =
 					aggregatedToolCalls.length > 0 ? JSON.stringify(aggregatedToolCalls) : undefined;
 
+				onComplete?.(
+					aggregatedContent,
+					fullReasoningContent || undefined,
+					lastTimings,
+					finalToolCalls
+				);
+			} else {
+				// Stream ended without [DONE] — likely a timeout or connection drop.
+				// This can happen when the upstream proxy times out or the connection
+				// is silently terminated. Still call onComplete so the UI doesn't hang.
+				if (import.meta.env.DEV) {
+					console.warn(
+						'[ChatService] stream ended without [DONE] — content:',
+						aggregatedContent.length,
+						'toolCalls:',
+						aggregatedToolCalls.length
+					);
+				}
+				finalizeOpenToolCallBatch();
+				const finalToolCalls =
+					aggregatedToolCalls.length > 0 ? JSON.stringify(aggregatedToolCalls) : undefined;
 				onComplete?.(
 					aggregatedContent,
 					fullReasoningContent || undefined,

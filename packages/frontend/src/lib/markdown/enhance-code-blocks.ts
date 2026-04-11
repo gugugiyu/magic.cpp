@@ -72,7 +72,8 @@ function createCopyButton(codeId: string): Element {
 		properties: {
 			className: [COPY_CODE_BTN_CLASS],
 			'data-code-id': codeId,
-			title: 'Copy code',
+			title: 'Copy code to clipboard',
+			'aria-label': 'Copy code to clipboard',
 			type: 'button'
 		},
 		children: [createRawHtmlElement(COPY_ICON_SVG)]
@@ -86,7 +87,8 @@ function createPreviewButton(codeId: string): Element {
 		properties: {
 			className: [PREVIEW_CODE_BTN_CLASS],
 			'data-code-id': codeId,
-			title: 'Preview code',
+			title: 'Preview rendered HTML',
+			'aria-label': 'Preview rendered HTML',
 			type: 'button'
 		},
 		children: [createRawHtmlElement(PREVIEW_ICON_SVG)]
@@ -100,7 +102,8 @@ function createMermaidRenderButton(codeId: string): Element {
 		properties: {
 			className: [MERMAID_RENDER_BTN_CLASS],
 			'data-code-id': codeId,
-			title: 'Render diagram',
+			title: 'Render as interactive diagram',
+			'aria-label': 'Render as interactive diagram',
 			type: 'button'
 		},
 		children: [createRawHtmlElement(MERMAID_RENDER_ICON_SVG)]
@@ -114,7 +117,8 @@ function createSvgRenderButton(codeId: string): Element {
 		properties: {
 			className: [SVG_RENDER_BTN_CLASS],
 			'data-code-id': codeId,
-			title: 'Render SVG',
+			title: 'Render SVG image',
+			'aria-label': 'Render SVG image',
 			type: 'button'
 		},
 		children: [createRawHtmlElement(SVG_RENDER_ICON_SVG)]

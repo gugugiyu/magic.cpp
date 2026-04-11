@@ -31,7 +31,7 @@
 
 	{#if showPreview}
 		<button
-			class="preview-code-btn"
+			class="preview-code-btn z-99"
 			class:opacity-50={disabled}
 			class:!cursor-not-allowed={disabled}
 			title={disabled ? 'Code incomplete' : 'Preview code'}

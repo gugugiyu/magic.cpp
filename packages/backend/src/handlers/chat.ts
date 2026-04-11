@@ -143,6 +143,7 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 						if (line.startsWith('data: ')) {
 							const content = extractContent(line);
 							if (content === null) {
+								// [DONE] or no content field (e.g., tool_calls only) — forward immediately
 								controller.enqueue(encoder.encode(line + '\n'));
 								continue;
 							}

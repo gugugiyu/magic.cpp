@@ -51,7 +51,7 @@ export const SETTINGS_KEYS = {
 	// MCP
 	AGENTIC_MAX_TURNS: 'agenticMaxTurns',
 	MCP_SUMMARIZE_OUTPUTS: 'mcpSummarizeOutputs',
-	MCP_SUMMARIZE_WORD_THRESHOLD: 'mcpSummarizeWordThreshold',
+	MCP_SUMMARIZE_LINE_THRESHOLD: 'mcpSummarizeLineThreshold',
 	MCP_SUMMARIZE_HARD_CAP: 'mcpSummarizeHardCap',
 	MCP_SUMMARIZE_ALL_TOOLS: 'mcpSummarizeAllTools',
 	// Built-in tools

@@ -4,6 +4,7 @@
 	import { cn } from '$lib/components/ui/utils';
 	import { agenticStreamingToolCall } from '$lib/stores/agentic.svelte';
 	import type { ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
+	import { countWords, truncateToWords } from '$lib/utils/text';
 
 	interface Props {
 		thoughts: ThoughtEntry[];
@@ -49,16 +50,6 @@
 		if (totalSteps === 0) return 0;
 		return Math.min(100, (thoughts.length / totalSteps) * 100);
 	});
-
-	function countWords(text: string): number {
-		return text.trim().split(/\s+/).length;
-	}
-
-	function truncateToWords(text: string, maxWords: number): string {
-		const words = text.trim().split(/\s+/);
-		if (words.length <= maxWords) return text.trim();
-		return words.slice(0, maxWords).join(' ') + '…';
-	}
 
 	function toggleExpanded(index: number) {
 		if (expandedSteps.has(index)) {

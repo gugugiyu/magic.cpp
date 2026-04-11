@@ -11,7 +11,6 @@
 	} from '$lib/stores/sequential-thinking.svelte';
 	import { config } from '$lib/stores/settings.svelte';
 	import {
-		Wrench,
 		Loader2,
 		ChevronRight,
 		Bot,
@@ -19,6 +18,8 @@
 		Copy,
 		Pencil,
 		Check,
+		CheckCircle,
+		AlertCircle,
 		X,
 		Scissors,
 		Sparkles
@@ -27,6 +28,7 @@
 	import { cn } from '$lib/components/ui/utils';
 	import { AgenticSectionType, FileTypeText } from '$lib/enums';
 	import { formatJsonPretty, applyResponseFilters, copyToClipboard } from '$lib/utils';
+	import { truncateToWords } from '$lib/utils/text';
 	import {
 		deriveAgenticSections,
 		parseToolResultWithImages,
@@ -50,8 +52,8 @@
 	let { message, toolMessages = [], isStreaming = false, highlightTurns = false }: Props = $props();
 
 	let expandedStates: Record<number, boolean> = $state({});
-	/** Track which sequential_thinking section indices have been expanded during streaming. */
-	let seqThinkingExpanded = new SvelteSet();
+	/** Track whether the sequential thinking header is expanded to show individual steps. */
+	let seqThinkingHeaderExpanded = $state(false);
 
 	// Per-section editing state
 	let editingSectionIndex = $state<number | null>(null);
@@ -74,7 +76,7 @@
 
 	// Parse tool results with images
 	const sectionsParsed = $derived(
-		sections.map((section: any) => ({
+		sections.map((section: AgenticSection) => ({
 			...section,
 			parsedLines: section.toolResult
 				? parseToolResultWithImages(section.toolResult, section.toolResultExtras || message?.extra)
@@ -132,8 +134,7 @@
 
 	/**
 	 * Determines if a section is expanded.
-	 * For sequential_thinking sections: auto-expands the latest one per turn and keeps previously
-	 * expanded ones expanded during streaming (no flash/collapse).
+	 * For sequential_thinking sections: auto-expands during streaming, collapses when done.
 	 * For other sections: respects manual toggle state or default expansion rules.
 	 */
 	function isExpanded(index: number, section: AgenticSection): boolean {
@@ -143,24 +144,10 @@
 			if (expandedStates[index] !== undefined) {
 				return expandedStates[index];
 			}
-			// During streaming: expand the latest sequential thinking section per turn,
-			// and keep all previously-expanded sections expanded (no flash/collapse)
-			for (const turn of turnGroups) {
-				if (turn.flatIndices.includes(index)) {
-					const seqThinkingInTurn = turn.flatIndices.filter(
-						(idx) => sectionsParsed[idx]?.toolName === 'sequential_thinking'
-					);
-					const lastIndex = seqThinkingInTurn[seqThinkingInTurn.length - 1];
-					// Auto-expand the latest one and track it
-					if (isStreaming) {
-						if (index === lastIndex) {
-							seqThinkingExpanded.add(index);
-						}
-						return seqThinkingExpanded.has(index);
-					}
-					// When not streaming, collapse all (user can re-expand manually)
-					return false;
-				}
+			// During streaming: expand all sequential_thinking sections
+			// After streaming: collapse all (user can re-expand manually)
+			if (isStreaming) {
+				return true;
 			}
 			return false;
 		}
@@ -203,7 +190,7 @@
 	 */
 	function isFirstSeqThinkingGlobally(flatIndex: number): boolean {
 		const firstSeqThinkingIndex = sectionsParsed.findIndex(
-			(s: any) => s?.toolName === 'sequential_thinking'
+			(s: (typeof sectionsParsed)[number]) => s?.toolName === 'sequential_thinking'
 		);
 		return flatIndex === firstSeqThinkingIndex;
 	}
@@ -318,16 +305,25 @@
 			{@const allThoughts = getAllSeqThinkingThoughts()}
 			{#if allThoughts.length > 0 || isStreaming}
 				<div class="agentic-inline-block">
-					<ChatMessageThinkingSteps
-						thoughts={allThoughts}
-						{isStreaming}
-						conversationId={message.convId}
-						headerOnly={true}
-					/>
+					<button
+						type="button"
+						class="agentic-inline-trigger seq-thinking-header"
+						onclick={() => (seqThinkingHeaderExpanded = !seqThinkingHeaderExpanded)}
+						aria-expanded={seqThinkingHeaderExpanded}
+						title={seqThinkingHeaderExpanded ? 'Collapse thinking steps' : 'Expand thinking steps'}
+					>
+						<ChatMessageThinkingSteps
+							thoughts={allThoughts}
+							{isStreaming}
+							conversationId={message.convId}
+							headerOnly={true}
+						/>
+						<ChevronRight class={cn('agentic-chevron', seqThinkingHeaderExpanded && 'expanded')} />
+					</button>
 				</div>
 			{/if}
 		{/if}
-		{#if thought}
+		{#if thought && seqThinkingHeaderExpanded}
 			<div class="agentic-inline-block">
 				<button
 					type="button"
@@ -385,7 +381,11 @@
 				</div>
 			{:else}
 				<div class="agentic-text">
-					<MarkdownContent content={displayContent} attachments={message?.extra} />
+					<MarkdownContent
+						class="markdown-assistant-content"
+						content={displayContent}
+						attachments={message?.extra}
+					/>
 				</div>
 				<div class="agentic-section-actions">
 					<button
@@ -444,6 +444,7 @@
 		</div>
 	{:else if section.type === AgenticSectionType.TOOL_CALL || section.type === AgenticSectionType.TOOL_CALL_PENDING}
 		{@const isPending = section.type === AgenticSectionType.TOOL_CALL_PENDING}
+		{@const hasError = section.toolResult?.startsWith('Error:')}
 
 		<div class="agentic-inline-block">
 			<button
@@ -454,11 +455,13 @@
 			>
 				{#if isPending}
 					<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
+				{:else if hasError}
+					<AlertCircle class="tool-error-icon h-3.5 w-3.5 shrink-0" />
 				{:else}
-					<Wrench class="h-3.5 w-3.5 shrink-0" />
+					<CheckCircle class="tool-success-icon h-3.5 w-3.5 shrink-0" />
 				{/if}
 				<span class="agentic-label">
-					{isPending ? 'Calling' : 'Called'}
+					{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}
 					<span class="agentic-name">{section.toolName || 'tool'}</span>{isPending ? '…' : ''}
 				</span>
 				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
@@ -543,6 +546,8 @@
 			{/if}
 		</div>
 	{:else if section.type === AgenticSectionType.REASONING}
+		{@const reasoningPreview = truncateToWords(section.content, 25)}
+		{@const hasReasoningMore = section.content.length > reasoningPreview.length}
 		<div class="agentic-inline-block">
 			<button
 				type="button"
@@ -551,7 +556,12 @@
 				aria-expanded={isExpanded(index, section)}
 			>
 				<Brain class="h-3.5 w-3.5 shrink-0" />
-				<span class="agentic-label">Thought</span>
+				<span class="agentic-label">
+					Thought
+					{#if !isExpanded(index, section) && hasReasoningMore}
+						<span class="agentic-preview"> — {reasoningPreview}…</span>
+					{/if}
+				</span>
 				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
 			</button>
 
@@ -745,12 +755,30 @@
 		background: hsl(var(--muted) / 0.5);
 	}
 
+	:global(.seq-thinking-header) {
+		cursor: pointer;
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.25rem 0.5rem;
+	}
+
+	:global(.seq-thinking-header:hover) {
+		background: hsl(var(--muted) / 0.5);
+	}
+
 	.agentic-label {
 		font-size: 0.75rem;
 		color: inherit;
 	}
 
 	.agentic-name {
+		font-style: italic;
+	}
+
+	.agentic-preview {
+		color: hsl(var(--muted-foreground) / 0.6);
 		font-style: italic;
 	}
 
@@ -805,6 +833,14 @@
 
 	:global(.step-done-icon) {
 		color: hsl(142 71% 45%);
+	}
+
+	:global(.tool-success-icon) {
+		color: hsl(142 71% 45%);
+	}
+
+	:global(.tool-error-icon) {
+		color: hsl(0 72% 51%);
 	}
 
 	.agentic-turn {

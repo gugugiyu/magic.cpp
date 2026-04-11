@@ -30,10 +30,22 @@ export async function proxyRequest(
 
 	let resp: Response;
 	try {
-		resp = await fetch(upstreamReq, { signal: AbortSignal.timeout(30_000) });
+		// Use a separate timeout for getting the initial response (headers).
+		// We do NOT want this timeout to apply to the body stream, since streaming
+		// responses can take minutes to complete. Use AbortController manually
+		// instead of AbortSignal.timeout() which applies to the entire fetch lifecycle.
+		const headerController = new AbortController();
+		const headerTimeout = setTimeout(() => headerController.abort(), 300_000);
+		const startTime = Date.now();
+		resp = await fetch(upstreamReq, { signal: headerController.signal });
+		clearTimeout(headerTimeout);
+		const elapsed = Date.now() - startTime;
+		if (import.meta.env.DEV) {
+			console.log(`[proxy] upstream ${upstream.id} responded in ${elapsed}ms, status=${resp.status}`);
+		}
 	} catch (err) {
 		const error = err as Error;
-		if (error.name === 'TimeoutError') {
+		if (error.name === 'TimeoutError' || error.name === 'AbortError') {
 			return new Response(JSON.stringify({ error: `upstream '${upstream.id}' timed out` }), {
 				status: 504,
 				headers: { 'Content-Type': 'application/json' },

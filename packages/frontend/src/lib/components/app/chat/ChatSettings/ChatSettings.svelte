@@ -617,13 +617,13 @@
 								<ChatSettingsFields
 									fields={[
 										{
-											key: SETTINGS_KEYS.MCP_SUMMARIZE_WORD_THRESHOLD,
-											label: 'Soft word threshold',
+											key: SETTINGS_KEYS.MCP_SUMMARIZE_LINE_THRESHOLD,
+											label: 'Soft line threshold',
 											type: SettingsFieldType.INPUT
 										},
 										{
 											key: SETTINGS_KEYS.MCP_SUMMARIZE_HARD_CAP,
-											label: 'Hard word cap (-1 to disable)',
+											label: 'Hard line cap (-1 to disable)',
 											type: SettingsFieldType.INPUT
 										},
 										{

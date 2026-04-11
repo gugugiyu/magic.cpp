@@ -33,7 +33,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	showToolCallInProgress: false,
 	alwaysShowAgenticTurns: false,
 	mcpSummarizeOutputs: false,
-	mcpSummarizeWordThreshold: 400,
+	mcpSummarizeLineThreshold: 400,
 	mcpSummarizeHardCap: 800,
 	mcpSummarizeAllTools: false,
 	// filter settings
@@ -160,11 +160,11 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 	showToolCallInProgress:
 		'Automatically expand tool call details while executing and keep them expanded after completion.',
 	mcpSummarizeOutputs:
-		'When enabled, long tool outputs exceeding the word threshold will trigger a pause, letting you choose to keep raw output or auto-summarize via subagent for token efficiency.',
-	mcpSummarizeWordThreshold:
-		'Word count threshold for tool output summarization. Outputs exceeding this limit will prompt the summarization dialog.',
+		'When enabled, long tool outputs exceeding the line threshold will trigger a pause, letting you choose to keep raw output or auto-summarize via subagent for token efficiency.',
+	mcpSummarizeLineThreshold:
+		'Line count threshold for tool output summarization. Outputs exceeding this limit will prompt the summarization dialog.',
 	mcpSummarizeHardCap:
-		'Hard word cap for tool outputs. When exceeded, output is immediately truncated with a [trimmed, X lines left] indicator. Set to -1 to disable.',
+		'Hard line cap for tool outputs. When exceeded, output is immediately trimmed to show head+tail with a [... X lines trimmed ...] marker. Set to -1 to disable.',
 	mcpSummarizeAllTools:
 		'When enabled, the summarization threshold also applies to built-in tool outputs (calculator, time, location, etc.), not just MCP tools.',
 	filterEmojiRemoval:

@@ -8,6 +8,26 @@ import { handleModelLoad, handleModelUnload } from './handlers/model-ops.ts';
 import { handleCorsProxy } from './handlers/cors-proxy.ts';
 import { handleHealth } from './handlers/health.ts';
 import { serveStatic } from './handlers/static.ts';
+import { getDatabase } from './database/index.ts';
+import {
+	handleGetConversations,
+	handleGetConversation,
+	handleCreateConversation,
+	handleUpdateConversation,
+	handleDeleteConversation,
+	handleGetConversationMessages,
+	handleCreateMessage,
+	handleForkConversation,
+	handleImportConversations,
+	handleExportConversations,
+	handleCompactConversation
+} from './handlers/conversations.ts';
+import {
+	handleGetMessage,
+	handleUpdateMessage,
+	handleDeleteMessage,
+	handleDeleteMessageCascading
+} from './handlers/messages.ts';
 
 export function createRouter(pool: ModelPool, config: Config) {
 	return async function router(req: Request): Promise<Response> {
@@ -50,6 +70,66 @@ export function createRouter(pool: ModelPool, config: Config) {
 
 		if (pathname === '/health' && method === 'GET') {
 			return handleHealth(pool);
+		}
+
+		// Database API routes
+		if (pathname === '/api/conversations' && method === 'GET') {
+			return handleGetConversations(getDatabase());
+		}
+
+		if (pathname === '/api/conversations' && method === 'POST') {
+			return handleCreateConversation(req, getDatabase());
+		}
+
+		if (pathname === '/api/conversations/import' && method === 'POST') {
+			return handleImportConversations(req, getDatabase());
+		}
+
+		if (pathname === '/api/conversations/export' && method === 'GET') {
+			return handleExportConversations(getDatabase());
+		}
+
+		// Match /api/conversations/:id
+		const convMatch = pathname.match(/^\/api\/conversations\/([^/]+)$/);
+		if (convMatch) {
+			const convId = convMatch[1];
+			if (method === 'GET') return handleGetConversation(getDatabase(), convId);
+			if (method === 'PUT') return handleUpdateConversation(req, getDatabase(), convId);
+			if (method === 'DELETE') return handleDeleteConversation(getDatabase(), convId, url);
+		}
+
+		// Match /api/conversations/:id/fork
+		if (pathname.match(/^\/api\/conversations\/[^/]+\/fork$/) && method === 'POST') {
+			const convId = pathname.split('/')[3];
+			return handleForkConversation(getDatabase(), convId, req);
+		}
+
+		// Match /api/conversations/:id/compact
+		if (pathname.match(/^\/api\/conversations\/[^/]+\/compact$/) && method === 'POST') {
+			const convId = pathname.split('/')[3];
+			return handleCompactConversation(getDatabase(), convId, req);
+		}
+
+		// Match /api/conversations/:id/messages
+		if (pathname.match(/^\/api\/conversations\/[^/]+\/messages$/)) {
+			const convId = pathname.split('/')[3];
+			if (method === 'GET') return handleGetConversationMessages(getDatabase(), convId);
+			if (method === 'POST') return handleCreateMessage(req, getDatabase(), convId, url);
+		}
+
+		// Match /api/messages/:id
+		const msgMatch = pathname.match(/^\/api\/messages\/([^/]+)$/);
+		if (msgMatch) {
+			const msgId = msgMatch[1];
+			if (method === 'GET') return handleGetMessage(getDatabase(), msgId);
+			if (method === 'PUT') return handleUpdateMessage(req, getDatabase(), msgId);
+			if (method === 'DELETE') return handleDeleteMessage(getDatabase(), msgId, url);
+		}
+
+		// Match /api/messages/:id/delete-cascading
+		if (pathname.match(/^\/api\/messages\/[^/]+\/delete-cascading$/) && method === 'POST') {
+			const msgId = pathname.split('/')[3];
+			return handleDeleteMessageCascading(req, getDatabase(), msgId);
 		}
 
 		// CORS preflight

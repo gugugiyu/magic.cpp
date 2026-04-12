@@ -1,4 +1,4 @@
-// Re-export database types from shared package
+// Re-export all database types from shared package
 export type {
 	McpServerOverride,
 	DatabaseConversation,
@@ -15,4 +15,4 @@ export type {
 	DatabaseMessage,
 	ExportedConversation,
 	ExportedConversations
-} from '@shared/types';
+} from '#shared/types';

@@ -10,6 +10,10 @@ const StreamingConfigSchema = z.object({
 	bufferWords: z.number().int().nonnegative().default(0)
 });
 
+const DatabaseConfigSchema = z.object({
+	path: z.string().default('data/chat.db')
+}).default(() => ({ path: 'data/chat.db' }));
+
 const UpstreamSchema = z.object({
 	id: z.string().min(1),
 	label: z.string().min(1),
@@ -25,10 +29,11 @@ const ConfigFileSchema = z.object({
 	staticDir: z.string().default('../public'),
 	heartbeatInterval: z.number().int().positive().default(30),
 	upstreams: z.array(UpstreamSchema).min(1),
-	enabled: z.boolean().default(true),	
+	enabled: z.boolean().default(true),
 	modelList: z.array(z.string()).default([]),
 	debug: z.boolean().default(false),
-	streaming: StreamingConfigSchema.default({ enabled: true, bufferWords: 0 })
+	streaming: StreamingConfigSchema.default({ enabled: true, bufferWords: 0 }),
+	database: DatabaseConfigSchema.default(() => ({ path: 'data/chat.db' }))
 });
 
 export type UpstreamConfig = z.infer<typeof UpstreamSchema> & {
@@ -37,11 +42,14 @@ export type UpstreamConfig = z.infer<typeof UpstreamSchema> & {
 };
 
 export type StreamingConfig = z.infer<typeof StreamingConfigSchema>;
+export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
 
 export type Config = Omit<z.infer<typeof ConfigFileSchema>, 'upstreams'> & {
 	upstreams: UpstreamConfig[];
 	/** Absolute path to the static files directory */
 	resolvedStaticDir: string;
+	/** Absolute path to the SQLite database file */
+	resolvedDatabasePath: string;
 	streaming: StreamingConfig;
 };
 
@@ -87,5 +95,6 @@ export function loadConfig(configPath?: string): Config {
 		...data,
 		upstreams,
 		resolvedStaticDir: resolve(dirname(path), data.staticDir),
+		resolvedDatabasePath: resolve(dirname(path), data.database.path),
 	};
 }

@@ -1,6 +1,14 @@
 {
-    "name": "shared",
-    "imports": {
-        "#libs/*": "../frontend/*"
-    }
+	"name": "@magic.cpp/shared",
+	"type": "module",
+	"main": "./index.ts",
+	"types": "./index.ts",
+	"exports": {
+		".": "./index.ts",
+		"./enums": "./enums/index.ts",
+		"./types": "./types/index.ts",
+		"./enums/attachment": "./enums/attachment.ts",
+		"./enums/chat": "./enums/chat.ts",
+		"./constants/*": "./constants/*"
+	}
 }

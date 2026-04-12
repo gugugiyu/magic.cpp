@@ -40,7 +40,7 @@ export async function getTokenCount(
  */
 async function tryUpstreamTokenize(
   text: string,
-  upstream: { url: string; resolvedApiKey?: string }
+  upstream: { url: string; resolvedApiKey?: string | null }
 ): Promise<number | null> {
   try {
     const tokenizeUrl = `${upstream.url}/tokenize`;

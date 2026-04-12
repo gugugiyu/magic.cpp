@@ -3,8 +3,13 @@ import { ModelPool } from './pool/model-pool.ts';
 import { Heartbeat } from './pool/heartbeat.ts';
 import { createRouter } from './router.ts';
 import { applyCorsHeaders, corsHeaders } from './utils/cors.ts';
+import { initializeDatabase, closeDatabase } from './database/index.ts';
 
 const config = loadConfig();
+
+// Initialize SQLite database
+const db = initializeDatabase(config);
+
 const pool = new ModelPool(config);
 const heartbeat = new Heartbeat(pool, config);
 if (config.debug) {
@@ -63,6 +68,7 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
 	process.on(sig, () => {
 		console.log(`\n[server] ${sig} received, shutting down`);
 		heartbeat.stop();
+		closeDatabase();
 		server.stop();
 		process.exit(0);
 	});

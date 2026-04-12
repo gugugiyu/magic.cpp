@@ -16,6 +16,7 @@ static/
 # *.js.map
 
 # Environment variables
+config.json
 .env
 *.local
 

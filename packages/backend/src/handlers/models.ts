@@ -23,13 +23,21 @@ export function handleV1Models(pool: ModelPool): Response {
  * first upstream overall. The frontend uses this for ROUTER mode model management.
  */
 export async function handleModels(req: Request, pool: ModelPool): Promise<Response> {
-	const upstream = pickLlamaCppUpstream(pool);
-	if (!upstream) {
-		return Response.json({ error: 'no llamacpp upstream available' }, { status: 503 });
-	}
+	try {
+		const upstream = pickLlamaCppUpstream(pool);
+		if (!upstream) {
+			return Response.json({ error: 'no llamacpp upstream available' }, { status: 503 });
+		}
 
-	console.log("Proxying to: " + upstream.url + "/models")
-	return proxyRequest(req, upstream, '/models');
+		console.log("Proxying to: " + upstream.url + "/models")
+		return await proxyRequest(req, upstream, '/models');
+	} catch (err) {
+		console.error('[handlers/models] error handling /models:', err);
+		return Response.json(
+			{ error: 'Failed to proxy model list', detail: (err as Error).message },
+			{ status: 502 },
+		);
+	}
 }
 
 function pickLlamaCppUpstream(pool: ModelPool): Upstream | undefined {

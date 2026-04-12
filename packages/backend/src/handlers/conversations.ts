@@ -274,9 +274,15 @@ export async function handleCreateMessage(
 				newMessage = createSystemMessage(db, convId, body.content.trim(), parentId);
 			} else {
 				// Create regular message
-				if (!body.role || !body.content) {
+				if (body.role === undefined || body.role === null || body.role === '') {
 					return Response.json(
-						{ error: 'Missing "role" or "content" field' },
+						{ error: 'Missing "role" field' },
+						{ status: 400 }
+					);
+				}
+				if (body.content === undefined || body.content === null) {
+					return Response.json(
+						{ error: 'Missing "content" field' },
 						{ status: 400 }
 					);
 				}

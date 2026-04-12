@@ -87,40 +87,48 @@ const SYNTHETIC_PROPS = {
  * GET /props[?model=] — proxy to owning upstream for llamacpp, synthesize for openai.
  */
 export async function handleProps(req: Request, pool: ModelPool): Promise<Response> {
-	const url = new URL(req.url);
-	const modelId = url.searchParams.get('model') ?? undefined;
+	try {
+		const url = new URL(req.url);
+		const modelId = url.searchParams.get('model') ?? undefined;
 
-	if (modelId) {
-		const upstream = pool.resolveUpstream(modelId);
-		if (!upstream) {
-			return Response.json({ error: `model '${modelId}' not found` }, { status: 404 });
+		if (modelId) {
+			const upstream = pool.resolveUpstream(modelId);
+			if (!upstream) {
+				return Response.json({ error: `model '${modelId}' not found` }, { status: 404 });
+			}
+			if (upstream.type === 'openai') {
+				return Response.json(SYNTHETIC_PROPS);
+			}
+			// Don't proxy to disabled upstreams
+			if (upstream.enabled === false) {
+				return Response.json({ error: `upstream '${upstream.id}' is disabled` }, { status: 503 });
+			}
+			const resp = await proxyRequest(req, upstream, '/props');
+			if (!resp.ok) {
+				console.warn(`[props] upstream ${upstream.id} returned ${resp.status} for /props — falling back to synthetic props`);
+				return Response.json(SYNTHETIC_PROPS);
+			}
+			return resp;
 		}
-		if (upstream.type === 'openai') {
-			return Response.json(SYNTHETIC_PROPS);
+
+		// No model specified — use first ENABLED llamacpp upstream, or synthesize if all are openai or disabled
+		const llamacpp = pool.getAllUpstreams().find((u) => u.type === 'llamacpp' && u.enabled !== false);
+		if (llamacpp) {
+			const resp = await proxyRequest(req, llamacpp, '/props');
+			if (!resp.ok) {
+				console.warn(`[props] upstream ${llamacpp.id} returned ${resp.status} for /props — falling back to synthetic props`);
+				return Response.json(SYNTHETIC_PROPS);
+			}
+			return resp;
 		}
-		// Don't proxy to disabled upstreams
-		if (upstream.enabled === false) {
-			return Response.json({ error: `upstream '${upstream.id}' is disabled` }, { status: 503 });
-		}
-		const resp = await proxyRequest(req, upstream, '/props');
-		if (!resp.ok) {
-			console.warn(`[props] upstream ${upstream.id} returned ${resp.status} for /props — falling back to synthetic props`);
-			return Response.json(SYNTHETIC_PROPS);
-		}
-		return resp;
+
+		// All upstreams are openai-type
+		return Response.json(SYNTHETIC_PROPS);
+	} catch (err) {
+		console.error('[handlers/props] error handling /props:', err);
+		return Response.json(
+			{ error: 'Failed to fetch server props', detail: (err as Error).message },
+			{ status: 502 },
+		);
 	}
-
-	// No model specified — use first ENABLED llamacpp upstream, or synthesize if all are openai or disabled
-	const llamacpp = pool.getAllUpstreams().find((u) => u.type === 'llamacpp' && u.enabled !== false);
-	if (llamacpp) {
-		const resp = await proxyRequest(req, llamacpp, '/props');
-		if (!resp.ok) {
-			console.warn(`[props] upstream ${llamacpp.id} returned ${resp.status} for /props — falling back to synthetic props`);
-			return Response.json(SYNTHETIC_PROPS);
-		}
-		return resp;
-	}
-
-	// All upstreams are openai-type
-	return Response.json(SYNTHETIC_PROPS);
 }

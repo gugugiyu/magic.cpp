@@ -67,6 +67,7 @@
 	let previewLanguage = $state('text');
 	let streamingCodeScrollContainer = $state<HTMLDivElement>();
 	let showScrollToBottom = $state(false);
+	let isStreamingComplete = $state(false);
 
 	// Auto-scroll controller for streaming code block content
 	const streamingAutoScroll = createAutoScrollController();
@@ -169,6 +170,22 @@
 
 		for (const button of svgButtons) {
 			button.removeEventListener('click', handleSvgRenderClick);
+		}
+	}
+
+	/**
+	 * Cleans up zoom-pan event listeners on all rendered diagrams.
+	 * Prevents memory leaks when component is destroyed while diagrams are visible.
+	 */
+	function cleanupRenderedDiagrams() {
+		if (!containerRef) return;
+
+		const renderContainers = containerRef.querySelectorAll<
+			HTMLElement & { _zoomPanCleanup?: () => void }
+		>('.mermaid-render-container, .svg-render-container');
+
+		for (const container of renderContainers) {
+			container._zoomPanCleanup?.();
 		}
 	}
 
@@ -354,6 +371,9 @@
 		const wrapper = target.closest<HTMLElement>('.code-block-wrapper');
 		if (!wrapper) return;
 
+		// Prevent race conditions: block rapid double-clicks
+		if (wrapper.dataset.renderingInProgress === 'true') return;
+
 		const scrollContainer = wrapper.querySelector<HTMLElement>('.code-block-scroll-container');
 		if (!scrollContainer) return;
 
@@ -370,6 +390,7 @@
 			return;
 		}
 
+		wrapper.dataset.renderingInProgress = 'true';
 		target.disabled = true;
 		target.title = 'Rendering…';
 
@@ -386,6 +407,7 @@
 			target.title = 'Render diagram';
 		} finally {
 			target.disabled = false;
+			delete wrapper.dataset.renderingInProgress;
 		}
 	}
 
@@ -403,6 +425,9 @@
 		const wrapper = target.closest<HTMLElement>('.code-block-wrapper');
 		if (!wrapper) return;
 
+		// Prevent race conditions: block rapid double-clicks
+		if (wrapper.dataset.renderingInProgress === 'true') return;
+
 		const scrollContainer = wrapper.querySelector<HTMLElement>('.code-block-scroll-container');
 		if (!scrollContainer) return;
 
@@ -412,13 +437,16 @@
 		// Toggle back to code view if already rendered
 		const existing = wrapper.querySelector<HTMLElement>('.svg-render-container');
 		if (existing) {
+			const savedScrollTop = scrollContainer.scrollTop;
 			(existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup?.();
 			existing.remove();
 			scrollContainer.style.display = '';
+			scrollContainer.scrollTop = savedScrollTop;
 			target.title = 'Render SVG';
 			return;
 		}
 
+		wrapper.dataset.renderingInProgress = 'true';
 		target.disabled = true;
 		target.title = 'Rendering…';
 
@@ -430,6 +458,7 @@
 			target.title = 'Render SVG';
 		} finally {
 			target.disabled = false;
+			delete wrapper.dataset.renderingInProgress;
 		}
 	}
 
@@ -449,6 +478,7 @@
 			renderedBlocks = [];
 			unstableBlockHtml = '';
 			incompleteCodeBlock = null;
+			isStreamingComplete = false;
 			previousContent = '';
 			return;
 		}
@@ -505,12 +535,14 @@
 			previousContent = prefixMarkdown;
 			unstableBlockHtml = '';
 			incompleteCodeBlock = incompleteBlock;
+			isStreamingComplete = false;
 
 			return;
 		}
 
 		// No incomplete code block - use standard processing
 		incompleteCodeBlock = null;
+		isStreamingComplete = true;
 
 		const normalized = preprocessLaTeX(markdown);
 		const processorInstance = processor();
@@ -592,12 +624,51 @@
 
 			if (mermaidButton && mermaidButton.dataset.listenerBound !== 'true') {
 				mermaidButton.dataset.listenerBound = 'true';
+				// Disable during streaming, enable only after streaming completes
+				if (!isStreamingComplete) {
+					mermaidButton.disabled = true;
+					mermaidButton.title = 'Render diagram (after streaming completes)';
+					mermaidButton.dataset.pendingEnable = 'true';
+				}
 				mermaidButton.addEventListener('click', handleMermaidRenderClick);
 			}
 
 			if (svgButton && svgButton.dataset.listenerBound !== 'true') {
 				svgButton.dataset.listenerBound = 'true';
+				// Disable during streaming, enable only after streaming completes
+				if (!isStreamingComplete) {
+					svgButton.disabled = true;
+					svgButton.title = 'Render SVG (after streaming completes)';
+					svgButton.dataset.pendingEnable = 'true';
+				}
 				svgButton.addEventListener('click', handleSvgRenderClick);
+			}
+		}
+	}
+
+	/**
+	 * Enables diagram render buttons that were disabled during streaming.
+	 * Called when streaming completes to allow users to render diagrams.
+	 */
+	function enableDiagramRenderButtons() {
+		if (!containerRef) return;
+
+		const mermaidButtons = containerRef.querySelectorAll<HTMLButtonElement>('.mermaid-render-btn');
+		const svgButtons = containerRef.querySelectorAll<HTMLButtonElement>('.svg-render-btn');
+
+		for (const button of mermaidButtons) {
+			if (button.dataset.pendingEnable === 'true') {
+				button.disabled = false;
+				button.title = 'Render diagram';
+				delete button.dataset.pendingEnable;
+			}
+		}
+
+		for (const button of svgButtons) {
+			if (button.dataset.pendingEnable === 'true') {
+				button.disabled = false;
+				button.title = 'Render SVG';
+				delete button.dataset.pendingEnable;
 			}
 		}
 	}
@@ -701,6 +772,13 @@
 		}
 	});
 
+	// Enable diagram render buttons when streaming completes
+	$effect(() => {
+		if (isStreamingComplete && containerRef) {
+			enableDiagramRenderButtons();
+		}
+	});
+
 	// Auto-scroll for streaming code block
 	$effect(() => {
 		streamingAutoScroll.setContainer(streamingCodeScrollContainer);
@@ -712,6 +790,7 @@
 
 	onDestroy(() => {
 		cleanupEventListeners();
+		cleanupRenderedDiagrams();
 		releaseHighlightTheme();
 		streamingAutoScroll.destroy();
 	});

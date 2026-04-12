@@ -18,6 +18,7 @@ static/
 # Environment variables
 config.json
 .env
+data/
 *.local
 
 # Debug / Logs

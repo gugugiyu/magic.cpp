@@ -42,8 +42,13 @@ export async function renderMermaidDiagram(
 	isDark: boolean
 ): Promise<void> {
 	scrollContainer.style.display = 'none';
-	const skeleton = createLoadingSkeleton();
-	wrapper.appendChild(skeleton);
+
+	// Prevent multiple skeletons from accumulating during race conditions
+	const existingSkeleton = wrapper.querySelector('.diagram-render-skeleton');
+	if (!existingSkeleton) {
+		const skeleton = createLoadingSkeleton();
+		wrapper.appendChild(skeleton);
+	}
 
 	try {
 		const mermaid = (await import('mermaid')).default;
@@ -52,7 +57,8 @@ export async function renderMermaidDiagram(
 		const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 		const { svg } = await mermaid.render(id, rawCode);
 
-		skeleton.remove();
+		const skeleton = wrapper.querySelector('.diagram-render-skeleton');
+		skeleton?.remove();
 
 		const renderContainer = document.createElement('div') as ZoomPanTarget;
 		renderContainer.className = 'mermaid-render-container';
@@ -67,7 +73,8 @@ export async function renderMermaidDiagram(
 
 		renderContainer._zoomPanCleanup = attachZoomPan(inner);
 	} catch (err) {
-		skeleton.remove();
+		const skeleton = wrapper.querySelector('.diagram-render-skeleton');
+		skeleton?.remove();
 		scrollContainer.style.display = '';
 		throw err;
 	}
@@ -88,14 +95,24 @@ export async function renderSvgDiagram(
 	rawCode: string
 ): Promise<void> {
 	scrollContainer.style.display = 'none';
-	const skeleton = createLoadingSkeleton();
-	wrapper.appendChild(skeleton);
+
+	// Prevent multiple skeletons from accumulating during race conditions
+	const existingSkeleton = wrapper.querySelector('.diagram-render-skeleton');
+	if (!existingSkeleton) {
+		const skeleton = createLoadingSkeleton();
+		wrapper.appendChild(skeleton);
+	}
 
 	try {
 		const DOMPurify = (await import('dompurify')).default;
-		const clean = DOMPurify.sanitize(rawCode, { USE_PROFILES: { svg: true, svgFilters: true } });
+		const clean = DOMPurify.sanitize(rawCode, {
+			USE_PROFILES: { svg: true, svgFilters: true },
+			FORBID_TAGS: ['script', 'style', 'foreignObject'],
+			FORBID_ATTR: ['onbegin', 'onend', 'onrepeat', 'onload', 'onerror', 'onclick', 'onmousedown', 'onmouseup', 'onmouseover', 'onmouseout']
+		});
 
-		skeleton.remove();
+		const skeleton = wrapper.querySelector('.diagram-render-skeleton');
+		skeleton?.remove();
 
 		const renderContainer = document.createElement('div') as ZoomPanTarget;
 		renderContainer.className = 'svg-render-container';
@@ -110,7 +127,8 @@ export async function renderSvgDiagram(
 
 		renderContainer._zoomPanCleanup = attachZoomPan(inner);
 	} catch (err) {
-		skeleton.remove();
+		const skeleton = wrapper.querySelector('.diagram-render-skeleton');
+		skeleton?.remove();
 		scrollContainer.style.display = '';
 		throw err;
 	}

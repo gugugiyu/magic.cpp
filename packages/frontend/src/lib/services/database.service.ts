@@ -278,8 +278,11 @@ export const db = {
 			}
 		}
 	},
+	// @deprecated Client-side transactions are not supported.
+	// Multi-step operations should be implemented as single backend endpoints
+	// to ensure atomicity. This function is a no-op passthrough for backward
+	// compatibility with legacy Dexie code patterns.
 	transaction: async (mode: string, tables: any[], callback: () => Promise<any>) => {
-		// Transactions are handled server-side
 		return callback();
 	}
 };

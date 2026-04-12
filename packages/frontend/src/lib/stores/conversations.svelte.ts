@@ -74,6 +74,9 @@ class ConversationsStore {
 	/** ID of the most recently created compaction summary message, used to anchor CompactionNote rendering */
 	lastCompactionSummaryId = $state<string | null>(null);
 
+	/** Conversation ID currently being edited (replaces document.dispatchEvent pattern) */
+	editingConversationId = $state<string | null>(null);
+
 	/** Pending MCP server overrides for new conversations (before first message) */
 	pendingMcpServerOverrides = $state<McpServerOverride[]>(ConversationsStore.loadMcpDefaults());
 
@@ -324,44 +327,20 @@ class ConversationsStore {
 		try {
 			await DatabaseService.deleteConversation(convId, options);
 
-			if (options?.deleteWithForks) {
-				// Collect all descendants recursively
-				const idsToRemove = new SvelteSet([convId]);
-				const queue = [convId];
-				while (queue.length > 0) {
-					const parentId = queue.pop()!;
-					for (const c of this.conversations) {
-						if (c.forkedFromConversationId === parentId && !idsToRemove.has(c.id)) {
-							idsToRemove.add(c.id);
-							queue.push(c.id);
-						}
-					}
-				}
-				this.conversations = this.conversations.filter((c) => !idsToRemove.has(c.id));
+			// Re-fetch from backend to ensure in-memory state is consistent
+			await this.loadConversations();
 
-				if (this.activeConversation && idsToRemove.has(this.activeConversation.id)) {
-					this.clearActiveConversation();
-					await goto(`?new_chat=true#/`);
-				}
-			} else {
-				// Reparent direct children to deleted conv's parent (or promote to top-level)
-				const deletedConv = this.conversations.find((c) => c.id === convId);
-				const newParent = deletedConv?.forkedFromConversationId;
-				this.conversations = this.conversations
-					.filter((c) => c.id !== convId)
-					.map((c) =>
-						c.forkedFromConversationId === convId
-							? { ...c, forkedFromConversationId: newParent }
-							: c
-					);
-
-				if (this.activeConversation?.id === convId) {
-					this.clearActiveConversation();
-					await goto(`?new_chat=true#/`);
-				}
+			// If the active conversation was deleted, clear it and navigate home
+			const stillExists = this.conversations.some((c) => c.id === convId);
+			if (!stillExists && this.activeConversation?.id === convId) {
+				this.clearActiveConversation();
+				await goto(`?new_chat=true#/`);
 			}
+
+			toast.success('Conversation deleted');
 		} catch (error) {
 			console.error('Failed to delete conversation:', error);
+			toast.error('Failed to delete conversation');
 		}
 	}
 
@@ -454,8 +433,11 @@ class ConversationsStore {
 			if (this.activeConversation?.id === convId) {
 				this.activeConversation = { ...this.activeConversation, name };
 			}
+
+			toast.success('Conversation renamed');
 		} catch (error) {
 			console.error('Failed to update conversation name:', error);
+			toast.error('Failed to rename conversation');
 		}
 	}
 
@@ -500,9 +482,9 @@ class ConversationsStore {
 		const chatIndex = this.conversations.findIndex((c) => c.id === this.activeConversation!.id);
 
 		if (chatIndex !== -1) {
-			this.conversations[chatIndex].lastModified = Date.now();
-			const updatedConv = this.conversations.splice(chatIndex, 1)[0];
-			this.conversations = [updatedConv, ...this.conversations];
+			const updated = { ...this.conversations[chatIndex], lastModified: Date.now() };
+			const reordered = this.conversations.toSpliced(chatIndex, 1);
+			this.conversations = [updated, ...reordered];
 		}
 	}
 
@@ -1031,6 +1013,7 @@ export const conversations = () => conversationsStore.conversations;
 export const activeConversation = () => conversationsStore.activeConversation;
 export const activeMessages = () => conversationsStore.activeMessages;
 export const isConversationsInitialized = () => conversationsStore.isInitialized;
+export const editingConversationId = () => conversationsStore.editingConversationId;
 
 /**
  * Builds a flat tree of conversations with depth levels for nested forks.

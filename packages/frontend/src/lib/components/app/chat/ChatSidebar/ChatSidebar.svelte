@@ -79,17 +79,22 @@
 	}
 
 	function handleConfirmDelete() {
-		if (selectedConversation) {
-			const convId = selectedConversation.id;
-			const withForks = deleteWithForks;
-			showDeleteDialog = false;
+		if (!selectedConversation) return;
 
-			setTimeout(() => {
-				conversationsStore.deleteConversation(convId, {
-					deleteWithForks: withForks
-				});
-			}, 100); // Wait for animation to finish
+		// Guard against stale reference (conversation may have been deleted elsewhere)
+		const stillExists = conversations().some((c) => c.id === selectedConversation.id);
+		if (!stillExists) {
+			showDeleteDialog = false;
+			selectedConversation = null;
+			return;
 		}
+
+		const convId = selectedConversation.id;
+		const withForks = deleteWithForks;
+		showDeleteDialog = false;
+		selectedConversation = null;
+
+		conversationsStore.deleteConversation(convId, { deleteWithForks: withForks });
 	}
 
 	function handleConfirmEdit() {
@@ -113,14 +118,7 @@
 
 	export function editActiveConversation() {
 		if (currentChatId) {
-			const activeConversation = filteredConversations.find((conv) => conv.id === currentChatId);
-
-			if (activeConversation) {
-				const event = new CustomEvent('edit-active-conversation', {
-					detail: { conversationId: currentChatId }
-				});
-				document.dispatchEvent(event);
-			}
+			conversationsStore.editingConversationId = currentChatId;
 		}
 	}
 
@@ -181,7 +179,7 @@
 					<div class="px-2 py-4 text-center">
 						<p class="mb-4 p-4 text-sm text-muted-foreground">
 							{searchQuery.length > 0
-								? 'No results found'
+								? `No conversations matching "${searchQuery}"`
 								: isSearchModeActive
 									? 'Start typing to see results'
 									: 'No conversations yet'}

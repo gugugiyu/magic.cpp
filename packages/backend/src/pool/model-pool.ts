@@ -9,6 +9,8 @@ export class ModelPool {
 	private pooledModels: PooledModel[] = [];
 	private globalModelList: string[] = [];
 	private streamingConfig: StreamingConfig = { enabled: true, bufferWords: 0 };
+	/** Tracks whether the first refresh() has completed (successfully or not) */
+	private _initialized = false;
 
 	constructor(config: Config) {
 		this.globalModelList = config.modelList || [];
@@ -20,6 +22,11 @@ export class ModelPool {
 				modelIds: new Set(),
 			});
 		}
+	}
+
+	/** Whether the initial model list fetch has completed. */
+	get isInitialized(): boolean {
+		return this._initialized;
 	}
 
 	getStreamingConfig(): StreamingConfig {
@@ -106,6 +113,7 @@ export class ModelPool {
 		console.log('[model-pool] routing map built:', Array.from(freshRouting.keys()));
 		this.pooledModels = freshModels;
 		this.routingMap = freshRouting;
+		this._initialized = true;
 	}
 
 	private async fetchModels(

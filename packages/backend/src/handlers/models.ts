@@ -4,8 +4,16 @@ import { proxyRequest } from '../utils/proxy.ts';
 
 /**
  * GET /v1/models — returns merged model list from all upstreams.
+ * Returns 503 with `status: "initializing"` if the pool hasn't completed
+ * its first refresh yet, so the frontend can display a loading state.
  */
 export function handleV1Models(pool: ModelPool): Response {
+	if (!pool.isInitialized) {
+		return Response.json(
+			{ status: 'initializing', data: [] },
+			{ status: 503 },
+		);
+	}
 	const models = pool.getMergedModels();
 	return Response.json({ object: 'list', data: models });
 }

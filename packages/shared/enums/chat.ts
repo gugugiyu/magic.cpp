@@ -1,0 +1,19 @@
+/**
+ * Message roles for chat messages.
+ */
+export enum MessageRole {
+	USER = 'user',
+	ASSISTANT = 'assistant',
+	SYSTEM = 'system',
+	TOOL = 'tool'
+}
+
+/**
+ * Message types for different content kinds.
+ */
+export enum MessageType {
+	ROOT = 'root',
+	TEXT = 'text',
+	THINK = 'think',
+	SYSTEM = 'system'
+}

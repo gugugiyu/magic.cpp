@@ -1,4 +1,4 @@
-import type { OpenAIToolDefinition } from '$lib/types';
+import type { OpenAIToolDefinition } from '../types';
 
 export const SUBAGENT_DEFAULT_PROMPT = "You are a comprehensive but concise agentic machine. Upon receiving a request, you'll analyze it thoroughly, make appropriate tool calls, before return the condensed version of your findings back. Do not assume or hallucinate. Prefer structured data (like markdown list and tables) over plain description.";
 

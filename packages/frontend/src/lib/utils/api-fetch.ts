@@ -12,12 +12,25 @@ import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
  * - Base path resolution
  */
 
-export interface ApiFetchOptions extends Omit<RequestInit, 'headers'> {
+export interface ApiFetchOptions extends Omit<RequestInit, 'headers' | 'signal'> {
 	/**
 	 * Additional headers to merge with default headers.
 	 */
 	headers?: Record<string, string>;
+	/**
+	 * Abort signal for the request.
+	 */
+	signal?: AbortSignal;
+	/**
+	 * Timeout in milliseconds. Defaults to 30s.
+	 */
+	timeout?: number;
 }
+
+/**
+ * Default timeout for API requests in milliseconds.
+ */
+const DEFAULT_API_TIMEOUT = 30_000; // 30 seconds
 
 /**
  * Fetch JSON data from an API endpoint with standard headers and error handling.
@@ -40,7 +53,7 @@ export interface ApiFetchOptions extends Omit<RequestInit, 'headers'> {
  * ```
  */
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-	const { headers: customHeaders, ...fetchOptions } = options;
+	const { headers: customHeaders, signal, ...fetchOptions } = options;
 
 	const baseHeaders = getJsonHeaders();
 	const headers = { ...baseHeaders, ...customHeaders };
@@ -52,17 +65,40 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 				? `${base}${path}`
 				: `${serverEndpointStore.getBaseUrl()}${path}`;
 
-	const response = await fetch(url, {
-		...fetchOptions,
-		headers
-	});
+	// Create abort controller for timeout if no signal provided
+	const controller = signal ? null : new AbortController();
+	const timeoutSignal = controller ? controller.signal : undefined;
 
-	if (!response.ok) {
-		const errorMessage = await parseErrorMessage(response);
-		throw new Error(errorMessage);
+	// Set up timeout
+	if (controller) {
+		const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_API_TIMEOUT) as unknown as number;
+		controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
 	}
 
-	return response.json() as Promise<T>;
+	try {
+		const response = await fetch(url, {
+			...fetchOptions,
+			headers,
+			signal: timeoutSignal,
+		});
+
+		if (!response.ok) {
+			const errorMessage = await parseErrorMessage(response);
+			throw new Error(errorMessage);
+		}
+
+		return response.json() as Promise<T>;
+	} catch (err) {
+		// Check for abort/timeout error
+		if (err instanceof DOMException && err.name === 'AbortError') {
+			throw new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+		}
+		// Bun/Node.js AbortController throws AbortError differently
+		if (err instanceof Error && err.name === 'AbortError') {
+			throw new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+		}
+		throw err;
+	}
 }
 
 /**

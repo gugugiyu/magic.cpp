@@ -1,3 +1,7 @@
+// Re-export shared enums for backward compatibility
+export { MessageRole, MessageType } from '@shared/enums/chat';
+
+// Frontend-only enums
 export enum ChatMessageStatsView {
 	GENERATION = 'generation',
 	READING = 'reading',
@@ -11,26 +15,6 @@ export enum ChatMessageStatsView {
 export enum ReasoningFormat {
 	NONE = 'none',
 	AUTO = 'auto'
-}
-
-/**
- * Message roles for chat messages.
- */
-export enum MessageRole {
-	USER = 'user',
-	ASSISTANT = 'assistant',
-	SYSTEM = 'system',
-	TOOL = 'tool'
-}
-
-/**
- * Message types for different content kinds.
- */
-export enum MessageType {
-	ROOT = 'root',
-	TEXT = 'text',
-	THINK = 'think',
-	SYSTEM = 'system'
 }
 
 /**

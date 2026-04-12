@@ -51,5 +51,13 @@ async function routeModelOp(
 		);
 	}
 
-	return proxyRequest(req, upstream, path);
+	try {
+		return await proxyRequest(req, upstream, path);
+	} catch (err) {
+		console.error(`[handlers/model-ops] error proxying ${path} to ${upstream.id}:`, err);
+		return Response.json(
+			{ error: `Failed to proxy ${path}`, detail: (err as Error).message },
+			{ status: 502 },
+		);
+	}
 }

@@ -1,642 +1,285 @@
-import Dexie, { type EntityTable } from 'dexie';
+/**
+ * DatabaseService - Compatibility layer for migration from Dexie to SQLite.
+ * 
+ * This module provides the same interface as the old Dexie-based DatabaseService,
+ * but now makes HTTP API calls to the backend SQLite database.
+ * 
+ * All stores (conversations.svelte.ts, chat.svelte.ts) can use this without changes.
+ */
+
+import * as conversationsAPI from '$lib/api/conversations.api';
+import * as messagesAPI from '$lib/api/messages.api';
 import { findDescendantMessages, uuid, filterByLeafNodeId } from '$lib/utils';
 import type { McpServerOverride } from '$lib/types/database';
-
-class LlamacppDatabase extends Dexie {
-	conversations!: EntityTable<DatabaseConversation, string>;
-	messages!: EntityTable<DatabaseMessage, string>;
-
-	constructor() {
-		super('LlamacppWebui');
-
-		this.version(1).stores({
-			conversations: 'id, lastModified, currNode, name',
-			messages: 'id, convId, type, role, timestamp, parent, children'
-		});
-	}
-}
-
-const db = new LlamacppDatabase();
 import { MessageRole } from '$lib/enums';
 
-/** Export the Dexie instance for callers that need cross-operation transactions. */
-export { db };
-
+/**
+ * DatabaseService - Static class providing backward-compatible API for conversation/message operations.
+ */
 export class DatabaseService {
 	/**
-	 *
-	 *
 	 * Conversations
-	 *
-	 *
 	 */
 
-	/**
-	 * Creates a new conversation.
-	 *
-	 * @param name - Name of the conversation
-	 * @returns The created conversation
-	 */
 	static async createConversation(name: string): Promise<DatabaseConversation> {
-		const conversation: DatabaseConversation = {
-			id: uuid(),
-			name,
-			lastModified: Date.now(),
-			currNode: ''
-		};
-
-		await db.conversations.add(conversation);
-		return conversation;
+		return conversationsAPI.createConversation({ name });
 	}
 
-	/**
-	 *
-	 *
-	 * Messages
-	 *
-	 *
-	 */
+	static async getConversation(id: string): Promise<DatabaseConversation | undefined> {
+		try {
+			return await conversationsAPI.getConversation(id);
+		} catch {
+			return undefined;
+		}
+	}
 
-	/**
-	 * Creates a new message branch by adding a message and updating parent/child relationships.
-	 * Also updates the conversation's currNode to point to the new message.
-	 *
-	 * @param message - Message to add (without id)
-	 * @param parentId - Parent message ID to attach to
-	 * @returns The created message
-	 */
-	static async createMessageBranch(
-		message: Omit<DatabaseMessage, 'id'>,
-		parentId: string | null
-	): Promise<DatabaseMessage> {
-		return await db.transaction('rw', [db.conversations, db.messages], async () => {
-			// Handle null parent (root message case)
-			if (parentId !== null) {
-				const parentMessage = await db.messages.get(parentId);
-				if (!parentMessage) {
-					throw new Error(`Parent message ${parentId} not found`);
-				}
-			}
+	static async getAllConversations(): Promise<DatabaseConversation[]> {
+		return conversationsAPI.getAllConversations();
+	}
 
-			const newMessage: DatabaseMessage = {
-				...message,
-				id: uuid(),
-				parent: parentId,
-				toolCalls: message.toolCalls ?? '',
-				children: []
-			};
+	static async updateConversation(
+		id: string,
+		updates: Partial<Omit<DatabaseConversation, 'id'>>
+	): Promise<void> {
+		await conversationsAPI.updateConversation(id, updates);
+	}
 
-			await db.messages.add(newMessage);
+	static async deleteConversation(
+		id: string,
+		options?: { deleteWithForks?: boolean }
+	): Promise<void> {
+		await conversationsAPI.deleteConversation(id, options);
+	}
 
-			// Update parent's children array if parent exists
-			if (parentId !== null) {
-				const parentMessage = await db.messages.get(parentId);
-				if (parentMessage) {
-					await db.messages.update(parentId, {
-						children: [...parentMessage.children, newMessage.id]
-					});
-				}
-			}
-
-			await this.updateConversation(message.convId, {
-				currNode: newMessage.id
-			});
-
-			return newMessage;
+	static async forkConversation(
+		sourceConvId: string,
+		atMessageId: string,
+		options: { name: string; includeAttachments: boolean }
+	): Promise<DatabaseConversation> {
+		return conversationsAPI.forkConversation(sourceConvId, {
+			messageId: atMessageId,
+			name: options.name,
+			includeAttachments: options.includeAttachments
 		});
 	}
 
-	/**
-	 * Creates a root message for a new conversation.
-	 * Root messages are not displayed but serve as the tree root for branching.
-	 *
-	 * @param convId - Conversation ID
-	 * @returns The created root message
-	 */
-	static async createRootMessage(convId: string): Promise<string> {
-		const rootMessage: DatabaseMessage = {
-			id: uuid(),
-			convId,
-			type: 'root',
-			timestamp: Date.now(),
-			role: MessageRole.SYSTEM,
-			content: '',
-			parent: null,
-			toolCalls: '',
-			children: []
-		};
+	static async importConversations(
+		data: { conv: DatabaseConversation; messages: DatabaseMessage[] }[]
+	): Promise<{ imported: number; skipped: number }> {
+		return conversationsAPI.importConversations(data);
+	}
 
-		await db.messages.add(rootMessage);
-		return rootMessage.id;
+	static async exportConversations(): Promise<
+		{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]
+	> {
+		return conversationsAPI.exportConversations();
 	}
 
 	/**
-	 * Creates a system prompt message for a conversation.
-	 *
-	 * @param convId - Conversation ID
-	 * @param systemPrompt - The system prompt content (must be non-empty)
-	 * @param parentId - Parent message ID (typically the root message)
-	 * @returns The created system message
-	 * @throws Error if systemPrompt is empty
+	 * Messages
 	 */
+
+	static async createRootMessage(convId: string): Promise<string> {
+		const message = await messagesAPI.createRootMessage(convId);
+		return message.id;
+	}
+
 	static async createSystemMessage(
 		convId: string,
 		systemPrompt: string,
 		parentId: string
 	): Promise<DatabaseMessage> {
-		const trimmedPrompt = systemPrompt.trim();
-		if (!trimmedPrompt) {
-			throw new Error('Cannot create system message with empty content');
-		}
-
-		const systemMessage: DatabaseMessage = {
-			id: uuid(),
-			convId,
-			type: MessageRole.SYSTEM,
-			timestamp: Date.now(),
-			role: MessageRole.SYSTEM,
-			content: trimmedPrompt,
-			parent: parentId,
-			children: []
-		};
-
-		await db.messages.add(systemMessage);
-
-		const parentMessage = await db.messages.get(parentId);
-		if (parentMessage) {
-			await db.messages.update(parentId, {
-				children: [...parentMessage.children, systemMessage.id]
-			});
-		}
-
-		return systemMessage;
+		return messagesAPI.createSystemMessage(convId, systemPrompt, parentId);
 	}
 
-	/**
-	 * Deletes a conversation and all its messages.
-	 *
-	 * @param id - Conversation ID
-	 */
-	static async deleteConversation(
-		id: string,
-		options?: { deleteWithForks?: boolean }
-	): Promise<void> {
-		await db.transaction('rw', [db.conversations, db.messages], async () => {
-			if (options?.deleteWithForks) {
-				// Recursively collect all descendant IDs
-				const idsToDelete: string[] = [];
-				const queue = [id];
-
-				while (queue.length > 0) {
-					const parentId = queue.pop()!;
-					const children = await db.conversations
-						.filter((c) => c.forkedFromConversationId === parentId)
-						.toArray();
-
-					for (const child of children) {
-						idsToDelete.push(child.id);
-						queue.push(child.id);
-					}
-				}
-
-				for (const forkId of idsToDelete) {
-					await db.conversations.delete(forkId);
-					await db.messages.where('convId').equals(forkId).delete();
-				}
-			} else {
-				// Reparent direct children to deleted conv's parent
-				const conv = await db.conversations.get(id);
-				const newParent = conv?.forkedFromConversationId;
-				const directChildren = await db.conversations
-					.filter((c) => c.forkedFromConversationId === id)
-					.toArray();
-
-				for (const child of directChildren) {
-					await db.conversations.update(child.id, {
-						forkedFromConversationId: newParent ?? undefined
-					});
-				}
-			}
-
-			await db.conversations.delete(id);
-			await db.messages.where('convId').equals(id).delete();
-		});
+	static async createMessageBranch(
+		message: Omit<DatabaseMessage, 'id'>,
+		parentId: string | null
+	): Promise<DatabaseMessage> {
+		return messagesAPI.createMessageBranch(
+			{
+				type: message.type,
+				role: message.role,
+				content: message.content,
+				reasoningContent: message.reasoningContent,
+				toolCalls: message.toolCalls ?? '',
+				toolCallId: message.toolCallId,
+				extra: message.extra,
+				timings: message.timings,
+				model: message.model,
+				timestamp: message.timestamp
+			},
+			message.convId,
+			parentId
+		);
 	}
 
-	/**
-	 * Deletes a message, reparents its children to the given newParentId,
-	 * and removes it from its parent's children array.
-	 *
-	 * @param messageId - ID of the message to delete
-	 * @param newParentId - ID of the message to adopt the deleted message's children (optional)
-	 */
-	static async deleteMessage(messageId: string, newParentId?: string): Promise<void> {
-		await db.transaction('rw', db.messages, async () => {
-			const message = await db.messages.get(messageId);
-			if (!message) return;
-
-			// Reparent children to newParentId before deleting
-			if (newParentId && message.children.length > 0) {
-				for (const childId of message.children) {
-					const child = await db.messages.get(childId);
-					if (child) {
-						child.parent = newParentId;
-						await db.messages.put(child);
-					}
-				}
-			}
-
-			// Remove this message from its parent's children array
-			if (message.parent) {
-				const parent = await db.messages.get(message.parent);
-				if (parent) {
-					parent.children = parent.children.filter((childId: string) => childId !== messageId);
-					await db.messages.put(parent);
-				}
-			}
-
-			// Delete the message
-			await db.messages.delete(messageId);
-		});
-	}
-
-	/**
-	 * Deletes a message and all its descendant messages (cascading deletion).
-	 * This removes the entire branch starting from the specified message.
-	 *
-	 * @param conversationId - ID of the conversation containing the message
-	 * @param messageId - ID of the root message to delete (along with all descendants)
-	 * @returns Array of all deleted message IDs
-	 */
-	static async deleteMessageCascading(
-		conversationId: string,
-		messageId: string
-	): Promise<string[]> {
-		return await db.transaction('rw', db.messages, async () => {
-			// Get all messages in the conversation to find descendants
-			const allMessages = await db.messages.where('convId').equals(conversationId).toArray();
-
-			// Find all descendant messages
-			const descendants = findDescendantMessages(allMessages, messageId);
-			const allToDelete = [messageId, ...descendants];
-
-			// Get the message to delete for parent cleanup
-			const message = await db.messages.get(messageId);
-			if (message && message.parent) {
-				const parent = await db.messages.get(message.parent);
-				if (parent) {
-					parent.children = parent.children.filter((childId: string) => childId !== messageId);
-					await db.messages.put(parent);
-				}
-			}
-
-			// Delete all messages in the branch
-			await db.messages.bulkDelete(allToDelete);
-
-			return allToDelete;
-		});
-	}
-
-	/**
-	 * Gets all conversations, sorted by last modified time (newest first).
-	 *
-	 * @returns Array of conversations
-	 */
-	static async getAllConversations(): Promise<DatabaseConversation[]> {
-		return await db.conversations.orderBy('lastModified').reverse().toArray();
-	}
-
-	/**
-	 * Gets a conversation by ID.
-	 *
-	 * @param id - Conversation ID
-	 * @returns The conversation if found, otherwise undefined
-	 */
-	static async getConversation(id: string): Promise<DatabaseConversation | undefined> {
-		return await db.conversations.get(id);
-	}
-
-	/**
-	 * Gets all messages in a conversation, sorted by timestamp (oldest first).
-	 *
-	 * @param convId - Conversation ID
-	 * @returns Array of messages in the conversation
-	 */
 	static async getConversationMessages(convId: string): Promise<DatabaseMessage[]> {
-		return await db.messages.where('convId').equals(convId).sortBy('timestamp');
+		return messagesAPI.getConversationMessages(convId);
 	}
 
-	/**
-	 * Updates a conversation.
-	 *
-	 * @param id - Conversation ID
-	 * @param updates - Partial updates to apply
-	 * @returns Promise that resolves when the conversation is updated
-	 */
-	static async updateConversation(
-		id: string,
-		updates: Partial<Omit<DatabaseConversation, 'id'>>
-	): Promise<void> {
-		await db.conversations.update(id, {
-			...updates,
-			lastModified: Date.now()
-		});
+	static async getMessageById(id: string): Promise<DatabaseMessage | undefined> {
+		try {
+			return await messagesAPI.getMessageById(id);
+		} catch {
+			return undefined;
+		}
 	}
 
-	/**
-	 *
-	 *
-	 * Navigation
-	 *
-	 *
-	 */
-
-	/**
-	 * Updates the conversation's current node (active branch).
-	 * This determines which conversation path is currently being viewed.
-	 *
-	 * @param convId - Conversation ID
-	 * @param nodeId - Message ID to set as current node
-	 */
-	static async updateCurrentNode(convId: string, nodeId: string): Promise<void> {
-		await this.updateConversation(convId, {
-			currNode: nodeId
-		});
+	static async addMessageToDatabase(message: DatabaseMessage): Promise<DatabaseMessage> {
+		return messagesAPI.createMessage(message.convId, {
+			type: message.type,
+			role: message.role,
+			content: message.content,
+			parentId: message.parent,
+			reasoningContent: message.reasoningContent,
+			toolCalls: message.toolCalls,
+			toolCallId: message.toolCallId,
+			extra: message.extra,
+			timings: message.timings,
+			model: message.model,
+			timestamp: message.timestamp
+		}, { parentId: message.parent });
 	}
 
-	/**
-	 * Updates a message.
-	 *
-	 * @param id - Message ID
-	 * @param updates - Partial updates to apply
-	 * @returns Promise that resolves when the message is updated
-	 */
 	static async updateMessage(
 		id: string,
 		updates: Partial<Omit<DatabaseMessage, 'id'>>
 	): Promise<void> {
-		await db.messages.update(id, updates);
+		await messagesAPI.updateMessage(id, updates);
+	}
+
+	static async deleteMessage(messageId: string, newParentId?: string): Promise<void> {
+		await messagesAPI.deleteMessage(messageId, { newParentId });
+	}
+
+	static async deleteMessageCascading(
+		conversationId: string,
+		messageId: string
+	): Promise<string[]> {
+		return messagesAPI.deleteMessageCascading(messageId, conversationId);
 	}
 
 	/**
-	 * Gets a message by ID.
-	 *
-	 * @param id - Message ID
-	 * @returns The message if found, otherwise undefined
+	 * Navigation
 	 */
-	static async getMessageById(id: string): Promise<DatabaseMessage | undefined> {
-		return await db.messages.get(id);
+
+	static async updateCurrentNode(convId: string, nodeId: string): Promise<void> {
+		await messagesAPI.updateCurrentNode(convId, nodeId);
 	}
 
 	/**
-	 * Adds a message directly to the database.
-	 *
-	 * @param message - Message to add
-	 * @returns The added message
+	 * Compaction
 	 */
-	static async addMessageToDatabase(message: DatabaseMessage): Promise<DatabaseMessage> {
-		await db.messages.add(message);
-		return message;
-	}
 
-	/**
-	 * Atomically compacts the conversation tree by deleting compacted messages,
-	 * reparenting their children to the summary, and inserting the summary message.
-	 * All operations run in a single Dexie transaction to prevent partial failure.
-	 *
-	 * Optimization: batches all reads/writes using bulkGet/bulkPut to minimize
-	 * IndexedDB round-trips from O(N*M) to O(1) batches.
-	 *
-	 * @param convId - Conversation ID
-	 * @param summaryMessage - The summary message to insert
-	 * @param messagesToCompact - Messages to delete
-	 * @param anchorMessageId - ID of the first anchor message
-	 * @returns True on success
-	 */
 	static async compactMessageTree(
 		convId: string,
 		summaryMessage: DatabaseMessage,
 		messagesToCompact: DatabaseMessage[],
 		anchorMessageId: string
 	): Promise<void> {
-		await db.transaction('rw', db.messages, async () => {
-			const compactedIds = new Set(messagesToCompact.map((m) => m.id));
-
-			// Collect all IDs we need to read upfront (compacted msgs + their parents + children + anchor + summary parent)
-			const idsToFetch = new Set<string>();
-			for (const msg of messagesToCompact) {
-				idsToFetch.add(msg.id);
-				if (msg.parent) idsToFetch.add(msg.parent);
-				for (const cid of msg.children) idsToFetch.add(cid);
-			}
-			idsToFetch.add(anchorMessageId);
-			if (summaryMessage.parent) idsToFetch.add(summaryMessage.parent);
-
-			// Bulk fetch all messages in one call
-			const allMessages = await db.messages.bulkGet([...idsToFetch]);
-			const messageMap = new Map<string, DatabaseMessage>();
-			for (const msg of allMessages) {
-				if (msg) messageMap.set(msg.id, msg);
-			}
-
-			const messagesToPut: DatabaseMessage[] = [];
-
-			// 1. Reparent children of compacted messages to the summary
-			const orphanedChildIds = new Set<string>();
-			for (const msg of messagesToCompact) {
-				const message = messageMap.get(msg.id);
-				if (!message) continue;
-
-				for (const childId of message.children) {
-					if (compactedIds.has(childId)) continue;
-					const child = messageMap.get(childId);
-					if (child) {
-						child.parent = summaryMessage.id;
-						messagesToPut.push(child);
-					} else {
-						// Child was deleted concurrently — track as orphaned
-						// so we don't leave a dangling reference in the summary's children
-						orphanedChildIds.add(childId);
-					}
-				}
-			}
-
-			// 2. Remove compacted messages from their parents' children arrays
-			const parentIdsToUpdate = new Set<string>();
-			for (const msg of messagesToCompact) {
-				if (msg.parent) parentIdsToUpdate.add(msg.parent);
-			}
-			for (const parentId of parentIdsToUpdate) {
-				const parent = messageMap.get(parentId);
-				if (parent) {
-					parent.children = parent.children.filter((cid: string) => !compactedIds.has(cid));
-					messagesToPut.push(parent);
-				}
-			}
-
-			// 3. Update anchor message: set its parent to the summary message
-			const anchorMessage = messageMap.get(anchorMessageId);
-			if (anchorMessage) {
-				anchorMessage.parent = summaryMessage.id;
-				messagesToPut.push(anchorMessage);
-			}
-
-			// 4. Update the summary's parent's children array
-			if (summaryMessage.parent) {
-				const summaryParent = messageMap.get(summaryMessage.parent);
-				if (summaryParent) {
-					summaryParent.children = summaryParent.children.filter(
-						(cid: string) => !compactedIds.has(cid)
-					);
-					summaryParent.children.push(summaryMessage.id);
-					messagesToPut.push(summaryParent);
-				}
-			}
-
-			// Execute all puts in one batch, then delete compacted messages, then add summary
-			if (messagesToPut.length > 0) {
-				await db.messages.bulkPut(messagesToPut);
-			}
-
-			// Delete compacted messages
-			await db.messages.bulkDelete([...compactedIds]);
-
-			// Clean up orphaned child references from the summary before inserting
-			if (orphanedChildIds.size > 0) {
-				summaryMessage.children = summaryMessage.children.filter(
-					(cid: string) => !orphanedChildIds.has(cid)
-				);
-			}
-
-			// Add the summary message
-			await db.messages.add(summaryMessage);
-		});
-	}
-
-	/**
-	 *
-	 *
-	 * Import
-	 *
-	 *
-	 */
-
-	/**
-	 * Imports multiple conversations and their messages.
-	 * Skips conversations that already exist.
-	 *
-	 * @param data - Array of { conv, messages } objects
-	 */
-	static async importConversations(
-		data: { conv: DatabaseConversation; messages: DatabaseMessage[] }[]
-	): Promise<{ imported: number; skipped: number }> {
-		let importedCount = 0;
-		let skippedCount = 0;
-
-		return await db.transaction('rw', [db.conversations, db.messages], async () => {
-			for (const item of data) {
-				const { conv, messages } = item;
-
-				const existing = await db.conversations.get(conv.id);
-				if (existing) {
-					console.warn(`Conversation "${conv.name}" already exists, skipping...`);
-					skippedCount++;
-					continue;
-				}
-
-				await db.conversations.add(conv);
-				for (const msg of messages) {
-					await db.messages.put(msg);
-				}
-
-				importedCount++;
-			}
-
-			return { imported: importedCount, skipped: skippedCount };
-		});
-	}
-
-	/**
-	 *
-	 *
-	 * Forking
-	 *
-	 *
-	 */
-
-	/**
-	 * Forks a conversation at a specific message, creating a new conversation
-	 * containing all messages from the root up to (and including) the target message.
-	 *
-	 * @param sourceConvId - The source conversation ID
-	 * @param atMessageId - The message ID to fork at (the new conversation ends here)
-	 * @param options - Fork options (name and whether to include attachments)
-	 * @returns The newly created conversation
-	 */
-	static async forkConversation(
-		sourceConvId: string,
-		atMessageId: string,
-		options: { name: string; includeAttachments: boolean }
-	): Promise<DatabaseConversation> {
-		return await db.transaction('rw', [db.conversations, db.messages], async () => {
-			const sourceConv = await db.conversations.get(sourceConvId);
-			if (!sourceConv) {
-				throw new Error(`Source conversation ${sourceConvId} not found`);
-			}
-
-			const allMessages = await db.messages.where('convId').equals(sourceConvId).toArray();
-
-			const pathMessages = filterByLeafNodeId(allMessages, atMessageId, true) as DatabaseMessage[];
-			if (pathMessages.length === 0) {
-				throw new Error(`Could not resolve message path to ${atMessageId}`);
-			}
-
-			const idMap = new Map<string, string>();
-
-			for (const msg of pathMessages) {
-				idMap.set(msg.id, uuid());
-			}
-
-			const newConvId = uuid();
-			const clonedMessages: DatabaseMessage[] = pathMessages.map((msg) => {
-				const newId = idMap.get(msg.id)!;
-				const newParent = msg.parent ? (idMap.get(msg.parent) ?? null) : null;
-				const newChildren = msg.children
-					.filter((childId: string) => idMap.has(childId))
-					.map((childId: string) => idMap.get(childId)!);
-
-				return {
-					...msg,
-					id: newId,
-					convId: newConvId,
-					parent: newParent,
-					children: newChildren,
-					extra: options.includeAttachments ? msg.extra : undefined
-				};
-			});
-
-			const lastClonedMessage = clonedMessages[clonedMessages.length - 1];
-			const newConv: DatabaseConversation = {
-				id: newConvId,
-				name: options.name,
-				lastModified: Date.now(),
-				currNode: lastClonedMessage.id,
-				forkedFromConversationId: sourceConvId,
-				mcpServerOverrides: sourceConv.mcpServerOverrides
-					? sourceConv.mcpServerOverrides.map((o: McpServerOverride) => ({
-							serverId: o.serverId,
-							enabled: o.enabled
-						}))
-					: undefined
-			};
-
-			await db.conversations.add(newConv);
-
-			for (const msg of clonedMessages) {
-				await db.messages.add(msg);
-			}
-
-			return newConv;
+		await conversationsAPI.compactConversation(convId, {
+			summaryMessage,
+			messagesToCompact,
+			anchorMessageId
 		});
 	}
 }
+
+// Export db compatibility object for callers that need it
+export const db = {
+	conversations: {
+		add: async (conv: DatabaseConversation) => {
+			await conversationsAPI.createConversation({ 
+				name: conv.name, 
+				mcpServerOverrides: conv.mcpServerOverrides 
+			});
+		},
+		get: async (id: string) => {
+			try {
+				return await conversationsAPI.getConversation(id);
+			} catch {
+				return undefined;
+			}
+		},
+		update: async (id: string, updates: Partial<DatabaseConversation>) => {
+			await conversationsAPI.updateConversation(id, updates);
+		},
+		delete: async (id: string) => {
+			await conversationsAPI.deleteConversation(id);
+		},
+		orderBy: (field: string) => ({
+			reverse: () => ({
+				toArray: async () => conversationsAPI.getAllConversations()
+			})
+		}),
+		filter: () => ({
+			toArray: async () => []
+		})
+	},
+	messages: {
+		add: async (msg: DatabaseMessage) => {
+			await messagesAPI.createMessage(msg.convId, {
+				type: msg.type,
+				role: msg.role,
+				content: msg.content,
+				parentId: msg.parent,
+				timestamp: msg.timestamp
+			}, { parentId: msg.parent });
+		},
+		get: async (id: string) => {
+			try {
+				return await messagesAPI.getMessageById(id);
+			} catch {
+				return undefined;
+			}
+		},
+		update: async (id: string, updates: Partial<DatabaseMessage>) => {
+			await messagesAPI.updateMessage(id, updates);
+		},
+		delete: async (id: string) => {
+			await messagesAPI.deleteMessage(id);
+		},
+		put: async (msg: DatabaseMessage) => {
+			await messagesAPI.updateMessage(msg.id, msg);
+		},
+		where: (field: string) => ({
+			equals: (value: string) => ({
+				delete: async () => {
+					// Bulk delete not supported via this interface
+				},
+				sortBy: async (sortField: string) => {
+					return messagesAPI.getConversationMessages(value);
+				},
+				toArray: async () => {
+					return messagesAPI.getConversationMessages(value);
+				}
+			})
+		}),
+		bulkGet: async (ids: string[]) => {
+			const results = [];
+			for (const id of ids) {
+				try {
+					results.push(await messagesAPI.getMessageById(id));
+				} catch {
+					results.push(undefined);
+				}
+			}
+			return results;
+		},
+		bulkPut: async (messages: DatabaseMessage[]) => {
+			for (const msg of messages) {
+				await messagesAPI.updateMessage(msg.id, msg);
+			}
+		},
+		bulkDelete: async (ids: string[]) => {
+			for (const id of ids) {
+				await messagesAPI.deleteMessage(id);
+			}
+		}
+	},
+	transaction: async (mode: string, tables: any[], callback: () => Promise<any>) => {
+		// Transactions are handled server-side
+		return callback();
+	}
+};

@@ -138,8 +138,9 @@ function extractCodeText(codeElement: Element): string {
 function createHeader(language: string, codeId: string, codeText = ''): Element {
 	const actions: Element[] = [createCopyButton(codeId)];
 	const lang = language.toLowerCase();
+	// Use regex for more tolerant SVG detection in xml blocks
 	const isSvgContent =
-		lang === 'svg' || (lang === 'xml' && codeText.trimStart().startsWith('<svg'));
+		lang === 'svg' || (lang === 'xml' && /<svg[\s>]/.test(codeText));
 
 	if (lang === 'html') {
 		actions.push(createPreviewButton(codeId));

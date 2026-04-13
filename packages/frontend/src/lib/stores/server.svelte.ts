@@ -30,6 +30,8 @@ class ServerStore {
 	loading = $state(false);
 	error = $state<string | null>(null);
 	role = $state<ServerRole | null>(null);
+	/** Current retry attempt during fetchWithRetry (0 = first try, increments on retries) */
+	retryAttempt = $state(0);
 	private fetchPromise: Promise<void> | null = null;
 
 	/**
@@ -73,6 +75,11 @@ class ServerStore {
 		return this.role === ServerRole.MODEL;
 	}
 
+	/** Whether the current error indicates an unsupported endpoint (app runs in compatibility mode) */
+	get isCompatibilityMode(): boolean {
+		return this.error?.includes('does not support model metadata endpoint') ?? false;
+	}
+
 	/**
 	 *
 	 *
@@ -114,6 +121,7 @@ class ServerStore {
 		let lastError: unknown;
 
 		for (let attempt = 0; attempt <= ServerStore.MAX_RETRIES; attempt++) {
+			this.retryAttempt = attempt;
 			try {
 				const props = await PropsService.fetch();
 
@@ -148,7 +156,14 @@ class ServerStore {
 		if (!props || typeof props !== 'object') return false;
 		const obj = props as Record<string, unknown>;
 		// At minimum, expect model_path (llama.cpp) or default_generation_settings
-		return 'model_path' in obj || 'default_generation_settings' in obj;
+		if (!('model_path' in obj) && !('default_generation_settings' in obj)) return false;
+		// If default_generation_settings is present, ensure it has the required nested structure
+		if ('default_generation_settings' in obj) {
+			const dgs = obj.default_generation_settings;
+			if (!dgs || typeof dgs !== 'object') return false;
+			if (!('params' in (dgs as Record<string, unknown>))) return false;
+		}
+		return true;
 	}
 
 	/**
@@ -171,21 +186,23 @@ class ServerStore {
 			const message = error.message || '';
 
 			if (error.name === 'TypeError' && message.includes('fetch')) {
-				return 'Server is not running or unreachable';
+				return 'Cannot reach server — check that llama.cpp is running and the URL is correct';
 			} else if (message.includes('ECONNREFUSED')) {
-				return 'Connection refused - server may be offline';
+				return 'Connection refused — server may be offline or on a different port';
 			} else if (message.includes('ENOTFOUND')) {
-				return 'Server not found - check server address';
-			} else if (message.includes('ETIMEDOUT')) {
-				return 'Request timed out';
+				return 'Server address not found — check the server URL configuration';
+			} else if (message.includes('ETIMEDOUT') || message.includes('Request timed out')) {
+				return 'Request timed out — server may be overloaded or unreachable';
 			} else if (message.includes('503')) {
 				return 'Server temporarily unavailable';
 			} else if (message.includes('500')) {
-				return 'Server error - check server logs';
+				return 'Server error — check server logs for details';
 			} else if (message.includes('404')) {
-				return 'Server endpoint not found';
+				return 'Server does not support model metadata endpoint (/props) — running in compatibility mode';
 			} else if (message.includes('403') || message.includes('401')) {
-				return 'Access denied';
+				return 'Access denied — check API key and permissions';
+			} else if (message.includes('not a recognized llama.cpp /props shape')) {
+				return 'Server returned unexpected response — expected llama.cpp format';
 			}
 		}
 
@@ -197,6 +214,7 @@ class ServerStore {
 		this.error = null;
 		this.loading = false;
 		this.role = null;
+		this.retryAttempt = 0;
 		this.fetchPromise = null;
 	}
 
@@ -223,6 +241,8 @@ export const serverProps = () => serverStore.props;
 export const serverLoading = () => serverStore.loading;
 export const serverError = () => serverStore.error;
 export const serverRole = () => serverStore.role;
+export const serverRetryAttempt = () => serverStore.retryAttempt;
+export const isCompatibilityMode = () => serverStore.isCompatibilityMode;
 export const defaultParams = () => serverStore.defaultParams;
 export const contextSize = () => serverStore.contextSize;
 export const isRouterMode = () => serverStore.isRouterMode;

@@ -5,12 +5,14 @@ import { forwardHeaders } from './headers.ts';
  * Forward a request to an upstream, returning the upstream's Response.
  * Streams are not buffered — the caller can return the Response directly to the client.
  * @param providedBody - optional body text already consumed from request
+ * @param headerTimeoutMs - timeout in ms for receiving response headers (default: 300s for streaming)
  */
 export async function proxyRequest(
 	req: Request,
 	upstream: Upstream,
 	upstreamPath: string,
 	providedBody?: string,
+	headerTimeoutMs: number = 300_000,
 ): Promise<Response> {
 	const upstreamUrl = buildUrl(upstream.url, upstreamPath, req.url);
 	const headers = forwardHeaders(req.headers, upstream.resolvedApiKey);
@@ -35,7 +37,7 @@ export async function proxyRequest(
 		// responses can take minutes to complete. Use AbortController manually
 		// instead of AbortSignal.timeout() which applies to the entire fetch lifecycle.
 		const headerController = new AbortController();
-		const headerTimeout = setTimeout(() => headerController.abort(), 300_000);
+		const headerTimeout = setTimeout(() => headerController.abort(), headerTimeoutMs);
 		const startTime = Date.now();
 		resp = await fetch(upstreamReq, { signal: headerController.signal });
 		clearTimeout(headerTimeout);

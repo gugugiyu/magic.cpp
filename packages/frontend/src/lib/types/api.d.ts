@@ -121,7 +121,7 @@ export interface ApiLlamaCppServerProps {
 	default_generation_settings: {
 		id: number;
 		id_task: number;
-		n_ctx: number;
+		n_ctx: number | null;
 		speculative: boolean;
 		is_processing: boolean;
 		params: {

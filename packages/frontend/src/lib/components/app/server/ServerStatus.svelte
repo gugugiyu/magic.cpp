@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { AlertTriangle, Server } from '@lucide/svelte';
+	import { AlertTriangle, Server, Globe } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { serverProps, serverLoading, serverError } from '$lib/stores/server.svelte';
+	import { serverProps, serverLoading, serverError, isCompatibilityMode } from '$lib/stores/server.svelte';
 	import { singleModelName } from '$lib/stores/models.svelte';
 
 	interface Props {
@@ -16,9 +16,11 @@
 	let loading = $derived(serverLoading());
 	let model = $derived(singleModelName());
 	let serverData = $derived(serverProps());
+	let compatMode = $derived(isCompatibilityMode());
 
 	function getStatusColor() {
 		if (loading) return 'bg-yellow-500';
+		if (compatMode) return 'bg-amber-500'; // amber = working but limited
 		if (error) return 'bg-red-500';
 		if (serverData) return 'bg-green-500';
 
@@ -27,6 +29,7 @@
 
 	function getStatusText() {
 		if (loading) return 'Connecting...';
+		if (compatMode) return 'Compatibility Mode';
 		if (error) return 'Connection Error';
 		if (serverData) return 'Connected';
 
@@ -55,7 +58,14 @@
 		{/if}
 	{/if}
 
-	{#if showActions && error}
+	{#if compatMode}
+		<Badge variant="outline" class="text-xs">
+			<Globe class="mr-1 h-3 w-3" />
+			OpenAI-compatible
+		</Badge>
+	{/if}
+
+	{#if showActions && error && !compatMode}
 		<Button variant="outline" size="sm" class="text-destructive">
 			<AlertTriangle class="h-4 w-4" />
 

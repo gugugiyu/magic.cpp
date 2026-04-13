@@ -1,6 +1,9 @@
 import type { ModelPool } from '../pool/model-pool.ts';
 import { proxyRequest } from '../utils/proxy.ts';
 
+/** Timeout for /props requests — this is a metadata endpoint, not streaming */
+const PROPS_TIMEOUT_MS = 30_000; // 30 seconds
+
 /**
  * Synthetic /props response for OpenAI-type upstreams (no native /props endpoint).
  * Shape mirrors ApiLlamaCppServerProps with sensible defaults.
@@ -18,7 +21,7 @@ const SYNTHETIC_PROPS = {
 	default_generation_settings: {
 		id: 0,
 		id_task: 0,
-		n_ctx: 4096,
+		n_ctx: null, // Unknown — OpenAI-compatible endpoints don't expose context window; server enforces its own limits
 		speculative: false,
 		is_processing: false,
 		params: {
@@ -103,7 +106,7 @@ export async function handleProps(req: Request, pool: ModelPool): Promise<Respon
 			if (upstream.enabled === false) {
 				return Response.json({ error: `upstream '${upstream.id}' is disabled` }, { status: 503 });
 			}
-			const resp = await proxyRequest(req, upstream, '/props');
+			const resp = await proxyRequest(req, upstream, '/props', undefined, PROPS_TIMEOUT_MS);
 			if (!resp.ok) {
 				console.warn(`[props] upstream ${upstream.id} returned ${resp.status} for /props — falling back to synthetic props`);
 				return Response.json(SYNTHETIC_PROPS);
@@ -114,7 +117,7 @@ export async function handleProps(req: Request, pool: ModelPool): Promise<Respon
 		// No model specified — use first ENABLED llamacpp upstream, or synthesize if all are openai or disabled
 		const llamacpp = pool.getAllUpstreams().find((u) => u.type === 'llamacpp' && u.enabled !== false);
 		if (llamacpp) {
-			const resp = await proxyRequest(req, llamacpp, '/props');
+			const resp = await proxyRequest(req, llamacpp, '/props', undefined, PROPS_TIMEOUT_MS);
 			if (!resp.ok) {
 				console.warn(`[props] upstream ${llamacpp.id} returned ${resp.status} for /props — falling back to synthetic props`);
 				return Response.json(SYNTHETIC_PROPS);

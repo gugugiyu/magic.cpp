@@ -158,18 +158,24 @@
 	// When /props fails with a non-transient error (e.g. 404), trigger
 	// a minimal sync so sampling param overrides are cleared and the
 	// server can decide defaults.
-	let openAICompatibleFallbackTriggered = false;
+	// Persisted in sessionStorage to survive layout recreation and page reloads.
+	function isOpenAICompatFallbackTriggered(): boolean {
+		return sessionStorage.getItem('openai_compat_fallback_triggered') === '1';
+	}
+	function setOpenAICompatFallbackTriggered(): void {
+		sessionStorage.setItem('openai_compat_fallback_triggered', '1');
+	}
 
 	$effect(() => {
 		const err = serverStore.error;
 
 		if (
 			err &&
-			!openAICompatibleFallbackTriggered &&
+			!isOpenAICompatFallbackTriggered() &&
 			!serverStore.loading &&
 			(err.includes('not found') || err.includes('404') || err.includes('Failed to connect'))
 		) {
-			openAICompatibleFallbackTriggered = true;
+			setOpenAICompatFallbackTriggered();
 			untrack(() => {
 				settingsStore.syncWithOpenAICompatibleDefaults();
 			});

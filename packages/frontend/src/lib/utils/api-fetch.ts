@@ -146,17 +146,38 @@ export async function apiFetchWithParams<T>(
 	const baseHeaders = getJsonHeaders();
 	const headers = { ...baseHeaders, ...customHeaders };
 
-	const response = await fetch(url.toString(), {
-		...fetchOptions,
-		headers
-	});
+	// Create abort controller for timeout
+	const controller = new AbortController();
+	const timeoutId = setTimeout(
+		() => controller.abort(),
+		options.timeout ?? DEFAULT_API_TIMEOUT
+	) as unknown as number;
+	controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
 
-	if (!response.ok) {
-		const errorMessage = await parseErrorMessage(response);
-		throw new Error(errorMessage);
+	try {
+		const response = await fetch(url.toString(), {
+			...fetchOptions,
+			headers,
+			signal: controller.signal
+		});
+
+		if (!response.ok) {
+			const errorMessage = await parseErrorMessage(response);
+			throw new Error(errorMessage);
+		}
+
+		return response.json() as Promise<T>;
+	} catch (err) {
+		// Check for abort/timeout error
+		if (err instanceof DOMException && err.name === 'AbortError') {
+			throw new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+		}
+		// Bun/Node.js AbortController throws AbortError differently
+		if (err instanceof Error && err.name === 'AbortError') {
+			throw new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+		}
+		throw err;
 	}
-
-	return response.json() as Promise<T>;
 }
 
 /**

@@ -8,7 +8,7 @@
 	import { SETTING_CONFIG_INFO, SETTINGS_KEYS } from '$lib/constants';
 	import { SettingsFieldType } from '$lib/enums/settings';
 	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { serverStore } from '$lib/stores/server.svelte';
+	import { serverStore, serverLoading } from '$lib/stores/server.svelte';
 	import { modelsStore, selectedModelName } from '$lib/stores/models.svelte';
 	import { normalizeFloatingPoint } from '$lib/utils/precision';
 	import { ChatSettingsParameterSourceIndicator } from '$lib/components/app';
@@ -23,6 +23,8 @@
 
 	let { fields, localConfig, onConfigChange, onThemeChange }: Props = $props();
 
+	let isLoadingServerDefaults = $derived(serverLoading() && !serverStore.props);
+
 	// server sampling defaults for placeholders
 	let sp = $derived.by(() => {
 		if (serverStore.isRouterMode) {
@@ -34,6 +36,8 @@
 		}
 		return (serverStore.defaultParams ?? {}) as Record<string, unknown>;
 	});
+
+	let serverDefaultsAvailable = $derived(serverStore.props !== null || !serverStore.isRouterMode);
 </script>
 
 {#each fields as field (field.key)}
@@ -78,9 +82,11 @@
 						// Update local config immediately for real-time badge feedback
 						onConfigChange(field.key, e.currentTarget.value);
 					}}
-					placeholder={sp[field.key] != null
-						? `Default: ${normalizeFloatingPoint(sp[field.key])}`
-						: ''}
+					placeholder={isLoadingServerDefaults
+						? 'Loading…'
+						: sp[field.key] != null
+							? `Default: ${normalizeFloatingPoint(sp[field.key])}`
+							: ''}
 					class="w-full {isCustomRealTime ? 'pr-8' : ''}"
 				/>
 				{#if isCustomRealTime}

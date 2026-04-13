@@ -28,7 +28,7 @@
 		activeConversation
 	} from '$lib/stores/conversations.svelte';
 	import { config } from '$lib/stores/settings.svelte';
-	import { serverLoading, serverError, serverStore, isRouterMode } from '$lib/stores/server.svelte';
+	import { serverLoading, serverError, serverStore, isRouterMode, isCompatibilityMode } from '$lib/stores/server.svelte';
 	import { modelsStore, modelOptions, selectedModelId } from '$lib/stores/models.svelte';
 	import { isFileTypeSupported, filterFilesByModalities } from '$lib/utils';
 	import { parseFilesToMessageExtras, processFilesToChatUploaded } from '$lib/utils/browser-only';
@@ -75,7 +75,7 @@
 
 	let activeErrorDialog = $derived(errorDialog());
 	let isServerLoading = $derived(serverLoading());
-	let hasPropsError = $derived(!!serverError());
+	let hasPropsError = $derived(!!serverError() && !isCompatibilityMode());
 
 	let isCurrentConversationLoading = $derived(isLoading() || isChatStreaming());
 

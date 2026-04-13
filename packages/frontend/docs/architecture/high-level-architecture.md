@@ -51,10 +51,12 @@ end
             S1Utils["<b>Utilities:</b><br/>getApiOptions()<br/>parseTimingData()<br/>getOrCreateAbortController()<br/>getConversationModel()"]
         end
         subgraph SA["agenticStore"]
-            SAState["<b>State:</b><br/>sessions (Map)<br/>isAnyRunning"]
+            SAState["<b>State:</b><br/>sessions (Map)<br/>subagentProgress<br/>isAnyRunning"]
             SASession["<b>Session Management:</b><br/>getSession()<br/>updateSession()<br/>clearSession()<br/>getActiveSessions()<br/>isRunning()<br/>currentTurn()<br/>totalToolCalls()<br/>lastError()<br/>streamingToolCall()"]
-            SAConfig["<b>Configuration:</b><br/>getConfig()<br/>maxTurns, maxToolPreviewLines"]
+            SAConfig["<b>Configuration:</b><br/>getConfig()<br/>getBuiltinTools()<br/>maxTurns, maxToolPreviewLines"]
             SAFlow["<b>Agentic Loop:</b><br/>runAgenticFlow()<br/>executeAgenticLoop()<br/>normalizeToolCalls()<br/>emitToolCallResult()<br/>extractBase64Attachments()"]
+            SATools["<b>Built-in Tool Execution:</b><br/>executeBuiltinTool()<br/>calculator, get_time, get_location<br/>sequential_thinking, call_subagent<br/>list_skill, read_skill"]
+            SASubagent["<b>Subagent Delegation:</b><br/>Independent agentic loop on subagent endpoint<br/>No recursion, no sequential_thinking<br/>Progress tracking via SubagentProgress"]
         end
         subgraph S2["conversationsStore"]
             S2State["<b>State:</b><br/>conversations<br/>activeConversation<br/>activeMessages<br/>isInitialized<br/>pendingMcpServerOverrides<br/>titleUpdateConfirmationCallback"]
@@ -104,6 +106,24 @@ end
             S7Cache["<b>Caching:</b><br/>cacheResourceContent()<br/>getCachedContent()<br/>invalidateCache()<br/>clearCache()"]
             S7Subs["<b>Subscriptions:</b><br/>addSubscription()<br/>removeSubscription()<br/>isSubscribed()<br/>handleResourceUpdate()"]
             S7Attach["<b>Attachments:</b><br/>addAttachment()<br/>updateAttachmentContent()<br/>removeAttachment()<br/>clearAttachments()<br/>toMessageExtras()"]
+        end
+        subgraph S8["sequentialThinkingStore"]
+            S8State["<b>State:</b><br/>turns[] (memory only)"]
+            S8Ops["<b>Operations:</b><br/>recordThought()<br/>getTurn()<br/>getTurnsForConversation()<br/>clearConversation()"]
+        end
+        subgraph S9["subagentConfigStore"]
+            S9State["<b>State:</b><br/>endpoint, apiKey, model<br/>enabled, summarizeEnabled"]
+            S9Ops["<b>Operations:</b><br/>isConfigured<br/>load/save (localStorage)"]
+        end
+        subgraph S10["skillsStore"]
+            S10State["<b>State:</b><br/>skills[], skillStates<br/>isLoading, error"]
+            S10Getters["<b>Getters:</b><br/>enabledSkills<br/>modelVisibleSkills<br/>isSkillEnabled()"]
+            S10Crud["<b>CRUD:</b><br/>loadSkills()<br/>createSkill()<br/>updateSkill()<br/>deleteSkill()<br/>findSkill()"]
+            S10Tools["<b>Tool Support:</b><br/>getListSkillEntries()<br/>getReadSkillContent()<br/>isSkillAvailableForModel()"]
+        end
+        subgraph S11["modelCapabilityStore"]
+            S11State["<b>State:</b><br/>toolCallingOverrides"]
+            S11Ops["<b>Operations:</b><br/>isToolCallingEnabled()"]
         end
 
         subgraph ReactiveExports["⚡ Reactive Exports"]
@@ -173,6 +193,16 @@ end
                 RE41["mcpTotalResourceCount()"]
                 RE42["mcpResourcesLoading()"]
             end
+            subgraph SkillsExports["skillsStore"]
+                RES1["skills()"]
+                RES2["enabledSkills()"]
+                RES3["modelVisibleSkills()"]
+                RES4["isLoading()"]
+                RES5["error()"]
+            end
+            subgraph SequentialThinkingExports["sequentialThinkingStore"]
+                RESE1["turns"]
+            end
         end
     end
 
@@ -212,6 +242,9 @@ end
             SV6Resources["<b>Resources:</b><br/>listResources()<br/>listResourceTemplates()<br/>readResource()<br/>subscribeResource()<br/>unsubscribeResource()"]
             SV6Complete["<b>Completions:</b><br/>complete()"]
         end
+        subgraph SV7["SkillService"]
+            SV7Crud["<b>CRUD:</b><br/>listSkills()<br/>createSkill()<br/>updateSkill()<br/>deleteSkill()"]
+        end
     end
 
     subgraph ExternalMCP["🔌 External MCP Servers"]
@@ -219,14 +252,20 @@ end
         EXT2["MCP Server N"]
     end
 
+    subgraph ExternalSubagent["🤖 Subagent Endpoint"]
+        SUB1["OpenAI-compatible API<br/>/v1/chat/completions<br/>(separate server)"]
+    end
+
     subgraph Storage["💾 Storage"]
-        ST1["IndexedDB"]
+        ST1["SQLite (Backend)"]
         ST2["conversations"]
         ST3["messages"]
+        ST4["skills (.md files)"]
         ST5["LocalStorage"]
         ST6["config"]
         ST7["userOverrides"]
         ST8["mcpServers"]
+        ST9["skillEnabledStates"]
     end
 
     subgraph APIs["🌐 llama-server API"]
@@ -299,6 +338,7 @@ end
     S1 --> SA
     SA --> SV1
     SA --> S6
+    SA --> S9
 
     %% Stores use Services
     S1 --> SV1 & SV4
@@ -308,12 +348,14 @@ end
     S5 --> SV5
     S6 --> SV6
     S7 --> SV6
+    S10 --> SV7
 
     %% Services to Storage
     SV4 --> ST1
     ST1 --> ST2 & ST3
+    SV7 --> ST4
     SV5 --> ST5
-    ST5 --> ST6 & ST7 & ST8
+    ST5 --> ST6 & ST7 & ST8 & ST9
 
     %% Services to APIs
     SV1 --> API1
@@ -322,6 +364,9 @@ end
 
     %% MCP → External Servers
     SV6 --> EXT1 & EXT2
+
+    %% Subagent → External Subagent API
+    SA --> SUB1
 
     %% Styling
     classDef routeStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
@@ -349,25 +394,26 @@ end
     classDef agenticStyle fill:#e8eaf6,stroke:#283593,stroke-width:2px
     classDef agenticMethodStyle fill:#c5cae9,stroke:#283593,stroke-width:1px
 
-    class S1,S2,S3,S4,S5,SA,S6,S7 storeStyle
-    class S1State,S2State,S3State,S4State,S5State,SAState,S6State,S7State stateStyle
+    class S1,S2,S3,S4,S5,SA,S6,S7,S8,S9,S10,S11 storeStyle
+    class S1State,S2State,S3State,S4State,S5State,SAState,S6State,S7State,S8State,S9State,S10State,S11State stateStyle
     class S1Msg,S1Regen,S1Edit,S1Stream,S1LoadState,S1ProcState,S1Error,S1Utils methodStyle
-    class SASession,SAConfig,SAFlow methodStyle
+    class SASession,SAConfig,SAFlow,SATools,SASubagent methodStyle
     class S2Lifecycle,S2ConvCRUD,S2MsgMgmt,S2Nav,S2McpOverrides,S2Export,S2Utils methodStyle
     class S3Getters,S3Modal,S3Status,S3Fetch,S3Select,S3LoadUnload,S3Utils methodStyle
     class S4Getters,S4Data,S4Utils methodStyle
     class S5Lifecycle,S5Update,S5Reset,S5Sync,S5Utils methodStyle
     class S6Lifecycle,S6Health,S6Servers,S6Tools,S6Prompts methodStyle
     class S7Resources,S7Cache,S7Subs,S7Attach methodStyle
-    class ChatExports,AgenticExports,ConvExports,ModelsExports,ServerExports,SettingsExports,MCPExports reactiveStyle
-    class SV1,SV2,SV3,SV4,SV5,SV6 serviceStyle
+    class S8State,S8Ops methodStyle
+    class S9State,S9Ops methodStyle
+    class S10State,S10Getters,S10Crud,S10Tools methodStyle
+    class S11State,S11Ops methodStyle
+    class ChatExports,AgenticExports,ConvExports,ModelsExports,ServerExports,SettingsExports,MCPExports,SkillsExports,SequentialThinkingExports reactiveStyle
+    class SV1,SV2,SV3,SV4,SV5,SV6,SV7 serviceStyle
     class SV6Transport,SV6Conn,SV6Tools,SV6Prompts,SV6Resources,SV6Complete serviceMStyle
+    class SV7Crud serviceMStyle
     class EXT1,EXT2 externalStyle
-    class SV1Msg,SV1Stream,SV1Convert,SV1Utils serviceMStyle
-    class SV2List,SV2LoadUnload,SV2Status serviceMStyle
-    class SV3Fetch serviceMStyle
-    class SV4Conv,SV4Msg,SV4Node,SV4Import serviceMStyle
-    class SV5Extract,SV5Merge,SV5Info,SV5Diff serviceMStyle
-    class ST1,ST2,ST3,ST5,ST6,ST7,ST8 storageStyle
+    class SUB1 externalStyle
+    class ST1,ST2,ST3,ST4,ST5,ST6,ST7,ST8,ST9 storageStyle
     class API1,API2,API3,API4 apiStyle
 ```

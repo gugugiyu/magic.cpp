@@ -28,27 +28,32 @@ flowchart TB
 
     subgraph Stores["🗄️ Stores"]
         S1["chatStore<br/><i>Chat interactions & streaming</i>"]
-        SA["agenticStore<br/><i>Multi-turn agentic loop orchestration</i>"]
+        SA["agenticStore<br/><i>Multi-turn agentic loop, built-in tools, subagent</i>"]
         S2["conversationsStore<br/><i>Conversation data, messages & MCP overrides</i>"]
         S3["modelsStore<br/><i>Model selection & loading</i>"]
         S4["serverStore<br/><i>Server props & role detection</i>"]
-        S5["settingsStore<br/><i>User configuration incl. MCP</i>"]
-        S6["mcpStore<br/><i>MCP servers, tools, prompts</i>"]
+        S5["settingsStore<br/><i>User configuration incl. MCP, filters, skills</i>"]
+        S6["mcpStore<br/><i>MCP servers, tools, prompts, health checks</i>"]
         S7["mcpResourceStore<br/><i>MCP resources & attachments</i>"]
+        S8["sequentialThinkingStore<br/><i>Ephemeral reasoning steps</i>"]
+        S9["subagentConfigStore<br/><i>Subagent endpoint, model, API key</i>"]
+        S10["skillsStore<br/><i>User-managed skill files (CRUD, enable/disable)</i>"]
+        S11["modelCapabilityStore<br/><i>Per-model tool-calling override</i>"]
     end
 
     subgraph Services["⚙️ Services"]
         SV1["ChatService"]
         SV2["ModelsService"]
         SV3["PropsService"]
-        SV4["DatabaseService"]
+        SV4["DatabaseService<br/><i>HTTP API to SQLite backend</i>"]
         SV5["ParameterSyncService"]
         SV6["MCPService<br/><i>protocol operations</i>"]
+        SV7["SkillService<br/><i>Backend skill CRUD</i>"]
     end
 
     subgraph Storage["💾 Storage"]
-        ST1["IndexedDB<br/><i>conversations, messages</i>"]
-        ST2["LocalStorage<br/><i>config, userOverrides, mcpServers</i>"]
+        ST1["SQLite (Backend)<br/><i>conversations, messages, skills</i>"]
+        ST2["LocalStorage<br/><i>config, userOverrides, mcpServers, skillStates</i>"]
     end
 
     subgraph APIs["🌐 llama-server API"]
@@ -61,6 +66,10 @@ flowchart TB
     subgraph ExternalMCP["🔌 External MCP Servers"]
         EXT1["MCP Server 1<br/><i>WebSocket/HTTP/SSE</i>"]
         EXT2["MCP Server N"]
+    end
+
+    subgraph ExternalSubagent["🤖 Subagent Endpoint"]
+        SUB1["OpenAI-compatible API<br/><i>(separate server)</i>"]
     end
 
     %% Routes → Components
@@ -99,6 +108,8 @@ flowchart TB
     S1 --> SA
     SA --> SV1
     SA --> S6
+    SA --> S9
+    SA --> SUB1
 
     %% Stores → Services
     S1 --> SV1 & SV4
@@ -108,10 +119,12 @@ flowchart TB
     S5 --> SV5
     S6 --> SV6
     S7 --> SV6
+    S10 --> SV7
 
     %% Services → Storage
     SV4 --> ST1
     SV5 --> ST2
+    SV7 --> ST1
 
     %% Services → APIs
     SV1 --> API1
@@ -137,9 +150,10 @@ flowchart TB
     class C_Sidebar,C_Screen,C_Form,C_Messages,C_Message,C_ChatMessageAgenticContent,C_MessageEditForm,C_ModelsSelector,C_Settings componentStyle
     class C_McpSettings,C_McpResourceBrowser,C_McpServersSelector componentStyle
     class H1,H2 hookStyle
-    class S1,S2,S3,S4,S5,SA,S6,S7 storeStyle
-    class SV1,SV2,SV3,SV4,SV5,SV6 serviceStyle
+    class S1,S2,S3,S4,S5,SA,S6,S7,S8,S9,S10,S11 storeStyle
+    class SV1,SV2,SV3,SV4,SV5,SV6,SV7 serviceStyle
     class ST1,ST2 storageStyle
     class API1,API2,API3,API4 apiStyle
     class EXT1,EXT2 externalStyle
+    class SUB1 externalStyle
 ```

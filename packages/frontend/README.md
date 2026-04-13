@@ -1,6 +1,6 @@
 # llama.cpp Web UI
 
-A modern, feature-rich web interface for llama.cpp built with SvelteKit. This UI provides an intuitive chat interface with advanced file handling, conversation management, and comprehensive model interaction capabilities.
+A modern, feature-rich web interface for llama.cpp built with SvelteKit. This UI provides an intuitive chat interface with advanced file handling, conversation management, agentic tool execution, and comprehensive model interaction capabilities.
 
 The WebUI supports two server operation modes:
 
@@ -31,6 +31,48 @@ The WebUI supports two server operation modes:
 - **Dark/light theme** with system preference detection
 - **Responsive design** for desktop and mobile
 
+### Agentic Tool Execution (Multi-Turn Loop)
+
+- **MCP (Model Context Protocol)** - Connect to external MCP servers via WebSocket, SSE, or Streamable HTTP
+- **Built-in tools** - Execute tools entirely in the frontend without external servers:
+  - **Calculator** - Evaluate math expressions (user-confirmed before execution)
+  - **Time** - Current UTC date/time for temporal awareness
+  - **Location** - Browser geolocation (user permission required)
+  - **Sequential Thinking** - Structured step-by-step reasoning with live stepper UI
+  - **Call Subagent** - Delegate tasks to a separate model on a different endpoint
+  - **List/Read Skills** - Discover and read user-managed skill files
+- **Agentic loop** - Multi-turn tool execution with configurable turn limits (default: 10)
+- **Tool output summarization** - MCP outputs exceeding a line threshold are summarized by the subagent before returning to the main model
+- **Streaming tool calls** - Tool call arguments stream in real-time with live preview
+
+### Dual-Node Architecture (Main Model + Subagent)
+
+- **Separate subagent endpoint** - Configured independently in Settings → Connection
+- **Independent model selection** - Subagent uses its own model, separate from the main model
+- **Recursive tool delegation** - Subagent runs its own agentic loop with MCP + built-in tools (no recursion to prevent infinite loops)
+- **Progress tracking** - Real-time UI shows subagent model name, tool steps, and completion status
+- **Skill association** - Tracks which skill triggered a subagent invocation for UI display
+
+### Skill Vault/Manager
+
+- **Import skills** - Upload `.md` skill files via drag-and-drop or file picker
+- **Create/edit skills** - Full CRUD with inline markdown editor
+- **Preview** - Render skill content with Markdown + KaTeX before saving
+- **Enable/disable** - Per-skill toggle controls visibility to the model
+- **Search & sort** - Filter by title/name/description; sort by recently modified, name, or enabled status
+- **Duplicate** - Clone existing skills for quick iteration
+- **Backend storage** - Skills persisted as `.md` files on the server's skill directory
+- **$ARGUMENTS support** - Skills can include parameterized placeholders
+
+### Response Filters
+
+- **Emoji removal** - Strip all Extended Pictographic Unicode characters
+- **Codeblock only** - Keep only the first fenced code block, discard surrounding text
+- **Raw mode** - Strip all Markdown formatting for plain text display
+- **Markdown normalizer** - Auto-fix formatting issues (unclosed code blocks, fullwidth symbols, Mermaid diagrams, heading spacing, table pipes, XML artifact tags)
+- **Language pinner** - Detect `![xx]` language tags in user messages and append a language instruction to the API request (not stored in DB)
+- **Display-only** - Filters apply at render time; raw content is never modified in storage
+
 ### File Attachments
 
 - **Images** - JPEG, PNG, GIF, WebP, SVG (with PNG conversion)
@@ -51,6 +93,7 @@ The WebUI supports two server operation modes:
 - **Syntax highlighting** - Code blocks with language detection
 - **Math formulas** - KaTeX rendering for LaTeX expressions
 - **Markdown** - Full GFM support with tables, lists, and more
+- **Mermaid diagrams** - Auto-rendered with proper syntax fixing
 
 ### Multi-Model Support (ROUTER mode)
 
@@ -81,7 +124,8 @@ The WebUI supports two server operation modes:
 
 ### Prerequisites
 
-- **Node.js** 18+ (20+ recommended)
+- **Bun** 1.2+ (for the backend service)
+- **Node.js** 18+ (20+ recommended, for the frontend)
 - **npm** 9+
 - **llama-server** running locally (for API access)
 
@@ -90,9 +134,23 @@ The WebUI supports two server operation modes:
 ```bash
 cd packages/frontend
 npm install
+
+cd ../backend
+bun install
 ```
 
-### 2. Start llama-server
+### 2. Start the Backend
+
+The backend provides SQLite persistence and skill management:
+
+```bash
+cd packages/backend
+bun run dev
+```
+
+This starts the backend API server (default port: 3001).
+
+### 3. Start llama-server
 
 In a separate terminal, start the backend server:
 
@@ -104,9 +162,10 @@ In a separate terminal, start the backend server:
 ./llama-server --models-dir /path/to/models
 ```
 
-### 3. Start Development Servers
+### 4. Start Development Servers
 
 ```bash
+cd packages/frontend
 npm run dev
 ```
 
@@ -115,15 +174,16 @@ This starts:
 - **Vite dev server** at `http://localhost:5173` - The main WebUI
 - **Storybook** at `http://localhost:6006` - Component documentation
 
-The Vite dev server proxies API requests to `http://localhost:8080` (default llama-server port):
+The Vite dev server proxies API requests to the backend and llama-server:
 
 ```typescript
 // vite.config.ts proxy configuration
 proxy: {
-  '/v1': 'http://localhost:8080',
-  '/props': 'http://localhost:8080',
-  '/slots': 'http://localhost:8080',
-  '/models': 'http://localhost:8080'
+  '/api': 'http://localhost:3001',   // Backend API (SQLite, skills)
+  '/v1': 'http://localhost:8080',    // llama-server chat completions
+  '/props': 'http://localhost:8080', // llama-server properties
+  '/slots': 'http://localhost:8080', // llama-server slot status
+  '/models': 'http://localhost:8080' // llama-server model management
 }
 ```
 
@@ -143,10 +203,12 @@ proxy: {
 | **Framework**     | SvelteKit + Svelte 5            | Reactive UI with runes (`$state`, `$derived`, `$effect`) |
 | **UI Components** | shadcn-svelte + bits-ui         | Accessible, customizable component library               |
 | **Styling**       | TailwindCSS 4                   | Utility-first CSS with design tokens                     |
-| **Database**      | IndexedDB (Dexie)               | Client-side storage for conversations and messages       |
-| **Build**         | Vite                            | Fast bundling with static adapter                        |
+| **Database**      | SQLite (via `bun:sqlite`)       | Server-side persistence for conversations, messages, skills |
+| **Backend**       | Bun + native HTTP               | Lightweight API layer for frontend                       |
+| **Build**         | Vite 7                          | Fast bundling with static adapter                        |
 | **Testing**       | Playwright + Vitest + Storybook | E2E, unit, and visual testing                            |
-| **Markdown**      | remark + rehype                 | Markdown processing with KaTeX and syntax highlighting   |
+| **Markdown**      | remark + rehype + mdsvex        | Markdown processing with KaTeX and syntax highlighting   |
+| **Validation**    | Zod 4                           | Runtime type validation                                    |
 
 ### Key Dependencies
 
@@ -154,12 +216,15 @@ proxy: {
 {
 	"svelte": "^5.0.0",
 	"bits-ui": "^2.8.11",
-	"dexie": "^4.0.11",
 	"pdfjs-dist": "^5.4.54",
 	"highlight.js": "^11.11.1",
-	"rehype-katex": "^7.0.1"
+	"rehype-katex": "^7.0.1",
+	"mermaid": "^11.0.0",
+	"zod": "^4.0.0"
 }
 ```
+
+> **Note:** Dexie (IndexedDB ORM) has been replaced with a server-side SQLite backend. Conversations and messages are now persisted via HTTP API calls to the backend service, which uses `bun:sqlite` for storage.
 
 ---
 
@@ -175,7 +240,7 @@ Runs Vite in development mode with:
 
 - Hot Module Replacement (HMR)
 - Source maps
-- Proxy to llama-server
+- Proxy to llama-server and backend API
 
 ### Production Build
 
@@ -273,7 +338,7 @@ flowchart TB
     end
 
     subgraph Storage["💾 Storage"]
-        ST1["IndexedDB"]
+        ST1["SQLite (Backend)"]
         ST2["LocalStorage"]
     end
 
@@ -328,6 +393,7 @@ Components are organized in `app/` (application-specific) and `ui/` (shadcn-svel
 | `DialogChatAttachmentPreview`   | Full preview for images, PDFs (text or page view), code  |
 | `DialogConfirmation`            | Generic confirmation for destructive actions             |
 | `DialogConversationTitleUpdate` | Edit conversation title                                  |
+| `DialogSkillManager`            | Full CRUD skill management (import, create, edit, preview, delete, duplicate) |
 
 **Server/Model Components** (`app/server/`, `app/models/`):
 
@@ -352,23 +418,32 @@ Components are organized in `app/` (application-specific) and `ui/` (shadcn-svel
 
 #### Stores (`src/lib/stores/`)
 
-| Store                | Responsibility                                            |
-| -------------------- | --------------------------------------------------------- |
-| `chatStore`          | Message sending, streaming, abort control, error handling |
-| `conversationsStore` | CRUD for conversations, message branching, navigation     |
-| `modelsStore`        | Model list, selection, loading/unloading (ROUTER)         |
-| `serverStore`        | Server properties, role detection, modalities             |
-| `settingsStore`      | User preferences, parameter sync with server defaults     |
+| Store                      | Responsibility                                            |
+| -------------------------- | --------------------------------------------------------- |
+| `chatStore`                | Message sending, streaming, abort control, error handling |
+| `agenticStore`             | Multi-turn agentic loop orchestration, tool execution, subagent delegation |
+| `conversationsStore`       | CRUD for conversations, message branching, navigation, MCP per-chat overrides |
+| `modelsStore`              | Model list, selection, loading/unloading (ROUTER), modality caching |
+| `serverStore`              | Server properties, role detection, modalities             |
+| `settingsStore`            | User preferences, parameter sync with server defaults     |
+| `mcpStore`                 | MCP server connections, tool execution, health checks, prompt retrieval |
+| `mcpResourceStore`         | MCP resource discovery, caching, subscriptions, attachments |
+| `sequentialThinkingStore`  | Ephemeral reasoning step tracking for sequential thinking tool |
+| `subagentConfigStore`      | Subagent endpoint, API key, model, and summarization settings |
+| `skillsStore`              | User-managed skill files (load, create, update, delete, enable/disable) |
+| `modelCapabilityStore`     | Per-model tool-calling capability override                |
 
 #### Services (`src/lib/services/`)
 
 | Service                | Responsibility                                  |
 | ---------------------- | ----------------------------------------------- |
-| `ChatService`          | API calls to`/v1/chat/completions`, SSE parsing |
+| `ChatService`          | API calls to `/v1/chat/completions`, SSE parsing, message conversion |
 | `ModelsService`        | `/models`, `/models/load`, `/models/unload`     |
 | `PropsService`         | `/props`, `/props?model=`                       |
-| `DatabaseService`      | IndexedDB operations via Dexie                  |
+| `DatabaseService`      | HTTP API calls to backend for SQLite persistence (conversations, messages) |
 | `ParameterSyncService` | Syncs settings with server defaults             |
+| `MCPService`           | MCP protocol operations (WebSocket, SSE, Streamable HTTP) |
+| `SkillService`         | Backend API calls for skill CRUD operations     |
 
 ---
 
@@ -383,12 +458,12 @@ sequenceDiagram
     participant User
     participant UI
     participant Stores
-    participant DB as IndexedDB
+    participant Backend as Backend API
     participant API as llama-server
 
     Note over User,API: Initialization
     UI->>Stores: initialize()
-    Stores->>DB: load conversations
+    Stores->>Backend: load conversations
     Stores->>API: GET /props
     API-->>Stores: server config
     Stores->>API: GET /v1/models
@@ -396,13 +471,13 @@ sequenceDiagram
 
     Note over User,API: Chat Flow
     User->>UI: send message
-    Stores->>DB: save user message
+    Stores->>Backend: save user message
     Stores->>API: POST /v1/chat/completions (stream)
     loop streaming
         API-->>Stores: SSE chunks
         Stores-->>UI: reactive update
     end
-    Stores->>DB: save assistant message
+    Stores->>Backend: save assistant message
 ```
 
 ### ROUTER Mode (Multi-Model)
@@ -440,16 +515,76 @@ sequenceDiagram
     end
 ```
 
+### Agentic Flow (Multi-Turn Tool Execution)
+
+See: [`docs/flows/agentic-flow.md`](docs/flows/agentic-flow.md)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI
+    participant Chat as chatStore
+    participant Agentic as agenticStore
+    participant MCP as mcpStore
+    participant Subagent as subagentConfigStore
+    participant API as llama-server
+
+    User->>Chat: send message
+    Chat->>Agentic: runAgenticFlow()
+
+    Note over Agentic: Collect built-in + MCP tools
+    Agentic->>MCP: getToolDefinitionsForLLM()
+    MCP-->>Agentic: MCP tool definitions
+
+    loop each agentic turn (max: maxTurns)
+        Agentic->>API: POST /v1/chat/completions {tools}
+        loop streaming
+            API-->>Agentic: SSE chunks (text + tool_calls)
+            Agentic-->>UI: reactive tool call preview
+        end
+
+        alt tool_calls detected
+            Agentic->>Agentic: save assistant message with tool_calls
+
+            loop each tool_call
+                alt built-in tool
+                    Agentic->>Agentic: executeBuiltinTool()
+                else MCP tool
+                    Agentic->>MCP: executeTool(tool_call)
+                    MCP-->>Agentic: tool result
+                end
+
+                alt tool is call_subagent
+                    Agentic->>Subagent: get subagent config
+                    Agentic->>Subagent API: POST /v1/chat/completions
+                    Note over Subagent API: Subagent runs its own agentic loop
+                    Subagent API-->>Agentic: subagent response
+                end
+
+                Agentic->>Agentic: save tool result message
+            end
+
+            Agentic->>Agentic: add tool results to session, next turn
+        else no tool_calls
+            Agentic->>Agentic: save final assistant message
+            Agentic-->>Chat: flow complete
+        end
+    end
+```
+
 ### Detailed Flow Diagrams
 
 | Flow          | Description                                | File                                                        |
 | ------------- | ------------------------------------------ | ----------------------------------------------------------- |
 | Chat          | Message lifecycle, streaming, regeneration | [`chat-flow.md`](docs/flows/chat-flow.md)                   |
+| Agentic       | Multi-turn tool execution, subagent delegation | [`agentic-flow.md`](docs/flows/agentic-flow.md)         |
 | Models        | Loading, unloading, modality caching       | [`models-flow.md`](docs/flows/models-flow.md)               |
 | Server        | Props fetching, role detection             | [`server-flow.md`](docs/flows/server-flow.md)               |
 | Conversations | CRUD, branching, import/export             | [`conversations-flow.md`](docs/flows/conversations-flow.md) |
-| Database      | IndexedDB schema, operations               | [`database-flow.md`](docs/flows/database-flow.md)           |
+| Database      | SQLite persistence via backend API         | [`database-flow.md`](docs/flows/database-flow.md)           |
 | Settings      | Parameter sync, user overrides             | [`settings-flow.md`](docs/flows/settings-flow.md)           |
+| Filters       | Response filters (emoji, codeblock, raw, normalize) | [`filters-flow.md`](docs/flows/filters-flow.md)     |
+| Skills        | Skill vault CRUD and tool integration      | [`skills-flow.md`](docs/flows/skills-flow.md)               |
 
 ---
 
@@ -493,7 +628,7 @@ flowchart LR
 
     subgraph IO["I/O Layer"]
         C --> E[Service]
-        E --> F[API / IndexedDB]
+        E --> F[API / SQLite]
         F -.->|Response| D
     end
 
@@ -544,7 +679,7 @@ Stores handle state; services handle I/O:
 ├─────────────────┤
 │    Services     │  API calls, database operations
 ├─────────────────┤
-│   Storage/API   │  IndexedDB, LocalStorage, HTTP
+│   Storage/API   │  SQLite, LocalStorage, HTTP
 └─────────────────┘
 ```
 
@@ -588,15 +723,20 @@ Data is persisted across sessions using two storage mechanisms:
 
 ```mermaid
 flowchart TB
-    subgraph Browser["Browser Storage"]
-        subgraph IDB["IndexedDB (Dexie)"]
+    subgraph Backend["🖥️ Backend Service"]
+        subgraph SQLite["SQLite (bun:sqlite)"]
             C[Conversations]
             M[Messages]
+            SK[Skills (.md files)]
         end
+    end
+
+    subgraph Browser["🌐 Browser Storage"]
         subgraph LS["LocalStorage"]
             S[Settings Config]
             O[User Overrides]
             T[Theme Preference]
+            SKState[Skill Enabled States]
         end
     end
 
@@ -606,12 +746,16 @@ flowchart TB
         SS[settingsStore] --> S
         SS --> O
         SS --> T
+        SkS[skillsStore] --> SK
+        SkS --> SKState
     end
 ```
 
-- **IndexedDB**: Conversations and messages (large, structured data)
-- **LocalStorage**: Settings, user parameter overrides, theme (small key-value data)
-- **Memory only**: Server props, model list (fetched fresh on each session)
+- **SQLite (Backend)**: Conversations, messages, and skill files (large, structured data)
+- **LocalStorage**: Settings, user parameter overrides, theme, skill enabled states (small key-value data)
+- **Memory only**: Server props, model list, MCP connections, sequential thinking thoughts (fetched fresh on each session)
+
+> **Migration Note:** The frontend previously used Dexie (IndexedDB) for client-side storage. This has been migrated to a server-side SQLite backend accessed via HTTP API. The `DatabaseService` maintains API compatibility so existing stores require no changes.
 
 ---
 
@@ -659,23 +803,27 @@ npm run check         # TypeScript type checking
 ## Project Structure
 
 ```text
-packages/frontend/
-├── src/
-│   ├── lib/
-│   │   ├── components/   # UI components (app/, ui/)
-│   │   ├── hooks/        # Svelte hooks
-│   │   ├── stores/       # State management
-│   │   ├── services/     # API and database services
-│   │   ├── types/        # TypeScript interfaces
-│   │   └── utils/        # Utility functions
-│   ├── routes/           # SvelteKit routes
-│   └── styles/           # Global styles
-├── static/               # Static assets
-├── tests/                # Test files
-├── docs/                 # Architecture diagrams
-│   ├── architecture/     # High-level architecture
-│   └── flows/            # Feature-specific flows
-└── .storybook/           # Storybook configuration
+packages/
+├── frontend/
+│   ├── src/
+│   │   ├── lib/
+│   │   │   ├── components/   # UI components (app/, ui/)
+│   │   │   ├── hooks/        # Svelte hooks
+│   │   │   ├── stores/       # State management (chat, agentic, mcp, skills, etc.)
+│   │   │   ├── services/     # API and database services
+│   │   │   ├── types/        # TypeScript interfaces
+│   │   │   └── utils/        # Utility functions (filters, etc.)
+│   ├── routes/               # SvelteKit routes
+│   └── static/               # Static assets
+├── backend/
+│   ├── src/
+│   │   ├── database/         # SQLite schema and queries
+│   │   ├── handlers/         # HTTP request handlers
+│   │   └── types/            # TypeScript type definitions
+│   └── skills/               # User skill files (.md)
+└── shared/
+    ├── constants/            # Shared constants (prompts, tools, skills)
+    └── types/                # Shared TypeScript types
 ```
 
 ---

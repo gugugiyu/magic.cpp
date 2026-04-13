@@ -487,3 +487,16 @@ export { default as DialogMcpResourcePreview } from './DialogMcpResourcePreview.
  * ```
  */
 export { default as DialogMcpSummarize } from './DialogMcpSummarize.svelte';
+
+/**
+ * **DialogSkillManager** - Dialog for managing skills (import, create, edit, delete)
+ *
+ * Provides a card-based UI for managing skill markdown files that extend
+ * model capabilities. Supports import from Claude Marketplace format.
+ *
+ * @example
+ * ```svelte
+ * <DialogSkillManager bind:open={isSkillsOpen} />
+ * ```
+ */
+export { default as DialogSkillManager } from './DialogSkillManager.svelte';

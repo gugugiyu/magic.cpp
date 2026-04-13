@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { Search, SquarePen, X, Plug } from '@lucide/svelte';
+	import { Search, SquarePen, X, Plug, Wrench } from '@lucide/svelte';
 	import { KeyboardShortcutInfo } from '$lib/components/app';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { McpLogo } from '$lib/components/app';
 	import { SETTINGS_SECTION_TITLES } from '$lib/constants';
 	import { getChatSettingsDialogContext } from '$lib/contexts';
+	import { getSkillDialogContext } from '$lib/contexts/skill-dialog.context';
 
 	interface Props {
 		handleMobileSidebarItemClick: () => void;
@@ -22,6 +23,7 @@
 	let searchInput: HTMLInputElement | null = $state(null);
 
 	const chatSettingsDialog = getChatSettingsDialogContext();
+	const skillDialog = getSkillDialogContext();
 
 	function handleSearchModeDeactivate() {
 		isSearchModeActive = false;
@@ -110,6 +112,20 @@
 				<Plug class="h-4 w-4" />
 
 				Connections
+			</div>
+		</Button>
+
+		<Button
+			class="w-full justify-between backdrop-blur-none! hover:[&>kbd]:opacity-100"
+			onclick={() => {
+				skillDialog.open();
+			}}
+			variant="ghost"
+		>
+			<div class="flex items-center gap-2">
+				<Wrench class="h-4 w-4" />
+
+				Skills
 			</div>
 		</Button>
 	{/if}

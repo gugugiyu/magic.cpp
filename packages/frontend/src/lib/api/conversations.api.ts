@@ -105,9 +105,10 @@ export async function importConversations(
 export async function exportConversations(): Promise<
 	{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]
 > {
-	return apiFetchWithParams<
-		{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]
-	>('/api/conversations/export', {});
+	return apiFetchWithParams<{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]>(
+		'/api/conversations/export',
+		{}
+	);
 }
 
 /**

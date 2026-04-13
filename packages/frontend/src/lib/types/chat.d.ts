@@ -45,7 +45,14 @@ export interface ChatAttachmentPreviewItem {
 }
 
 // Re-export from shared for backward compatibility
-export { ChatMessageSiblingInfo, ChatMessageTimings, ChatMessageAgenticTimings, ChatMessageAgenticTurnStats, ChatMessageToolCallTiming, ChatMessagePromptProgress } from '@shared/types';
+export {
+	ChatMessageSiblingInfo,
+	ChatMessageTimings,
+	ChatMessageAgenticTimings,
+	ChatMessageAgenticTurnStats,
+	ChatMessageToolCallTiming,
+	ChatMessagePromptProgress
+} from '@shared/types';
 
 // Re-export enums
 export { MessageRole, MessageType } from '@shared/enums/chat';

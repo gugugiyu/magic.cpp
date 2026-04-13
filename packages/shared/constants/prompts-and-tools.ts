@@ -154,10 +154,45 @@ The subagent has no access to this conversation. Your prompt must be fully self-
 	}
 };
 
+export const TOOL_LIST_SKILL: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'list_skill',
+		description:
+			'List all available user-enabled skills with their names, titles, and descriptions. Use this to discover skills before deciding which one to read.',
+		parameters: {
+			type: 'object',
+			properties: {},
+			required: []
+		}
+	}
+};
+
+export const TOOL_READ_SKILL: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'read_skill',
+		description:
+			"Read the full content of a specific skill by its name. Use this after list_skill() to get the complete skill instructions, including $ARGUMENTS placeholders and frontmatter metadata.",
+		parameters: {
+			type: 'object',
+			properties: {
+				name: {
+					type: 'string',
+					description: 'The name identifier of the skill to read (from list_skill results).'
+				}
+			},
+			required: ['name']
+		}
+	}
+};
+
 export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_CALCULATOR,
 	TOOL_GET_TIME,
 	TOOL_GET_LOCATION,
 	TOOL_SEQUENTIAL_THINKING,
-	TOOL_CALL_SUBAGENT
+	TOOL_CALL_SUBAGENT,
+	TOOL_LIST_SKILL,
+	TOOL_READ_SKILL
 ];

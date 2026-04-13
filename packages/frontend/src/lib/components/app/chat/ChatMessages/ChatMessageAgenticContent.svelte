@@ -22,8 +22,11 @@
 		AlertCircle,
 		X,
 		Scissors,
-		Sparkles
+		Sparkles,
+		Search,
+		BookOpen
 	} from '@lucide/svelte';
+	import { Badge } from '$lib/components/ui/badge';
 	import { agenticStore, type SubagentProgress } from '$lib/stores/agentic.svelte';
 	import { cn } from '$lib/components/ui/utils';
 	import { AgenticSectionType, FileTypeText } from '$lib/enums';
@@ -448,6 +451,9 @@
 		{@const hasError =
 			section.toolResult?.startsWith('Error:') ||
 			(section.toolResult?.startsWith('{') && section.toolResult.includes('"error"'))}
+		{@const isListSkill = section.toolName === 'list_skill'}
+		{@const isReadSkill = section.toolName === 'read_skill'}
+		{@const skillIcon = isListSkill ? Search : isReadSkill ? BookOpen : null}
 
 		<div class="agentic-inline-block">
 			<button
@@ -456,22 +462,51 @@
 				onclick={() => toggleExpanded(index, section)}
 				aria-expanded={isExpanded(index, section)}
 			>
-				{#if isPending}
+				{#if isPending && !skillIcon}
 					<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
-				{:else if hasError}
+				{:else if hasError && !skillIcon}
 					<AlertCircle class="tool-error-icon h-3.5 w-3.5 shrink-0" />
+				{:else if skillIcon}
+					{@const Icon = skillIcon}
+					<Icon class="skill-icon h-3.5 w-3.5 shrink-0" />
 				{:else}
 					<CheckCircle class="tool-success-icon h-3.5 w-3.5 shrink-0" />
 				{/if}
 				<span class="agentic-label">
-					{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}
-					<span class="agentic-name">{section.toolName || 'tool'}</span>{isPending ? '…' : ''}
+					{#if isListSkill}
+						{isPending
+							? 'Model is finding best skill matching your request'
+							: hasError
+								? 'Error finding skills'
+								: 'Model found skills'}
+					{:else if isReadSkill}
+						{#if isPending}
+							Model now reading skill {section.toolArgs
+								? JSON.parse(section.toolArgs).name || ''
+								: ''}...
+						{:else}
+							{hasError ? 'Error reading skill' : 'Model read skill'}
+							{section.toolArgs ? JSON.parse(section.toolArgs).name || '' : ''}
+						{/if}
+					{:else}
+						{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}
+						<span class="agentic-name">{section.toolName || 'tool'}</span>{isPending ? '…' : ''}
+					{/if}
 				</span>
-				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
+				{#if !isListSkill && !isReadSkill}
+					<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
+				{/if}
 			</button>
 
 			{#if isPending && section.toolName === 'call_subagent' && subagentProgress}
 				<div class="subagent-steps">
+					{#if subagentProgress.originSkill}
+						<div class="subagent-step">
+							<Badge variant="outline" class="text-[10px]">
+								Triggered by skill: {subagentProgress.originSkill}
+							</Badge>
+						</div>
+					{/if}
 					{#each subagentProgress.steps as step, i (i)}
 						<div class="subagent-step">
 							{#if step.status === 'calling'}
@@ -844,6 +879,10 @@
 
 	:global(.tool-error-icon) {
 		color: hsl(0 72% 51%);
+	}
+
+	:global(.skill-icon) {
+		color: hsl(217 91% 60%);
 	}
 
 	.agentic-turn {

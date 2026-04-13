@@ -391,7 +391,9 @@ class ModelsStore {
 			const currentSize = currentModel?.status?.args
 				? this.extractModelSizeFromArgs(currentModel.status.args)
 				: null;
-			const cachedSize = cached.model_path ? this.extractModelSizeFromPath(cached.model_path) : null;
+			const cachedSize = cached.model_path
+				? this.extractModelSizeFromPath(cached.model_path)
+				: null;
 
 			if (currentSize && cachedSize && currentSize !== cachedSize) {
 				this.modelPropsCache.delete(modelId);
@@ -434,11 +436,11 @@ class ModelsStore {
 	 * Looks for --model or -m flag containing the model path.
 	 */
 	private extractModelSizeFromArgs(args: string[]): string | null {
-		const modelArg = args.find((a) => a.startsWith('--model=') || a.startsWith('-m='))
-			?.split('=')[1]
-			?? args[args.indexOf('--model') + 1]
-			?? args[args.indexOf('-m') + 1]
-			?? null;
+		const modelArg =
+			args.find((a) => a.startsWith('--model=') || a.startsWith('-m='))?.split('=')[1] ??
+			args[args.indexOf('--model') + 1] ??
+			args[args.indexOf('-m') + 1] ??
+			null;
 		return modelArg ? this.extractModelSizeFromPath(modelArg) : null;
 	}
 

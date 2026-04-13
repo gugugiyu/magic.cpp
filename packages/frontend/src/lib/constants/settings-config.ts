@@ -73,6 +73,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	builtinToolLocation: false,
 	builtinToolSequentialThinking: false,
 	builtinToolCallSubagent: false,
+	builtinToolSkills: false,
 	// experimental features
 	pyInterpreterEnabled: false,
 	enableContinueGeneration: false
@@ -187,6 +188,8 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 		'Inject a sequential_thinking tool that lets the model break problems into explicit reasoning steps before answering.',
 	builtinToolCallSubagent:
 		'Inject a call_subagent tool that delegates tasks to a separate subagent model on a different endpoint.',
+	builtinToolSkills:
+		'Inject skill tools that the model can invoke to access custom capabilities defined in skill files.',
 	pyInterpreterEnabled:
 		'Enable Python interpreter using Pyodide. Allows running Python code in markdown code blocks.',
 	enableContinueGeneration:

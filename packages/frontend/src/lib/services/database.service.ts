@@ -1,17 +1,14 @@
 /**
  * DatabaseService - Compatibility layer for migration from Dexie to SQLite.
- * 
+ *
  * This module provides the same interface as the old Dexie-based DatabaseService,
  * but now makes HTTP API calls to the backend SQLite database.
- * 
+ *
  * All stores (conversations.svelte.ts, chat.svelte.ts) can use this without changes.
  */
 
 import * as conversationsAPI from '$lib/api/conversations.api';
 import * as messagesAPI from '$lib/api/messages.api';
-import { findDescendantMessages, uuid, filterByLeafNodeId } from '$lib/utils';
-import type { McpServerOverride } from '$lib/types/database';
-import { MessageRole } from '$lib/enums';
 
 /**
  * DatabaseService - Static class providing backward-compatible API for conversation/message operations.
@@ -127,19 +124,23 @@ export class DatabaseService {
 	}
 
 	static async addMessageToDatabase(message: DatabaseMessage): Promise<DatabaseMessage> {
-		return messagesAPI.createMessage(message.convId, {
-			type: message.type,
-			role: message.role,
-			content: message.content,
-			parentId: message.parent,
-			reasoningContent: message.reasoningContent,
-			toolCalls: message.toolCalls,
-			toolCallId: message.toolCallId,
-			extra: message.extra,
-			timings: message.timings,
-			model: message.model,
-			timestamp: message.timestamp
-		}, { parentId: message.parent });
+		return messagesAPI.createMessage(
+			message.convId,
+			{
+				type: message.type,
+				role: message.role,
+				content: message.content,
+				parentId: message.parent,
+				reasoningContent: message.reasoningContent,
+				toolCalls: message.toolCalls,
+				toolCallId: message.toolCallId,
+				extra: message.extra,
+				timings: message.timings,
+				model: message.model,
+				timestamp: message.timestamp
+			},
+			{ parentId: message.parent }
+		);
 	}
 
 	static async updateMessage(
@@ -190,9 +191,9 @@ export class DatabaseService {
 export const db = {
 	conversations: {
 		add: async (conv: DatabaseConversation) => {
-			await conversationsAPI.createConversation({ 
-				name: conv.name, 
-				mcpServerOverrides: conv.mcpServerOverrides 
+			await conversationsAPI.createConversation({
+				name: conv.name,
+				mcpServerOverrides: conv.mcpServerOverrides
 			});
 		},
 		get: async (id: string) => {
@@ -208,7 +209,7 @@ export const db = {
 		delete: async (id: string) => {
 			await conversationsAPI.deleteConversation(id);
 		},
-		orderBy: (field: string) => ({
+		orderBy: (_field: string) => ({
 			reverse: () => ({
 				toArray: async () => conversationsAPI.getAllConversations()
 			})
@@ -219,13 +220,17 @@ export const db = {
 	},
 	messages: {
 		add: async (msg: DatabaseMessage) => {
-			await messagesAPI.createMessage(msg.convId, {
-				type: msg.type,
-				role: msg.role,
-				content: msg.content,
-				parentId: msg.parent,
-				timestamp: msg.timestamp
-			}, { parentId: msg.parent });
+			await messagesAPI.createMessage(
+				msg.convId,
+				{
+					type: msg.type,
+					role: msg.role,
+					content: msg.content,
+					parentId: msg.parent,
+					timestamp: msg.timestamp
+				},
+				{ parentId: msg.parent }
+			);
 		},
 		get: async (id: string) => {
 			try {
@@ -243,12 +248,12 @@ export const db = {
 		put: async (msg: DatabaseMessage) => {
 			await messagesAPI.updateMessage(msg.id, msg);
 		},
-		where: (field: string) => ({
+		where: (_field: string) => ({
 			equals: (value: string) => ({
 				delete: async () => {
 					// Bulk delete not supported via this interface
 				},
-				sortBy: async (sortField: string) => {
+				sortBy: async (_sortField: string) => {
 					return messagesAPI.getConversationMessages(value);
 				},
 				toArray: async () => {
@@ -278,11 +283,8 @@ export const db = {
 			}
 		}
 	},
-	// @deprecated Client-side transactions are not supported.
-	// Multi-step operations should be implemented as single backend endpoints
-	// to ensure atomicity. This function is a no-op passthrough for backward
-	// compatibility with legacy Dexie code patterns.
-	transaction: async (mode: string, tables: any[], callback: () => Promise<any>) => {
+	transaction: async <T = void>(_mode: string, _tables: string[], callback: () => Promise<T>) => {
+		// Transactions are handled server-side
 		return callback();
 	}
 };

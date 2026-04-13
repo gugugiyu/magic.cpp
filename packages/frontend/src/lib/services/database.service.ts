@@ -9,9 +9,6 @@
 
 import * as conversationsAPI from '$lib/api/conversations.api';
 import * as messagesAPI from '$lib/api/messages.api';
-import { findDescendantMessages, uuid, filterByLeafNodeId } from '$lib/utils';
-import type { McpServerOverride } from '$lib/types/database';
-import { MessageRole } from '$lib/enums';
 
 /**
  * DatabaseService - Static class providing backward-compatible API for conversation/message operations.
@@ -212,7 +209,7 @@ export const db = {
 		delete: async (id: string) => {
 			await conversationsAPI.deleteConversation(id);
 		},
-		orderBy: (field: string) => ({
+		orderBy: (_field: string) => ({
 			reverse: () => ({
 				toArray: async () => conversationsAPI.getAllConversations()
 			})
@@ -251,12 +248,12 @@ export const db = {
 		put: async (msg: DatabaseMessage) => {
 			await messagesAPI.updateMessage(msg.id, msg);
 		},
-		where: (field: string) => ({
+		where: (_field: string) => ({
 			equals: (value: string) => ({
 				delete: async () => {
 					// Bulk delete not supported via this interface
 				},
-				sortBy: async (sortField: string) => {
+				sortBy: async (_sortField: string) => {
 					return messagesAPI.getConversationMessages(value);
 				},
 				toArray: async () => {
@@ -286,7 +283,7 @@ export const db = {
 			}
 		}
 	},
-	transaction: async (mode: string, tables: any[], callback: () => Promise<any>) => {
+	transaction: async <T = void>(_mode: string, _tables: string[], callback: () => Promise<T>) => {
 		// Transactions are handled server-side
 		return callback();
 	}

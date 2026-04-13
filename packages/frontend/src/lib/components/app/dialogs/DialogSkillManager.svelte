@@ -10,7 +10,7 @@
 	import { MarkdownContent } from '$lib/components/app';
 	import { skillsStore } from '$lib/stores/skills.svelte';
 	import { skillHasArguments } from '$lib/services/skill-utils';
-	import { Wrench, Plus, Upload, Search, Loader2, X, FileText, Eye, ArrowUpDown } from '@lucide/svelte';
+	import { Wrench, Plus, Upload, Search, Loader2, X, FileText, ArrowUpDown } from '@lucide/svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import type { SkillDefinition } from '@shared/types/skills';
@@ -252,7 +252,9 @@
 			const errorMessage = (err as Error).message;
 			// Check if it's a conflict error (skill already exists)
 			if (errorMessage.includes('Conflict') || errorMessage.includes('already exists')) {
-				toast.error(`Skill "${name}" already exists. Try a different name or update the existing skill.`);
+				toast.error(
+					`Skill "${name}" already exists. Try a different name or update the existing skill.`
+				);
 			} else {
 				toast.error(`Failed to import: ${errorMessage}`);
 			}
@@ -334,7 +336,7 @@
 
 <Dialog.Root {open} onOpenChange={handleClose}>
 	<Dialog.Content
-		class="z-[var(--z-dialog)] flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] flex-col gap-0 rounded-none p-0
+		class="z-[var(--z-dialog)] flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] flex-col gap-0 rounded-none p-0
 			md:h-auto md:max-h-[85dvh] md:min-h-0 md:max-w-5xl md:rounded-lg"
 	>
 		<!-- Header -->
@@ -365,7 +367,7 @@
 				{#if searchQuery}
 					<button
 						type="button"
-						class="absolute top-2.5 right-2.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						class="absolute top-2.5 right-2.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 						onclick={() => (searchQuery = '')}
 					>
 						<X class="h-4 w-4" />
@@ -374,7 +376,13 @@
 			</div>
 
 			<!-- Sort controls -->
-			<Select type="single" value={sortMode} onValueChange={(v) => { if (v) sortMode = v as SortMode; }}>
+			<Select
+				type="single"
+				value={sortMode}
+				onValueChange={(v) => {
+					if (v) sortMode = v as SortMode;
+				}}
+			>
 				<SelectTrigger class="w-[180px]" aria-label="Sort skills">
 					<ArrowUpDown class="mr-2 h-4 w-4" />
 					<span>{sortLabels[sortMode]}</span>
@@ -413,8 +421,10 @@
 						<p class="mb-4 text-sm">Fetching skills from server…</p>
 						<!-- Skeleton cards -->
 						<div class="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-							{#each Array(6) as _}
-								<div class="flex animate-pulse flex-col rounded-lg border border-border/40 bg-card/60 p-4">
+							{#each Array(6) as i (i)}
+								<div
+									class="flex animate-pulse flex-col rounded-lg border border-border/40 bg-card/60 p-4"
+								>
 									<div class="mb-3 h-4 w-2/3 rounded bg-muted"></div>
 									<div class="mb-4 h-3 w-full rounded bg-muted"></div>
 									<div class="mt-auto flex items-center gap-1.5">
@@ -428,17 +438,22 @@
 				{:else if skillsStore.error}
 					<!-- Error State -->
 					<div class="flex flex-col items-center justify-center py-12">
-						<div class="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-center">
+						<div
+							class="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-center"
+						>
 							<p class="mb-2 text-sm font-medium text-destructive">Failed to load skills</p>
 							<p class="text-xs text-muted-foreground">Last fetch failed — try again</p>
 							<p class="mt-1 text-xs text-muted-foreground">{skillsStore.error}</p>
 						</div>
-						<Button size="sm" onclick={() => {
-							lastLoadTime = 0;
-							void skillsStore.loadSkills().then(() => {
-								lastLoadTime = Date.now();
-							});
-						}}>
+						<Button
+							size="sm"
+							onclick={() => {
+								lastLoadTime = 0;
+								void skillsStore.loadSkills().then(() => {
+									lastLoadTime = Date.now();
+								});
+							}}
+						>
 							<Upload class="mr-1.5 h-4 w-4" />
 							Retry
 						</Button>
@@ -457,7 +472,7 @@
 						</div>
 						<textarea
 							bind:value={editContent}
-							class="h-96 w-full rounded-md border border-border bg-background p-3 font-mono text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+							class="h-96 w-full rounded-md border border-border bg-background p-3 font-mono text-sm transition-shadow focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
 							placeholder="Skill markdown content..."
 						></textarea>
 					</div>
@@ -481,7 +496,10 @@
 					</div>
 				{:else if filteredSkills().length === 0}
 					<!-- Empty State -->
-					<div in:fade={{ duration: 120 }} class="flex flex-col items-center justify-center py-12 text-muted-foreground">
+					<div
+						in:fade={{ duration: 120 }}
+						class="flex flex-col items-center justify-center py-12 text-muted-foreground"
+					>
 						<FileText class="mb-3 h-10 w-10 opacity-50" />
 						<p class="mb-1 text-sm font-medium">
 							{searchQuery ? 'No skills match your search' : 'No skills yet'}
@@ -498,7 +516,10 @@
 					</div>
 				{:else}
 					<!-- Skill Cards Grid -->
-					<div in:fade={{ duration: 150 }} class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+					<div
+						in:fade={{ duration: 150 }}
+						class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+					>
 						{#each filteredSkills() as skill (skill.name)}
 							<SkillCard
 								{skill}
@@ -518,7 +539,12 @@
 </Dialog.Root>
 
 <!-- Delete Confirmation Dialog -->
-<AlertDialog.Root open={deletingSkill !== null} onOpenChange={(open) => { if (!open) deletingSkill = null; }}>
+<AlertDialog.Root
+	open={deletingSkill !== null}
+	onOpenChange={(open) => {
+		if (!open) deletingSkill = null;
+	}}
+>
 	<AlertDialog.Content>
 		<AlertDialog.Header>
 			<AlertDialog.Title>Delete Skill</AlertDialog.Title>
@@ -528,7 +554,10 @@
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
 			<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-			<AlertDialog.Action onclick={handleDelete} class="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+			<AlertDialog.Action
+				onclick={handleDelete}
+				class="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+			>
 				Delete
 			</AlertDialog.Action>
 		</AlertDialog.Footer>
@@ -649,11 +678,7 @@
 				<div class="space-y-4">
 					<div>
 						<label class="mb-1 block text-sm font-medium" for="new-skill-name">Skill Name</label>
-						<Input
-							id="new-skill-name"
-							bind:value={importName}
-							placeholder="my-cool-skill"
-						/>
+						<Input id="new-skill-name" bind:value={importName} placeholder="my-cool-skill" />
 					</div>
 
 					<div>
@@ -666,8 +691,8 @@
 						<textarea
 							id="new-skill-content"
 							bind:value={importContent}
-							class="h-64 w-full rounded-md border border-border bg-background p-3 font-mono text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-							placeholder={"---\ntitle: My Skill\ndescription: Does something cool\ncontext: fork\n---\n\n# My Skill\n\nInstructions here with $ARGUMENTS[0] support..."}
+							class="h-64 w-full rounded-md border border-border bg-background p-3 font-mono text-sm transition-shadow focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
+							placeholder="---&#10;title: My Skill&#10;---&#10;&#10;Instructions here..."
 						></textarea>
 					</div>
 

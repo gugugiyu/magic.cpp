@@ -520,7 +520,8 @@
 		{
 			key: SETTINGS_KEYS.BUILTIN_TOOL_SKILLS,
 			label: 'Skills',
-			description: 'Enable custom skill tools that the model can invoke for specialized capabilities.'
+			description:
+				'Enable custom skill tools that the model can invoke for specialized capabilities.'
 		}
 	] as const;
 

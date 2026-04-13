@@ -14,7 +14,15 @@
 		onToggle?: (enabled: boolean) => void;
 	}
 
-	let { skill, enabled = true, onEdit, onDelete, onDuplicate, onPreview, onToggle }: Props = $props();
+	let {
+		skill,
+		enabled = true,
+		onEdit,
+		onDelete,
+		onDuplicate,
+		onPreview,
+		onToggle
+	}: Props = $props();
 
 	const trimmedDescription = $derived(
 		skill.description.length > SKILL_DESCRIPTION_TRIM_LENGTH
@@ -39,13 +47,11 @@
 		<h3 class="text-sm leading-tight font-semibold">{skill.title}</h3>
 
 		<!-- Action buttons: always visible, compact on mobile, full on desktop -->
-		<div
-			class="flex shrink-0 items-center gap-0.5 sm:gap-1"
-		>
+		<div class="flex shrink-0 items-center gap-0.5 sm:gap-1">
 			{#if onPreview}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-1"
+					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
 					onclick={onPreview}
 					title="Preview skill"
 					aria-label="Preview skill"
@@ -56,7 +62,7 @@
 			{#if onDuplicate}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-1"
+					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
 					onclick={onDuplicate}
 					title="Duplicate skill"
 					aria-label="Duplicate skill"
@@ -67,7 +73,7 @@
 			{#if onEdit}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-1"
+					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
 					onclick={onEdit}
 					title="Edit skill"
 					aria-label="Edit skill"
@@ -78,7 +84,7 @@
 			{#if onDelete}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-1"
+					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
 					onclick={onDelete}
 					title="Delete skill"
 					aria-label="Delete skill"
@@ -90,7 +96,9 @@
 	</div>
 
 	<!-- Description -->
-	<p class="mb-3 text-xs leading-relaxed text-muted-foreground">{trimmedDescription.replace(/\n/g, " ")}</p>
+	<p class="mb-3 text-xs leading-relaxed text-muted-foreground">
+		{trimmedDescription.replace(/\n/g, ' ')}
+	</p>
 
 	<!-- Badges -->
 	<div class="mt-auto flex flex-wrap items-center gap-1.5">
@@ -112,14 +120,18 @@
 		{#if onToggle}
 			<button
 				type="button"
-				class="ml-auto inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 {enabled ? 'bg-primary' : 'bg-muted'}"
+				class="ml-auto inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none {enabled
+					? 'bg-primary'
+					: 'bg-muted'}"
 				role="switch"
 				aria-checked={enabled}
 				aria-label="{enabled ? 'Disable' : 'Enable'} skill {skill.title}"
 				onclick={() => onToggle(!enabled)}
 			>
 				<span
-					class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm transition-transform {enabled ? 'translate-x-4' : 'translate-x-0.5'}"
+					class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm transition-transform {enabled
+						? 'translate-x-4'
+						: 'translate-x-0.5'}"
 				></span>
 			</button>
 		{/if}

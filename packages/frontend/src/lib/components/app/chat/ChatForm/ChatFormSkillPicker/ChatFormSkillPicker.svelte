@@ -42,9 +42,7 @@
 
 	// Available skills: enabled and user-invocable
 	const availableSkills = $derived(
-		skillsStore.skills.filter(
-			(s) => skillsStore.isSkillEnabled(s.name) && isSkillUserInvocable(s)
-		)
+		skillsStore.skills.filter((s) => skillsStore.isSkillEnabled(s.name) && isSkillUserInvocable(s))
 	);
 
 	// Filtered skills based on search query
@@ -145,7 +143,9 @@
 		role="listbox"
 		tabindex="0"
 		aria-label="Select a skill"
-		aria-activedescendant={selectedIndex >= 0 && filteredSkills()[selectedIndex] ? `skill-option-${filteredSkills()[selectedIndex].name}` : undefined}
+		aria-activedescendant={selectedIndex >= 0 && filteredSkills()[selectedIndex]
+			? `skill-option-${filteredSkills()[selectedIndex].name}`
+			: undefined}
 	>
 		{#if skillsStore.isLoading}
 			<div class="flex items-center justify-center gap-2 p-4 text-sm text-muted-foreground">
@@ -161,16 +161,17 @@
 				<!-- Header -->
 				<div class="flex items-center gap-2 border-b border-border/50 px-3 py-2">
 					<Wrench class="h-3.5 w-3.5 text-muted-foreground" />
-					<span class="text-xs font-medium text-muted-foreground">
-						Select a skill to inject
-					</span>
+					<span class="text-xs font-medium text-muted-foreground"> Select a skill to inject </span>
 				</div>
 
 				{#each filteredSkills() as skill, index (skill.name)}
 					<button
 						type="button"
 						id="skill-option-{skill.name}"
-						class="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent {index === selectedIndex ? 'bg-accent' : ''}"
+						class="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent {index ===
+						selectedIndex
+							? 'bg-accent'
+							: ''}"
 						role="option"
 						aria-selected={index === selectedIndex}
 						onclick={() => selectSkill(skill)}

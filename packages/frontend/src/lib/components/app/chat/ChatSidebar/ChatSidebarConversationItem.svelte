@@ -13,7 +13,6 @@
 	import { FORK_TREE_DEPTH_PADDING } from '$lib/constants';
 	import { getAllLoadingChats } from '$lib/stores/chat.svelte';
 	import { conversationsStore } from '$lib/stores/conversations.svelte';
-	import { onMount } from 'svelte';
 
 	interface Props {
 		isActive?: boolean;
@@ -57,14 +56,6 @@
 		onStop?.(conversation.id);
 	}
 
-	function handleGlobalEditEvent(event: Event) {
-		const customEvent = event as CustomEvent<{ conversationId: string }>;
-
-		if (customEvent.detail.conversationId === conversation.id && isActive) {
-			handleEdit(event);
-		}
-	}
-
 	function handleMouseLeave() {
 		if (!dropdownOpen) {
 			renderActionsDropdown = false;
@@ -85,15 +76,13 @@
 		}
 	});
 
-	onMount(() => {
-		document.addEventListener('edit-active-conversation', handleGlobalEditEvent as EventListener);
-
-		return () => {
-			document.removeEventListener(
-				'edit-active-conversation',
-				handleGlobalEditEvent as EventListener
-			);
-		};
+	// React to store-based editing state instead of document events
+	$effect(() => {
+		const editingId = conversationsStore.editingConversationId;
+		if (editingId === conversation.id && isActive) {
+			onEdit?.(conversation.id);
+			conversationsStore.editingConversationId = null;
+		}
 	});
 </script>
 

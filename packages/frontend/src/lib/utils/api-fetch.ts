@@ -90,6 +90,11 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 			throw new Error(errorMessage);
 		}
 
+		// 204 No Content responses have no body
+		if (response.status === 204) {
+			return undefined as T;
+		}
+
 		return response.json() as Promise<T>;
 	} catch (err) {
 		// Check for abort/timeout error

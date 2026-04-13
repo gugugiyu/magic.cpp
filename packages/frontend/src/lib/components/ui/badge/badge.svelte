@@ -9,10 +9,10 @@
 				secondary:
 					'bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90 border-transparent',
 				tertiary:
-					'bg-foreground/15 dark:bg-foreground/10 text-foreground [a&]:hover:bg-foreground/25 border-transparent',
+					'bg-foreground/15 dark:bg-foreground/10 text-foreground [a&]:hover:bg-foreground/25 border-transparent backdrop-blur-sm',
 				destructive:
 					'bg-destructive [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/70 border-transparent text-white',
-				outline: 'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground'
+				outline: 'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground backdrop-blur-sm'
 			}
 		},
 		defaultVariants: {
@@ -44,7 +44,7 @@
 	bind:this={ref}
 	data-slot="badge"
 	{href}
-	class={cn(badgeVariants({ variant }), className, 'backdrop-blur-sm')}
+	class={cn(badgeVariants({ variant }), className)}
 	{...restProps}
 >
 	{@render children?.()}

@@ -1,9 +1,9 @@
 /**
  * DatabaseService - Compatibility layer for migration from Dexie to SQLite.
- * 
+ *
  * This module provides the same interface as the old Dexie-based DatabaseService,
  * but now makes HTTP API calls to the backend SQLite database.
- * 
+ *
  * All stores (conversations.svelte.ts, chat.svelte.ts) can use this without changes.
  */
 
@@ -127,19 +127,23 @@ export class DatabaseService {
 	}
 
 	static async addMessageToDatabase(message: DatabaseMessage): Promise<DatabaseMessage> {
-		return messagesAPI.createMessage(message.convId, {
-			type: message.type,
-			role: message.role,
-			content: message.content,
-			parentId: message.parent,
-			reasoningContent: message.reasoningContent,
-			toolCalls: message.toolCalls,
-			toolCallId: message.toolCallId,
-			extra: message.extra,
-			timings: message.timings,
-			model: message.model,
-			timestamp: message.timestamp
-		}, { parentId: message.parent });
+		return messagesAPI.createMessage(
+			message.convId,
+			{
+				type: message.type,
+				role: message.role,
+				content: message.content,
+				parentId: message.parent,
+				reasoningContent: message.reasoningContent,
+				toolCalls: message.toolCalls,
+				toolCallId: message.toolCallId,
+				extra: message.extra,
+				timings: message.timings,
+				model: message.model,
+				timestamp: message.timestamp
+			},
+			{ parentId: message.parent }
+		);
 	}
 
 	static async updateMessage(
@@ -190,9 +194,9 @@ export class DatabaseService {
 export const db = {
 	conversations: {
 		add: async (conv: DatabaseConversation) => {
-			await conversationsAPI.createConversation({ 
-				name: conv.name, 
-				mcpServerOverrides: conv.mcpServerOverrides 
+			await conversationsAPI.createConversation({
+				name: conv.name,
+				mcpServerOverrides: conv.mcpServerOverrides
 			});
 		},
 		get: async (id: string) => {
@@ -219,13 +223,17 @@ export const db = {
 	},
 	messages: {
 		add: async (msg: DatabaseMessage) => {
-			await messagesAPI.createMessage(msg.convId, {
-				type: msg.type,
-				role: msg.role,
-				content: msg.content,
-				parentId: msg.parent,
-				timestamp: msg.timestamp
-			}, { parentId: msg.parent });
+			await messagesAPI.createMessage(
+				msg.convId,
+				{
+					type: msg.type,
+					role: msg.role,
+					content: msg.content,
+					parentId: msg.parent,
+					timestamp: msg.timestamp
+				},
+				{ parentId: msg.parent }
+			);
 		},
 		get: async (id: string) => {
 			try {

@@ -370,7 +370,10 @@ class SettingsStore {
 
 		this.saveConfig();
 		if (import.meta.env.DEV) {
-			console.log('[settingsStore] OpenAI-compatible sync cleared overrides for:', samplingParamKeys);
+			console.log(
+				'[settingsStore] OpenAI-compatible sync cleared overrides for:',
+				samplingParamKeys
+			);
 		}
 	}
 

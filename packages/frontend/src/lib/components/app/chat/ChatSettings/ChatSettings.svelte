@@ -9,8 +9,10 @@
 		ChevronRight,
 		Database,
 		Plug,
-		ListFilter
+		ListFilter,
+		Wrench
 	} from '@lucide/svelte';
+	import { Button } from '$lib/components/ui/button';
 	import {
 		ChatSettingsFooter,
 		ChatSettingsImportExportTab,
@@ -21,6 +23,8 @@
 	} from '$lib/components/app';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { config, settingsStore } from '$lib/stores/settings.svelte';
+	import { skillsStore } from '$lib/stores/skills.svelte';
+	import { getSkillDialogContext } from '$lib/contexts/skill-dialog.context';
 	import {
 		SETTINGS_SECTION_TITLES,
 		type SettingsSectionTitle,
@@ -503,15 +507,20 @@
 				'Inject a get_location tool the model can call to retrieve your browser-reported geolocation (requires permission).'
 		},
 		{
+			key: SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING,
+			label: 'Sequential thinking',
+			description:
+				'Inject a sequential_thinking tool that lets the model break problems into explicit reasoning steps before answering.'
+		},
+		{
 			key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT,
 			label: 'Subagent',
 			description: 'Allow the main model to spawn a subagent to handle horizontal spanning tasks.'
 		},
 		{
-			key: SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING,
-			label: 'Sequential thinking',
-			description:
-				'Inject a sequential_thinking tool that lets the model break problems into explicit reasoning steps before answering.'
+			key: SETTINGS_KEYS.BUILTIN_TOOL_SKILLS,
+			label: 'Skills',
+			description: 'Enable custom skill tools that the model can invoke for specialized capabilities.'
 		}
 	] as const;
 
@@ -519,6 +528,13 @@
 		localConfig = { ...config() };
 
 		setTimeout(updateScrollButtons, 100);
+	}
+
+	// Get skill dialog context for the "Manage Skills" button
+	const skillDialog = getSkillDialogContext();
+
+	function handleOpenSkillDialog() {
+		skillDialog?.open();
 	}
 
 	$effect(() => {
@@ -674,6 +690,26 @@
 										<p class="ml-6 text-xs text-muted-foreground">{tool.description}</p>
 									</div>
 								{/each}
+							</div>
+						</div>
+
+						<!-- Skills Section -->
+						<div class="border-t border-border/30 pt-6">
+							<h4 class="mb-2 text-sm font-semibold">Skills</h4>
+							<p class="mb-3 text-xs text-muted-foreground">
+								Enabled skills are available for model discovery via <code
+									class="rounded bg-muted px-1 py-0.5 text-[10px]">list_skill()</code
+								>.
+							</p>
+							<div class="flex items-center gap-2">
+								<Button size="sm" variant="outline" onclick={handleOpenSkillDialog}>
+									<Wrench class="mr-1.5 h-3.5 w-3.5" />
+									Manage Skills
+								</Button>
+								<span class="text-xs text-muted-foreground">
+									{skillsStore.skills.length} skill{skillsStore.skills.length !== 1 ? 's' : ''} available,
+									{skillsStore.enabledSkills.length} enabled
+								</span>
 							</div>
 						</div>
 					</div>

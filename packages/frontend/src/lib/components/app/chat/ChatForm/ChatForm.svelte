@@ -6,7 +6,8 @@
 		ChatFormFileInputInvisible,
 		ChatFormPromptPicker,
 		ChatFormResourcePicker,
-		ChatFormTextarea
+		ChatFormTextarea,
+		ChatFormSkillPicker
 	} from '$lib/components/app';
 	import { DialogMcpResources } from '$lib/components/app/dialogs';
 	import {
@@ -99,6 +100,7 @@
 	let fileInputRef: ChatFormFileInputInvisible | undefined = $state(undefined);
 	let promptPickerRef: ChatFormPromptPicker | undefined = $state(undefined);
 	let resourcePickerRef: ChatFormResourcePicker | undefined = $state(undefined);
+	let skillPickerRef: ChatFormSkillPicker | undefined = $state(undefined);
 	let textareaRef: ChatFormTextarea | undefined = $state(undefined);
 
 	// Audio Recording State
@@ -116,6 +118,10 @@
 	// Resource Dialog State
 	let isResourceDialogOpen = $state(false);
 	let preSelectedResourceUri = $state<string | undefined>(undefined);
+
+	// Skill Picker State
+	let isSkillPickerOpen = $state(false);
+	let skillSearchQuery = $state('');
 
 	/**
 	 *
@@ -250,11 +256,22 @@
 		const perChatOverrides = conversationsStore.getAllMcpServerOverrides();
 		const hasServers = mcpStore.hasEnabledServers(perChatOverrides);
 
-		if (value.startsWith(PROMPT_TRIGGER_PREFIX) && hasServers) {
+		// Check for /skills trigger first (handles "/skills", "/skills " and "/skills <query>")
+		const skillTriggerMatch = value.match(/^\/skills(?:\s(.*))?$/);
+		if (skillTriggerMatch !== null) {
+			// Show skill picker with search query (empty for "/skills", trimmed query for "/skills <query>")
+			skillSearchQuery = skillTriggerMatch[1] ?? '';
+			isSkillPickerOpen = true;
+			isPromptPickerOpen = false;
+			promptSearchQuery = '';
+			isInlineResourcePickerOpen = false;
+			resourceSearchQuery = '';
+		} else if (value.startsWith(PROMPT_TRIGGER_PREFIX) && hasServers) {
 			isPromptPickerOpen = true;
 			promptSearchQuery = value.slice(1);
 			isInlineResourcePickerOpen = false;
 			resourceSearchQuery = '';
+			isSkillPickerOpen = false;
 		} else if (
 			value.startsWith(RESOURCE_TRIGGER_PREFIX) &&
 			hasServers &&
@@ -264,11 +281,13 @@
 			resourceSearchQuery = value.slice(1);
 			isPromptPickerOpen = false;
 			promptSearchQuery = '';
+			isSkillPickerOpen = false;
 		} else {
 			isPromptPickerOpen = false;
 			promptSearchQuery = '';
 			isInlineResourcePickerOpen = false;
 			resourceSearchQuery = '';
+			isSkillPickerOpen = false;
 		}
 	}
 
@@ -281,6 +300,11 @@
 			return;
 		}
 
+		// Handle skill picker keyboard navigation
+		if (isSkillPickerOpen && skillPickerRef?.handleKeydown(event)) {
+			return;
+		}
+
 		if (event.key === KeyboardKey.ESCAPE && isPromptPickerOpen) {
 			isPromptPickerOpen = false;
 			promptSearchQuery = '';
@@ -290,6 +314,12 @@
 		if (event.key === KeyboardKey.ESCAPE && isInlineResourcePickerOpen) {
 			isInlineResourcePickerOpen = false;
 			resourceSearchQuery = '';
+			return;
+		}
+
+		if (event.key === KeyboardKey.ESCAPE && isSkillPickerOpen) {
+			isSkillPickerOpen = false;
+			skillSearchQuery = '';
 			return;
 		}
 
@@ -472,6 +502,29 @@
 	/**
 	 *
 	 *
+	 * EVENT HANDLERS - Skill Picker
+	 *
+	 *
+	 */
+
+	function handleSkillSelect(skillContent: string) {
+		// Clear the /skills query from input and inject skill content
+		value = skillContent;
+		onValueChange?.(skillContent);
+		isSkillPickerOpen = false;
+		skillSearchQuery = '';
+		textareaRef?.focus();
+	}
+
+	function handleSkillPickerClose() {
+		isSkillPickerOpen = false;
+		skillSearchQuery = '';
+		textareaRef?.focus();
+	}
+
+	/**
+	 *
+	 *
 	 * EVENT HANDLERS - Inline Resource Picker
 	 *
 	 *
@@ -571,6 +624,14 @@
 		onClose={handleInlineResourcePickerClose}
 		onResourceSelect={handleInlineResourceSelect}
 		onBrowse={handleBrowseResources}
+	/>
+
+	<ChatFormSkillPicker
+		bind:this={skillPickerRef}
+		isOpen={isSkillPickerOpen}
+		searchQuery={skillSearchQuery}
+		onSkillSelect={handleSkillSelect}
+		onClose={handleSkillPickerClose}
 	/>
 
 	<div

@@ -222,7 +222,7 @@ export const rehypeEnhanceCodeBlocks: Plugin<[], Root> = () => {
 			if (node.tagName !== 'pre' || !parent || index === undefined) return;
 
 			const codeElement = node.children.find(
-				(child): child is Element => child.type === 'element' && child.tagName === 'code'
+				(child: ElementContent): child is Element => child.type === 'element' && (child as Element).tagName === 'code'
 			);
 
 			if (!codeElement) return;

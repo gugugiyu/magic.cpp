@@ -328,6 +328,24 @@ export { default as ChatFormPickerListItemSkeleton } from './ChatForm/ChatFormPi
 export { default as ChatFormResourcePicker } from './ChatForm/ChatFormResourcePicker/ChatFormResourcePicker.svelte';
 
 /**
+ * **ChatFormSkillPicker** - Skill selection interface
+ *
+ * Floating picker for browsing and selecting skills to inject into the chat input.
+ * Triggered by typing `/skills` in the chat input.
+ *
+ * **Features:**
+ * - Lists enabled, user-invocable skills
+ * - Fuzzy search/filter by name, title, or description
+ * - Keyboard navigation (↑/↓ to navigate, Enter to select, Esc to close)
+ * - Shows $ARGUMENTS badge for skills that accept arguments
+ * - Injects skill content into chat textarea on selection
+ *
+ * **Exported API:**
+ * - `handleKeydown(event): boolean` - Process keyboard events, returns true if handled
+ */
+export { default as ChatFormSkillPicker } from './ChatForm/ChatFormSkillPicker/ChatFormSkillPicker.svelte';
+
+/**
  *
  * MESSAGES
  *

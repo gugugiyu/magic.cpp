@@ -28,7 +28,7 @@
 		modelProp ||
 			modelsStore.singleModelName ||
 			(!serverStore.isRouterMode
-				? modelsStore.selectedModel?.name ?? modelOptions()[0]?.name ?? null
+				? (modelsStore.selectedModel?.name ?? modelOptions()[0]?.name ?? null)
 				: null)
 	);
 	// Show badge when: a model is known AND (explicitly provided, or not in router mode)

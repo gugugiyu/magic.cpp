@@ -71,7 +71,10 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
 	// Set up timeout
 	if (controller) {
-		const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_API_TIMEOUT) as unknown as number;
+		const timeoutId = setTimeout(
+			() => controller.abort(),
+			options.timeout ?? DEFAULT_API_TIMEOUT
+		) as unknown as number;
 		controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
 	}
 
@@ -79,7 +82,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 		const response = await fetch(url, {
 			...fetchOptions,
 			headers,
-			signal: timeoutSignal,
+			signal: timeoutSignal
 		});
 
 		if (!response.ok) {

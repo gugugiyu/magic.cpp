@@ -51,10 +51,7 @@ export async function updateMessage(
 /**
  * Delete a message, optionally reparenting children.
  */
-export async function deleteMessage(
-	id: string,
-	options?: { newParentId?: string }
-): Promise<void> {
+export async function deleteMessage(id: string, options?: { newParentId?: string }): Promise<void> {
 	const params = options?.newParentId ? `?newParentId=${options.newParentId}` : '';
 	await apiFetch(`/api/messages/${id}${params}`, {
 		method: 'DELETE'
@@ -68,10 +65,9 @@ export async function deleteMessageCascading(
 	id: string,
 	conversationId: string
 ): Promise<string[]> {
-	return apiPost<string[], { conversationId: string }>(
-		`/api/messages/${id}/delete-cascading`,
-		{ conversationId }
-	);
+	return apiPost<string[], { conversationId: string }>(`/api/messages/${id}/delete-cascading`, {
+		conversationId
+	});
 }
 
 /**
@@ -97,11 +93,15 @@ export async function createMessage(
  * Create a root message for a new conversation.
  */
 export async function createRootMessage(convId: string): Promise<DatabaseMessage> {
-	return createMessage(convId, {
-		type: 'root',
-		role: 'system',
-		content: ''
-	}, { type: 'root' });
+	return createMessage(
+		convId,
+		{
+			type: 'root',
+			role: 'system',
+			content: ''
+		},
+		{ type: 'root' }
+	);
 }
 
 /**
@@ -112,11 +112,15 @@ export async function createSystemMessage(
 	content: string,
 	parentId: string
 ): Promise<DatabaseMessage> {
-	return createMessage(convId, {
-		type: 'system',
-		role: 'system',
-		content
-	}, { parentId, type: 'system' });
+	return createMessage(
+		convId,
+		{
+			type: 'system',
+			role: 'system',
+			content
+		},
+		{ parentId, type: 'system' }
+	);
 }
 
 /**
@@ -133,7 +137,10 @@ export async function createMessageBranch(
 /**
  * Update the current node (active branch) of a conversation.
  */
-export async function updateCurrentNode(convId: string, nodeId: string): Promise<DatabaseConversation> {
+export async function updateCurrentNode(
+	convId: string,
+	nodeId: string
+): Promise<DatabaseConversation> {
 	return apiFetch<DatabaseConversation>(`/api/conversations/${convId}`, {
 		method: 'PUT',
 		body: JSON.stringify({ currNode: nodeId })

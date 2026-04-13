@@ -28,6 +28,13 @@ import {
 	handleDeleteMessage,
 	handleDeleteMessageCascading
 } from './handlers/messages.ts';
+import {
+	handleListSkills,
+	handleCreateSkill,
+	handleReadSkill,
+	handleUpdateSkill,
+	handleDeleteSkill
+} from './handlers/skills.ts';
 
 export function createRouter(pool: ModelPool, config: Config) {
 	return async function router(req: Request): Promise<Response> {
@@ -143,6 +150,24 @@ async function dispatchRoute(req: Request, pool: ModelPool, config: Config): Pro
 	if (pathname.match(/^\/api\/messages\/[^/]+\/delete-cascading$/) && method === 'POST') {
 		const msgId = pathname.split('/')[3];
 		return handleDeleteMessageCascading(req, getDatabase(), msgId);
+	}
+
+	// Skill API routes
+	if (pathname === '/api/skills' && method === 'GET') {
+		return handleListSkills(getDatabase());
+	}
+
+	if (pathname === '/api/skills' && method === 'POST') {
+		return handleCreateSkill(req, getDatabase());
+	}
+
+	// Match /api/skills/:name
+	const skillMatch = pathname.match(/^\/api\/skills\/([^/]+)$/);
+	if (skillMatch) {
+		const skillName = skillMatch[1];
+		if (method === 'GET') return handleReadSkill(getDatabase(), skillName);
+		if (method === 'PUT') return handleUpdateSkill(req, getDatabase(), skillName);
+		if (method === 'DELETE') return handleDeleteSkill(getDatabase(), skillName);
 	}
 
 	// CORS preflight

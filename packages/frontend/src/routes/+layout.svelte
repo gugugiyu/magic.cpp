@@ -7,8 +7,10 @@
 	import {
 		ChatSidebar,
 		DialogConversationTitleUpdate,
-		DialogChatSettings
+		DialogChatSettings,
+		DialogSkillManager
 	} from '$lib/components/app';
+	import { setSkillDialogContext } from '$lib/contexts/skill-dialog.context';
 	import { isLoading } from '$lib/stores/chat.svelte';
 	import { conversationsStore, activeMessages } from '$lib/stores/conversations.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -51,10 +53,19 @@
 	let chatSettingsDialogOpen = $state(false);
 	let chatSettingsDialogInitialSection = $state<SettingsSectionTitle | undefined>(undefined);
 
+	// Skill dialog state
+	let skillDialogOpen = $state(false);
+
 	setChatSettingsDialogContext({
 		open: (initialSection?: SettingsSectionTitle) => {
 			chatSettingsDialogInitialSection = initialSection;
 			chatSettingsDialogOpen = true;
+		}
+	});
+
+	setSkillDialogContext({
+		open: () => {
+			skillDialogOpen = true;
 		}
 	});
 
@@ -256,6 +267,8 @@
 		onOpenChange={(open) => (chatSettingsDialogOpen = open)}
 		initialSection={chatSettingsDialogInitialSection}
 	/>
+
+	<DialogSkillManager open={skillDialogOpen} onOpenChange={(open) => (skillDialogOpen = open)} />
 
 	<DialogConversationTitleUpdate
 		bind:open={titleUpdateDialogOpen}

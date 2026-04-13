@@ -38,6 +38,7 @@ import {
 	LLM_ERROR_BLOCK_END
 } from '$lib/constants';
 import { SUBAGENT_DEFAULT_PROMPT, BUILTIN_TOOLS } from '@shared/constants/prompts-and-tools';
+import { skillsStore } from '$lib/stores/skills.svelte';
 import {
 	processToolOutput as processMcpToolOutput,
 	countLines,
@@ -100,6 +101,8 @@ export interface SubagentStep {
 export interface SubagentProgress {
 	modelName: string;
 	steps: SubagentStep[];
+	/** The skill name that triggered this subagent invocation, if applicable. */
+	originSkill?: string;
 }
 
 // Built-in tool definitions imported from $lib/constants/prompts
@@ -155,6 +158,8 @@ class AgenticStore {
 	private _subagentProgress = $state<Record<string, SubagentProgress | null>>({});
 	/** Tracks startedAt timestamps for sequential_thinking tool calls by tool call ID. */
 	private _sequentialThinkingStartedAt = $state<Map<string, number>>(new Map());
+	/** Tracks the last skill name read via read_skill, for associating with subsequent call_subagent. */
+	private _lastReadSkill = $state<string | null>(null);
 
 	get isReady(): boolean {
 		return true;
@@ -217,6 +222,16 @@ class AgenticStore {
 
 	streamingToolCall(conversationId: string): { name: string; arguments: string } | null {
 		return this.getSession(conversationId).streamingToolCall;
+	}
+
+	/** Get the last skill name read via read_skill, for associating with subsequent call_subagent. */
+	getLastReadSkill(): string | null {
+		return this._lastReadSkill;
+	}
+
+	/** Clear the last read skill tracking. */
+	clearLastReadSkill(): void {
+		this._lastReadSkill = null;
 	}
 
 	clearError(conversationId: string): void {
@@ -282,6 +297,12 @@ class AgenticStore {
 
 			tools.push(def);
 		}
+
+		// Add skill tools if enabled
+		if (settings.builtinToolSkills) {
+			tools.push(BUILTIN_TOOLS[5], BUILTIN_TOOLS[6]);
+		}
+
 		return tools;
 	}
 
@@ -1004,7 +1025,15 @@ class AgenticStore {
 				if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
 				const modelDisplayName = subagentModelId.split('/').pop() ?? subagentModelId;
-				this.setSubagentProgress(conversationId, { modelName: modelDisplayName, steps: [] });
+				// Associate with the last read skill if called shortly after
+				const originSkill = this._lastReadSkill ?? undefined;
+				this.setSubagentProgress(conversationId, {
+					modelName: modelDisplayName,
+					steps: [],
+					originSkill
+				});
+				// Clear after associating
+				this._lastReadSkill = null;
 
 				// Running message history for the subagent loop (OpenAI wire format)
 				const loopMessages: Record<string, unknown>[] = [];
@@ -1146,6 +1175,35 @@ class AgenticStore {
 					const message = error instanceof Error ? error.message : String(error);
 					return JSON.stringify({ error: `Subagent request failed: ${message}` });
 				}
+			}
+
+			case 'list_skill': {
+				// Refresh skills from backend to avoid stale data
+				await skillsStore.loadSkills();
+				const entries = skillsStore.getListSkillEntries();
+				if (entries.length === 0) {
+					return JSON.stringify({
+						skills: [],
+						message: 'No skills are currently enabled.'
+					});
+				}
+				return JSON.stringify({ skills: entries });
+			}
+
+			case 'read_skill': {
+				const name = String(parsed.name ?? '');
+				if (!name) {
+					return JSON.stringify({ error: 'Missing required parameter: name' });
+				}
+				// Refresh skills from backend to avoid stale data
+				await skillsStore.loadSkills();
+				const content = skillsStore.getReadSkillContent(name);
+				if (content === null) {
+					return JSON.stringify({ error: `Skill "${name}" not found or not enabled.` });
+				}
+				// Track this skill was read, for potential association with next call_subagent
+				this._lastReadSkill = name;
+				return JSON.stringify({ name, content });
 			}
 
 			default:

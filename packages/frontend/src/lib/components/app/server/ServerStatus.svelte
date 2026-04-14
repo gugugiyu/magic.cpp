@@ -2,7 +2,12 @@
 	import { AlertTriangle, Server, Globe } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { serverProps, serverLoading, serverError, isCompatibilityMode } from '$lib/stores/server.svelte';
+	import {
+		serverProps,
+		serverLoading,
+		serverError,
+		isCompatibilityMode
+	} from '$lib/stores/server.svelte';
 	import { singleModelName } from '$lib/stores/models.svelte';
 
 	interface Props {

@@ -198,17 +198,17 @@ proxy: {
 
 ## Tech Stack
 
-| Layer             | Technology                      | Purpose                                                  |
-| ----------------- | ------------------------------- | -------------------------------------------------------- |
-| **Framework**     | SvelteKit + Svelte 5            | Reactive UI with runes (`$state`, `$derived`, `$effect`) |
-| **UI Components** | shadcn-svelte + bits-ui         | Accessible, customizable component library               |
-| **Styling**       | TailwindCSS 4                   | Utility-first CSS with design tokens                     |
+| Layer             | Technology                      | Purpose                                                     |
+| ----------------- | ------------------------------- | ----------------------------------------------------------- |
+| **Framework**     | SvelteKit + Svelte 5            | Reactive UI with runes (`$state`, `$derived`, `$effect`)    |
+| **UI Components** | shadcn-svelte + bits-ui         | Accessible, customizable component library                  |
+| **Styling**       | TailwindCSS 4                   | Utility-first CSS with design tokens                        |
 | **Database**      | SQLite (via `bun:sqlite`)       | Server-side persistence for conversations, messages, skills |
-| **Backend**       | Bun + native HTTP               | Lightweight API layer for frontend                       |
-| **Build**         | Vite 7                          | Fast bundling with static adapter                        |
-| **Testing**       | Playwright + Vitest + Storybook | E2E, unit, and visual testing                            |
-| **Markdown**      | remark + rehype + mdsvex        | Markdown processing with KaTeX and syntax highlighting   |
-| **Validation**    | Zod 4                           | Runtime type validation                                    |
+| **Backend**       | Bun + native HTTP               | Lightweight API layer for frontend                          |
+| **Build**         | Vite 7                          | Fast bundling with static adapter                           |
+| **Testing**       | Playwright + Vitest + Storybook | E2E, unit, and visual testing                               |
+| **Markdown**      | remark + rehype + mdsvex        | Markdown processing with KaTeX and syntax highlighting      |
+| **Validation**    | Zod 4                           | Runtime type validation                                     |
 
 ### Key Dependencies
 
@@ -386,13 +386,13 @@ Components are organized in `app/` (application-specific) and `ui/` (shadcn-svel
 
 **Dialog Components** (`app/dialogs/`):
 
-| Component                       | Responsibility                                           |
-| ------------------------------- | -------------------------------------------------------- |
-| `DialogChatSettings`            | Full-screen settings configuration                       |
-| `DialogModelInformation`        | Model details (context size, modalities, parallel slots) |
-| `DialogChatAttachmentPreview`   | Full preview for images, PDFs (text or page view), code  |
-| `DialogConfirmation`            | Generic confirmation for destructive actions             |
-| `DialogConversationTitleUpdate` | Edit conversation title                                  |
+| Component                       | Responsibility                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------- |
+| `DialogChatSettings`            | Full-screen settings configuration                                            |
+| `DialogModelInformation`        | Model details (context size, modalities, parallel slots)                      |
+| `DialogChatAttachmentPreview`   | Full preview for images, PDFs (text or page view), code                       |
+| `DialogConfirmation`            | Generic confirmation for destructive actions                                  |
+| `DialogConversationTitleUpdate` | Edit conversation title                                                       |
 | `DialogSkillManager`            | Full CRUD skill management (import, create, edit, preview, delete, duplicate) |
 
 **Server/Model Components** (`app/server/`, `app/models/`):
@@ -418,32 +418,32 @@ Components are organized in `app/` (application-specific) and `ui/` (shadcn-svel
 
 #### Stores (`src/lib/stores/`)
 
-| Store                      | Responsibility                                            |
-| -------------------------- | --------------------------------------------------------- |
-| `chatStore`                | Message sending, streaming, abort control, error handling |
-| `agenticStore`             | Multi-turn agentic loop orchestration, tool execution, subagent delegation |
-| `conversationsStore`       | CRUD for conversations, message branching, navigation, MCP per-chat overrides |
-| `modelsStore`              | Model list, selection, loading/unloading (ROUTER), modality caching |
-| `serverStore`              | Server properties, role detection, modalities             |
-| `settingsStore`            | User preferences, parameter sync with server defaults     |
-| `mcpStore`                 | MCP server connections, tool execution, health checks, prompt retrieval |
-| `mcpResourceStore`         | MCP resource discovery, caching, subscriptions, attachments |
-| `sequentialThinkingStore`  | Ephemeral reasoning step tracking for sequential thinking tool |
-| `subagentConfigStore`      | Subagent endpoint, API key, model, and summarization settings |
-| `skillsStore`              | User-managed skill files (load, create, update, delete, enable/disable) |
-| `modelCapabilityStore`     | Per-model tool-calling capability override                |
+| Store                     | Responsibility                                                                |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| `chatStore`               | Message sending, streaming, abort control, error handling                     |
+| `agenticStore`            | Multi-turn agentic loop orchestration, tool execution, subagent delegation    |
+| `conversationsStore`      | CRUD for conversations, message branching, navigation, MCP per-chat overrides |
+| `modelsStore`             | Model list, selection, loading/unloading (ROUTER), modality caching           |
+| `serverStore`             | Server properties, role detection, modalities                                 |
+| `settingsStore`           | User preferences, parameter sync with server defaults                         |
+| `mcpStore`                | MCP server connections, tool execution, health checks, prompt retrieval       |
+| `mcpResourceStore`        | MCP resource discovery, caching, subscriptions, attachments                   |
+| `sequentialThinkingStore` | Ephemeral reasoning step tracking for sequential thinking tool                |
+| `subagentConfigStore`     | Subagent endpoint, API key, model, and summarization settings                 |
+| `skillsStore`             | User-managed skill files (load, create, update, delete, enable/disable)       |
+| `modelCapabilityStore`    | Per-model tool-calling capability override                                    |
 
 #### Services (`src/lib/services/`)
 
-| Service                | Responsibility                                  |
-| ---------------------- | ----------------------------------------------- |
-| `ChatService`          | API calls to `/v1/chat/completions`, SSE parsing, message conversion |
-| `ModelsService`        | `/models`, `/models/load`, `/models/unload`     |
-| `PropsService`         | `/props`, `/props?model=`                       |
+| Service                | Responsibility                                                             |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `ChatService`          | API calls to `/v1/chat/completions`, SSE parsing, message conversion       |
+| `ModelsService`        | `/models`, `/models/load`, `/models/unload`                                |
+| `PropsService`         | `/props`, `/props?model=`                                                  |
 | `DatabaseService`      | HTTP API calls to backend for SQLite persistence (conversations, messages) |
-| `ParameterSyncService` | Syncs settings with server defaults             |
-| `MCPService`           | MCP protocol operations (WebSocket, SSE, Streamable HTTP) |
-| `SkillService`         | Backend API calls for skill CRUD operations     |
+| `ParameterSyncService` | Syncs settings with server defaults                                        |
+| `MCPService`           | MCP protocol operations (WebSocket, SSE, Streamable HTTP)                  |
+| `SkillService`         | Backend API calls for skill CRUD operations                                |
 
 ---
 
@@ -574,17 +574,17 @@ sequenceDiagram
 
 ### Detailed Flow Diagrams
 
-| Flow          | Description                                | File                                                        |
-| ------------- | ------------------------------------------ | ----------------------------------------------------------- |
-| Chat          | Message lifecycle, streaming, regeneration | [`chat-flow.md`](docs/flows/chat-flow.md)                   |
-| Agentic       | Multi-turn tool execution, subagent delegation | [`agentic-flow.md`](docs/flows/agentic-flow.md)         |
-| Models        | Loading, unloading, modality caching       | [`models-flow.md`](docs/flows/models-flow.md)               |
-| Server        | Props fetching, role detection             | [`server-flow.md`](docs/flows/server-flow.md)               |
-| Conversations | CRUD, branching, import/export             | [`conversations-flow.md`](docs/flows/conversations-flow.md) |
-| Database      | SQLite persistence via backend API         | [`database-flow.md`](docs/flows/database-flow.md)           |
-| Settings      | Parameter sync, user overrides             | [`settings-flow.md`](docs/flows/settings-flow.md)           |
-| Filters       | Response filters (emoji, codeblock, raw, normalize) | [`filters-flow.md`](docs/flows/filters-flow.md)     |
-| Skills        | Skill vault CRUD and tool integration      | [`skills-flow.md`](docs/flows/skills-flow.md)               |
+| Flow          | Description                                         | File                                                        |
+| ------------- | --------------------------------------------------- | ----------------------------------------------------------- |
+| Chat          | Message lifecycle, streaming, regeneration          | [`chat-flow.md`](docs/flows/chat-flow.md)                   |
+| Agentic       | Multi-turn tool execution, subagent delegation      | [`agentic-flow.md`](docs/flows/agentic-flow.md)             |
+| Models        | Loading, unloading, modality caching                | [`models-flow.md`](docs/flows/models-flow.md)               |
+| Server        | Props fetching, role detection                      | [`server-flow.md`](docs/flows/server-flow.md)               |
+| Conversations | CRUD, branching, import/export                      | [`conversations-flow.md`](docs/flows/conversations-flow.md) |
+| Database      | SQLite persistence via backend API                  | [`database-flow.md`](docs/flows/database-flow.md)           |
+| Settings      | Parameter sync, user overrides                      | [`settings-flow.md`](docs/flows/settings-flow.md)           |
+| Filters       | Response filters (emoji, codeblock, raw, normalize) | [`filters-flow.md`](docs/flows/filters-flow.md)             |
+| Skills        | Skill vault CRUD and tool integration               | [`skills-flow.md`](docs/flows/skills-flow.md)               |
 
 ---
 

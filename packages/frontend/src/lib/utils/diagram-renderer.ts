@@ -108,7 +108,18 @@ export async function renderSvgDiagram(
 		const clean = DOMPurify.sanitize(rawCode, {
 			USE_PROFILES: { svg: true, svgFilters: true },
 			FORBID_TAGS: ['script', 'style', 'foreignObject'],
-			FORBID_ATTR: ['onbegin', 'onend', 'onrepeat', 'onload', 'onerror', 'onclick', 'onmousedown', 'onmouseup', 'onmouseover', 'onmouseout']
+			FORBID_ATTR: [
+				'onbegin',
+				'onend',
+				'onrepeat',
+				'onload',
+				'onerror',
+				'onclick',
+				'onmousedown',
+				'onmouseup',
+				'onmouseover',
+				'onmouseout'
+			]
 		});
 
 		const skeleton = wrapper.querySelector('.diagram-render-skeleton');

@@ -75,6 +75,7 @@ Detects `![xx]` language tags in the **last user message** and appends a languag
 **Detection regex:** `/!\[([a-zA-Z]{2,8})\]/`
 
 **Example:**
+
 - User message: `Explain quantum computing ![fr]`
 - Instruction appended: `\n\nIMPORTANT: the response should be in fr.`
 - **Only** the in-memory `normalizedMessages` array is modified — the DB is never touched
@@ -90,6 +91,7 @@ Keeps only the **first** fenced code block (` ```...``` `), discarding all surro
 **Regex:** `/```[\s\S]*?```/`
 
 **Behavior:**
+
 - If no code block found → return original text unchanged
 - Returns the complete code block including fences
 - Applies **before** other filters (narrows the content)
@@ -101,6 +103,7 @@ Keeps only the **first** fenced code block (` ```...``` `), discarding all surro
 **Setting:** `filterEmojiRemoval`
 
 Strips all Extended Pictographic Unicode characters, including:
+
 - Base emoji sequences
 - Variation selectors (`\uFE00-\uFE0F`)
 - Skin tone modifiers (`\u{1F3FB}-\u{1F3FF}`)
@@ -108,6 +111,7 @@ Strips all Extended Pictographic Unicode characters, including:
 - ZWJ (Zero Width Joiner) sequences
 
 **Regex (Unicode property escapes):**
+
 ```
 \p{Extended_Pictographic}(?:[\uFE00-\uFE0F]|[\u{1F3FB}-\u{1F3FF}]|\u{20E3}|\u{200D}\p{Extended_Pictographic}(?:[\uFE00-\uFE0F]|[\u{1F3FB}-\u{1F3FF}]|\u{20E3})?)*
 ```
@@ -119,6 +123,7 @@ Strips all Extended Pictographic Unicode characters, including:
 **Setting:** `filterRawMode`
 
 Strips all Markdown formatting, returning plain text:
+
 - Headings (`#{1,6}`)
 - Bold/italic (`**`, `*`, `__`, `_`)
 - Inline code (`` ` ``)
@@ -134,21 +139,21 @@ Strips all Markdown formatting, returning plain text:
 
 Auto-fixes common formatting issues ported from OpenWebUI's normalizer:
 
-| Fix | Description |
-|---|---|
-| Escape characters | Convert `\\n`, `\\r\\n` to actual newlines |
-| Thought tags | Normalize `<thinking>`, `<think>`, `<thought>` to `<thought>` |
-| Details tags | Fix `<details>` spacing and self-closing tags |
-| Code blocks | Ensure proper newline before/after fences |
-| LaTeX delimiters | Convert `\[...\]` to `$$...$$`, `\(...\)` to `$...$` |
-| Lists | Add newlines before numbered list items |
-| Headings | Add space after `#` if missing |
-| Tables | Ensure trailing pipe on table rows |
-| XML artifacts | Strip `<antArtifact>`, `<antThinking>`, `<artifact>` tags |
-| Unclosed code blocks | Auto-close if odd number of fences |
-| Fullwidth symbols | Replace fullwidth punctuation inside code blocks |
-| Mermaid diagrams | Fix node labels, auto-close unclosed subgraphs |
-| Emphasis spacing | Remove extra spaces inside italic/bold markers |
+| Fix                  | Description                                                   |
+| -------------------- | ------------------------------------------------------------- |
+| Escape characters    | Convert `\\n`, `\\r\\n` to actual newlines                    |
+| Thought tags         | Normalize `<thinking>`, `<think>`, `<thought>` to `<thought>` |
+| Details tags         | Fix `<details>` spacing and self-closing tags                 |
+| Code blocks          | Ensure proper newline before/after fences                     |
+| LaTeX delimiters     | Convert `\[...\]` to `$$...$$`, `\(...\)` to `$...$`          |
+| Lists                | Add newlines before numbered list items                       |
+| Headings             | Add space after `#` if missing                                |
+| Tables               | Ensure trailing pipe on table rows                            |
+| XML artifacts        | Strip `<antArtifact>`, `<antThinking>`, `<artifact>` tags     |
+| Unclosed code blocks | Auto-close if odd number of fences                            |
+| Fullwidth symbols    | Replace fullwidth punctuation inside code blocks              |
+| Mermaid diagrams     | Fix node labels, auto-close unclosed subgraphs                |
+| Emphasis spacing     | Remove extra spaces inside italic/bold markers                |
 
 ---
 
@@ -168,10 +173,10 @@ export function detectLanguagePinner(text: string): string | null;
 
 // Composite filter
 export interface ResponseFilterOptions {
-  filterEmojiRemoval: boolean;
-  filterCodeblockOnly: boolean;
-  filterRawMode: boolean;
-  filterNormalizeMarkdown: boolean;
+	filterEmojiRemoval: boolean;
+	filterCodeblockOnly: boolean;
+	filterRawMode: boolean;
+	filterNormalizeMarkdown: boolean;
 }
 
 export function applyResponseFilters(text: string, opts: ResponseFilterOptions): string;
@@ -184,6 +189,7 @@ export function getActiveFilters(opts: ResponseFilterOptions): string[];
 ### Settings Integration
 
 **Settings keys:** `src/lib/constants/settings-keys.ts`
+
 ```typescript
 FILTER_EMOJI_REMOVAL: 'filterEmojiRemoval',
 FILTER_CODEBLOCK_ONLY: 'filterCodeblockOnly',
@@ -193,6 +199,7 @@ FILTER_NORMALIZE_MARKDOWN: 'filterNormalizeMarkdown',
 ```
 
 **Defaults:** `src/lib/constants/settings-config.ts`
+
 ```typescript
 filterEmojiRemoval: false,
 filterCodeblockOnly: false,
@@ -202,12 +209,14 @@ filterNormalizeMarkdown: true,  // Enabled by default
 ```
 
 **Settings UI:** New **Filter** tab in ChatSettings (between MCP and Developer tabs)
+
 - Icon: `ListFilter` from lucide
 - Four checkbox fields with descriptions from `SETTING_CONFIG_INFO`
 
 ### Where Filters Are Applied
 
 **Display filters** (post-response):
+
 ```
 ChatMessageAgenticContent.svelte
   └→ for each TEXT section:
@@ -216,6 +225,7 @@ ChatMessageAgenticContent.svelte
 ```
 
 **Language pinner** (pre-request):
+
 ```
 chat.service.ts → sendMessage()
   └→ After building normalizedMessages, before requestBody:
@@ -229,13 +239,13 @@ chat.service.ts → sendMessage()
 
 ## What Is NOT Changing
 
-| Component | Reason |
-|---|---|
-| Database layer | Filters are display-only; raw content is always stored |
-| Store layer | No filter logic in `chatStore`, `conversationsStore` |
-| `MarkdownContent.svelte` | Receives already-filtered content |
-| `chat.svelte.ts` | Streaming logic unchanged |
-| API layer | Filters run client-side after response received |
+| Component                | Reason                                                 |
+| ------------------------ | ------------------------------------------------------ |
+| Database layer           | Filters are display-only; raw content is always stored |
+| Store layer              | No filter logic in `chatStore`, `conversationsStore`   |
+| `MarkdownContent.svelte` | Receives already-filtered content                      |
+| `chat.svelte.ts`         | Streaming logic unchanged                              |
+| API layer                | Filters run client-side after response received        |
 
 ---
 
@@ -243,12 +253,12 @@ chat.service.ts → sendMessage()
 
 Filters apply **purely at render time** on `section.content`. Since streaming continuously updates `section.content` via reactive store updates, the filter re-applies on every chunk:
 
-| Filter | Mid-stream behavior |
-|---|---|
-| Emoji removal | Emojis "disappear" as they stream in |
-| Codeblock only | Shows nothing until opening ``` appears, then shows partial block |
-| Raw mode | Strips formatting incrementally |
-| Markdown normalizer | Fixes issues on each chunk |
+| Filter              | Mid-stream behavior                                               |
+| ------------------- | ----------------------------------------------------------------- |
+| Emoji removal       | Emojis "disappear" as they stream in                              |
+| Codeblock only      | Shows nothing until opening ``` appears, then shows partial block |
+| Raw mode            | Strips formatting incrementally                                   |
+| Markdown normalizer | Fixes issues on each chunk                                        |
 
 This is acceptable because the spec only restricts **persisted** content to be unmodified — streaming display changes are fine.
 
@@ -256,13 +266,13 @@ This is acceptable because the spec only restricts **persisted** content to be u
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| `src/lib/utils/filters.ts` | Filter implementations + composite |
-| `src/lib/utils/index.ts` | Re-exports filters |
-| `src/lib/constants/settings-keys.ts` | Filter setting keys |
-| `src/lib/constants/settings-config.ts` | Default values + info strings |
-| `src/lib/constants/settings-sections.ts` | Filter tab registration |
-| `src/lib/components/app/chat/ChatSettings/ChatSettings.svelte` | Filter tab UI |
-| `src/lib/components/app/chat/ChatMessages/ChatMessageAgenticContent.svelte` | Post-response filter application |
-| `src/lib/services/chat.service.ts` | Language pinner (pre-request) |
+| File                                                                        | Purpose                            |
+| --------------------------------------------------------------------------- | ---------------------------------- |
+| `src/lib/utils/filters.ts`                                                  | Filter implementations + composite |
+| `src/lib/utils/index.ts`                                                    | Re-exports filters                 |
+| `src/lib/constants/settings-keys.ts`                                        | Filter setting keys                |
+| `src/lib/constants/settings-config.ts`                                      | Default values + info strings      |
+| `src/lib/constants/settings-sections.ts`                                    | Filter tab registration            |
+| `src/lib/components/app/chat/ChatSettings/ChatSettings.svelte`              | Filter tab UI                      |
+| `src/lib/components/app/chat/ChatMessages/ChatMessageAgenticContent.svelte` | Post-response filter application   |
+| `src/lib/services/chat.service.ts`                                          | Language pinner (pre-request)      |

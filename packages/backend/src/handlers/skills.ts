@@ -10,7 +10,7 @@
  */
 
 import type { Database } from 'better-sqlite3';
-import { sanitizeSkillName } from '#shared/constants/skills';
+import { sanitizeSkillName, SKILL_MAX_CONTENT_BYTES } from '#shared/constants/skills';
 import {
 	listAllSkills,
 	readSkill,
@@ -52,7 +52,7 @@ export async function handleCreateSkill(req: Request, _db: Database): Promise<Re
 			);
 		}
 
-		const MAX_SKILL_SIZE = 1024 * 1024; // 1MB
+		const MAX_SKILL_SIZE = SKILL_MAX_CONTENT_BYTES;
 		if (Buffer.byteLength(content, 'utf-8') > MAX_SKILL_SIZE) {
 			return Response.json(
 				{ error: 'Skill content exceeds maximum size of 1MB' },
@@ -113,7 +113,7 @@ export async function handleUpdateSkill(req: Request, _db: Database, name: strin
 			);
 		}
 
-		const MAX_SKILL_SIZE = 1024 * 1024; // 1MB
+		const MAX_SKILL_SIZE = SKILL_MAX_CONTENT_BYTES;
 		if (Buffer.byteLength(content, 'utf-8') > MAX_SKILL_SIZE) {
 			return Response.json(
 				{ error: 'Skill content exceeds maximum size of 1MB' },

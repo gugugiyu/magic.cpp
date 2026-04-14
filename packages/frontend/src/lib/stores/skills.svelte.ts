@@ -22,9 +22,11 @@ interface SkillState {
 
 class SkillsStore {
 	#skills = $state<SkillDefinition[]>([]);
-	#skillStates = $state<Record<string, SkillState>>({});
+	#skillStates = $state<Record<string, SkillState>>(this.loadSkillStates());
 	#isLoading = $state(false);
 	#error = $state<string | null>(null);
+	#loadRequestId = 0;
+	#lastLoadTime = 0;
 
 	// ─── LocalStorage persistence ──────────────────────────────────────
 
@@ -98,13 +100,36 @@ class SkillsStore {
 		this.#isLoading = true;
 		this.#error = null;
 
+		const requestId = ++this.#loadRequestId;
+
 		try {
-			this.#skills = await SkillService.listSkills();
+			const skills = await SkillService.listSkills();
+
+			// Discard stale result if a newer load was requested
+			if (requestId !== this.#loadRequestId) return;
+
+			this.#skills = skills;
+			this.#lastLoadTime = Date.now();
 		} catch (err) {
+			if (requestId !== this.#loadRequestId) return;
 			this.#error = (err as Error).message;
 			console.error('[skillsStore] Failed to load skills:', err);
 		} finally {
-			this.#isLoading = false;
+			if (requestId === this.#loadRequestId) {
+				this.#isLoading = false;
+			}
+		}
+	}
+
+	/**
+	 * Load skills only if stale (older than ttlMs) or never loaded.
+	 * Safe to call from multiple consumers; avoids redundant network requests.
+	 */
+	async loadSkillsIfStale(ttlMs: number): Promise<void> {
+		const isStale = Date.now() - this.#lastLoadTime > ttlMs;
+		const isEmpty = this.#skills.length === 0;
+		if (isStale || isEmpty) {
+			await this.loadSkills();
 		}
 	}
 
@@ -125,12 +150,15 @@ class SkillsStore {
 	/** Delete a skill and reload the list. */
 	async deleteSkill(name: string): Promise<void> {
 		await SkillService.deleteSkill(name);
-		// Clean up state
+		// Clean up local state immediately after confirmed backend deletion
 		const newStates = { ...this.#skillStates };
 		delete newStates[name];
 		this.#skillStates = newStates;
 		this.saveSkillStates();
 		await this.loadSkills();
+		// Note: if loadSkills() fails, the skill is still removed from localStorage
+		// but the UI will show stale data until next successful reload.
+		// This is acceptable — the user can retry via the reload button.
 	}
 
 	/** Find a skill by name. Returns null if not found. */
@@ -158,6 +186,7 @@ class SkillsStore {
 	 * Returns null if the skill doesn't exist.
 	 */
 	getReadSkillContent(name: string): string | null {
+		if (!this.isSkillAvailableForModel(name)) return null;
 		const skill = this.findSkill(name);
 		return skill?.content ?? null;
 	}

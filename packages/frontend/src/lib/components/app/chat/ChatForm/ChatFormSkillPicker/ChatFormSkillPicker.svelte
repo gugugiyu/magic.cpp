@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { KeyboardKey } from '$lib/enums';
 	import { skillsStore } from '$lib/stores/skills.svelte';
-	import { isSkillUserInvocable, extractSkillContent } from '$lib/services/skill-utils';
+	import { isSkillUserInvocable } from '$lib/utils';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Loader2, Wrench } from '@lucide/svelte';
 	import type { SkillDefinition } from '@shared/types/skills';
@@ -10,7 +10,7 @@
 		class?: string;
 		isOpen?: boolean;
 		searchQuery?: string;
-		onSkillSelect?: (skillContent: string) => void;
+		onSkillSelect?: (skill: SkillDefinition) => void;
 		onClose?: () => void;
 	}
 
@@ -25,11 +25,11 @@
 	let selectedIndex = $state(0);
 	let hasTriggeredLoad = $state(false);
 
-	// Trigger initial load if skills haven't been loaded yet
+	// Trigger load if skills are empty or stale (30s TTL)
 	$effect(() => {
-		if (isOpen && !hasTriggeredLoad && !skillsStore.isLoading && skillsStore.skills.length === 0) {
+		if (isOpen && !hasTriggeredLoad && !skillsStore.isLoading) {
 			hasTriggeredLoad = true;
-			void skillsStore.loadSkills();
+			void skillsStore.loadSkillsIfStale(30_000);
 		}
 	});
 
@@ -126,9 +126,7 @@
 	}
 
 	function selectSkill(skill: SkillDefinition) {
-		// Extract the content after frontmatter (the actual instructions)
-		const content = extractSkillContent(skill.content);
-		onSkillSelect?.(content);
+		onSkillSelect?.(skill);
 		onClose?.();
 	}
 

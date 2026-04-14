@@ -17,6 +17,9 @@ export const SKILL_DEFAULT_TITLE = 'Untitled Skill';
 /** Default description when not specified in frontmatter. */
 export const SKILL_DEFAULT_DESCRIPTION = 'N/A';
 
+/** Maximum skill content size in bytes (1 MB). */
+export const SKILL_MAX_CONTENT_BYTES = 1024 * 1024;
+
 /** Magic string for argument substitution in skill content. $ARGUMENTS[0] = first arg, etc. */
 export const SKILL_ARGUMENTS_PATTERN = /\$ARGUMENTS\[(\d+)\]/g;
 

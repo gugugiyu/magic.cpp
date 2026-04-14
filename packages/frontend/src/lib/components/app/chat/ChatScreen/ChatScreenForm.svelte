@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { ChatFormHelperText, ChatForm } from '$lib/components/app';
+	import { skillsStore } from '$lib/stores/skills.svelte';
+	import {
+		parseSkillInvocation,
+		extractSkillContent,
+		substituteSkillArguments
+	} from '$lib/utils';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -61,7 +67,19 @@
 
 		if (!chatFormRef?.checkModelSelected()) return;
 
-		const messageToSend = message.trim();
+		const originalMessage = message.trim();
+		let messageToSend = originalMessage;
+
+		// Expand /skills shorthand into full skill content before sending
+		const skillInvocation = parseSkillInvocation(messageToSend);
+		if (skillInvocation) {
+			const skill = skillsStore.findSkill(skillInvocation.name);
+			if (skill) {
+				const body = extractSkillContent(skill.content);
+				messageToSend = substituteSkillArguments(body, skillInvocation.args);
+			}
+		}
+
 		const filesToSend = [...uploadedFiles];
 
 		message = '';
@@ -72,7 +90,8 @@
 		const success = await onSend?.(messageToSend, filesToSend);
 
 		if (!success) {
-			message = messageToSend;
+			// Restore the shorthand, not the expanded content
+			message = originalMessage;
 			uploadedFiles = filesToSend;
 		}
 	}

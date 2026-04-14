@@ -7,7 +7,7 @@
  * - Content body extraction (everything after frontmatter)
  */
 
-import { skillFileStore, FileStoreEntry } from './fs/file-store.ts';
+import { skillFileStore } from './fs/file-store.ts';
 import type {
 	SkillDefinition,
 	SkillFrontmatter
@@ -63,7 +63,8 @@ function parseFrontmatter(yaml: string): Record<string, unknown> {
 /** Convert raw frontmatter keys to SkillFrontmatter type. */
 function toSkillFrontmatter(raw: Record<string, unknown>): SkillFrontmatter {
 	return {
-		context: (raw.context as 'fork' | undefined) ?? 'fork',
+		// Preserve undefined when not specified — callers must not assume a default
+		context: raw.context !== undefined ? (raw.context as 'fork') : undefined,
 		userInvocable: raw.userInvocable !== undefined ? Boolean(raw.userInvocable) : undefined,
 		disableModelInvocation: raw.disableModelInvocation !== undefined
 			? Boolean(raw.disableModelInvocation)

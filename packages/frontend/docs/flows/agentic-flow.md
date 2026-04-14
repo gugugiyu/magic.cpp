@@ -110,13 +110,14 @@ The agentic loop enables **multi-turn tool execution** where the LLM can call to
 
 ```typescript
 interface AgenticConfig {
-  enabled: boolean;           // true when MCP servers or built-in tools are available
-  maxTurns: number;           // default: 10, configurable in settings
-  maxToolPreviewLines: number; // default: 40, for UI preview truncation
+	enabled: boolean; // true when MCP servers or built-in tools are available
+	maxTurns: number; // default: 10, configurable in settings
+	maxToolPreviewLines: number; // default: 40, for UI preview truncation
 }
 ```
 
 **Enable conditions** (any one):
+
 - At least one MCP server is enabled
 - At least one built-in tool is enabled
 - Subagent is configured and enabled
@@ -127,11 +128,11 @@ Each conversation has an independent `AgenticSession`:
 
 ```typescript
 interface AgenticSession {
-  isRunning: boolean;
-  currentTurn: number;
-  totalToolCalls: number;
-  lastError: Error | null;
-  streamingToolCall: { name: string; arguments: string } | null;
+	isRunning: boolean;
+	currentTurn: number;
+	totalToolCalls: number;
+	lastError: Error | null;
+	streamingToolCall: { name: string; arguments: string } | null;
 }
 ```
 
@@ -139,21 +140,22 @@ interface AgenticSession {
 
 #### Built-in Tools (Frontend-Only)
 
-| Tool | Setting Key | Description |
-|---|---|---|
-| `calculator` | `builtinToolCalculator` | Evaluates JavaScript math expressions (user-confirmed via `window.confirm`) |
-| `get_time` | `builtinToolTime` | Returns current UTC date/time as ISO 8601 string |
-| `get_location` | `builtinToolLocation` | Browser Geolocation API (requires user permission) |
-| `sequential_thinking` | `builtinToolSequentialThinking` | Structured reasoning steps with live stepper UI |
-| `call_subagent` | `builtinToolCallSubagent` | Delegate to separate model endpoint |
-| `list_skill` | `builtinToolSkills` | List enabled user skills |
-| `read_skill` | `builtinToolSkills` | Read full skill content by name |
+| Tool                  | Setting Key                     | Description                                                                 |
+| --------------------- | ------------------------------- | --------------------------------------------------------------------------- |
+| `calculator`          | `builtinToolCalculator`         | Evaluates JavaScript math expressions (user-confirmed via `window.confirm`) |
+| `get_time`            | `builtinToolTime`               | Returns current UTC date/time as ISO 8601 string                            |
+| `get_location`        | `builtinToolLocation`           | Browser Geolocation API (requires user permission)                          |
+| `sequential_thinking` | `builtinToolSequentialThinking` | Structured reasoning steps with live stepper UI                             |
+| `call_subagent`       | `builtinToolCallSubagent`       | Delegate to separate model endpoint                                         |
+| `list_skill`          | `builtinToolSkills`             | List enabled user skills                                                    |
+| `read_skill`          | `builtinToolSkills`             | Read full skill content by name                                             |
 
 Built-in tools are defined in `@shared/constants/prompts-and-tools.ts` and registered via `getBuiltinTools()` in `agenticStore`.
 
 #### MCP Tools (External Servers)
 
 MCP tools require an external MCP server connection. The `mcpStore` manages:
+
 - Server connections (WebSocket, SSE, Streamable HTTP)
 - Tool discovery and health checks
 - Tool execution with timeout handling
@@ -161,6 +163,7 @@ MCP tools require an external MCP server connection. The `mcpStore` manages:
 ### Built-in Tool Execution Details
 
 **`calculator`**:
+
 ```typescript
 // User must confirm via window.confirm before eval
 const confirmed = window.confirm(`Allow calculator to evaluate:\n\n${expression}`);
@@ -169,32 +172,40 @@ const result = new Function(`return ${expression}`)();
 ```
 
 **`get_time`**:
+
 ```typescript
 return { result: new Date().toISOString() };
 ```
 
 **`get_location`**:
+
 ```typescript
 return new Promise((resolve) => {
-  navigator.geolocation.getCurrentPosition(
-    (pos) => resolve({ result: { latitude, longitude, accuracy_meters } }),
-    (err) => resolve({ error: err.message }),
-    { timeout: 10000 }
-  );
+	navigator.geolocation.getCurrentPosition(
+		(pos) => resolve({ result: { latitude, longitude, accuracy_meters } }),
+		(err) => resolve({ error: err.message }),
+		{ timeout: 10000 }
+	);
 });
 ```
 
 **`sequential_thinking`**:
+
 ```typescript
 // Records thought to sequentialThinkingStore (memory only)
 sequentialThinkingStore.recordThought({
-  thought, thoughtNumber, totalThoughts, nextThoughtNeeded,
-  conversationId, turnIndex
+	thought,
+	thoughtNumber,
+	totalThoughts,
+	nextThoughtNeeded,
+	conversationId,
+	turnIndex
 });
 return { result: 'Thought recorded', guidance: nextThoughtNeeded ? 'Continue' : 'Done' };
 ```
 
 **`list_skill`** and **`read_skill`**:
+
 ```typescript
 // list_skill: returns enabled skills from skillsStore
 return JSON.stringify(skillsStore.getListSkillEntries());
@@ -220,13 +231,13 @@ The **dual-node architecture** separates the main model from a specialized subag
 
 Configured in **Settings → Connection** → Subagent section:
 
-| Setting | Storage | Description |
-|---|---|---|
-| Enable subagent | `localStorage` | Gates tool registration |
-| Endpoint URL | `localStorage` | Base URL of subagent server |
-| API key | `localStorage` | Optional, separate from main API |
-| Model | `localStorage` | Populated from `GET {endpoint}/v1/models` |
-| Summarize long text | `localStorage` | Summarize subagent output if too long |
+| Setting             | Storage        | Description                               |
+| ------------------- | -------------- | ----------------------------------------- |
+| Enable subagent     | `localStorage` | Gates tool registration                   |
+| Endpoint URL        | `localStorage` | Base URL of subagent server               |
+| API key             | `localStorage` | Optional, separate from main API          |
+| Model               | `localStorage` | Populated from `GET {endpoint}/v1/models` |
+| Summarize long text | `localStorage` | Summarize subagent output if too long     |
 
 **Store**: `subagentConfigStore` (`src/lib/stores/subagent-config.svelte.ts`)
 
@@ -262,6 +273,7 @@ sequenceDiagram
 ```
 
 **Key constraints:**
+
 - **No recursion** — Subagent does NOT get `call_subagent` tool
 - **No sequential thinking** — Subagent does NOT get `sequential_thinking` (writes to parent's reasoning store)
 - **MCP tools** — Subagent CAN use MCP tools if servers are configured
@@ -274,9 +286,9 @@ The UI shows real-time subagent progress:
 
 ```typescript
 interface SubagentProgress {
-  modelName: string;
-  steps: SubagentStep[];  // { toolName, status: 'calling' | 'done' }
-  originSkill?: string;   // Skill that triggered this invocation
+	modelName: string;
+	steps: SubagentStep[]; // { toolName, status: 'calling' | 'done' }
+	originSkill?: string; // Skill that triggered this invocation
 }
 ```
 
@@ -308,6 +320,7 @@ When MCP tool output exceeds a configurable line threshold:
 4. **Return** — Summarized (or truncated) content returned to main model
 
 **Settings:**
+
 - `mcpSummarizeOutputs` — Enable summarization
 - `mcpSummarizeLineThreshold` — Lines before summarization triggers
 - `mcpSummarizeHardCap` — Absolute maximum lines
@@ -330,24 +343,24 @@ The compaction system uses `COMPACT_SUMMARIZER_BASE_PROMPT` and can incorporate 
 
 ## Error Handling
 
-| Scenario | Behavior |
-|---|---|
-| LLM stream error | Error content saved to message, flow continues |
-| Tool execution error | Error message returned as tool result |
-| Subagent endpoint unreachable | Toast warning, tool disabled, flow continues |
-| MCP server disconnect | Health check detects failure, tools unavailable |
-| Abort (user cancel) | Flow exits immediately, saves partial state |
-| Turn limit exceeded | Flow completes with current state, no error |
+| Scenario                      | Behavior                                        |
+| ----------------------------- | ----------------------------------------------- |
+| LLM stream error              | Error content saved to message, flow continues  |
+| Tool execution error          | Error message returned as tool result           |
+| Subagent endpoint unreachable | Toast warning, tool disabled, flow continues    |
+| MCP server disconnect         | Health check detects failure, tools unavailable |
+| Abort (user cancel)           | Flow exits immediately, saves partial state     |
+| Turn limit exceeded           | Flow completes with current state, no error     |
 
 ---
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| `src/lib/stores/agentic.svelte.ts` | Main agentic loop orchestration (1323 lines) |
-| `src/lib/stores/subagent-config.svelte.ts` | Subagent endpoint configuration |
-| `src/lib/stores/sequential-thinking.svelte.ts` | Ephemeral reasoning step tracking |
-| `src/lib/stores/mcp.svelte.ts` | MCP connection management and tool execution |
-| `@shared/constants/prompts-and-tools.ts` | Built-in tool definitions and prompts |
-| `src/lib/services/chat.service.ts` | Stateless API layer (sendMessage, streaming) |
+| File                                           | Purpose                                      |
+| ---------------------------------------------- | -------------------------------------------- |
+| `src/lib/stores/agentic.svelte.ts`             | Main agentic loop orchestration (1323 lines) |
+| `src/lib/stores/subagent-config.svelte.ts`     | Subagent endpoint configuration              |
+| `src/lib/stores/sequential-thinking.svelte.ts` | Ephemeral reasoning step tracking            |
+| `src/lib/stores/mcp.svelte.ts`                 | MCP connection management and tool execution |
+| `@shared/constants/prompts-and-tools.ts`       | Built-in tool definitions and prompts        |
+| `src/lib/services/chat.service.ts`             | Stateless API layer (sendMessage, streaming) |

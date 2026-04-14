@@ -8,6 +8,9 @@
 import { SKILL_ARGUMENTS_PATTERN } from '@shared/constants/skills';
 import type { SkillDefinition } from '@shared/types/skills';
 
+/** Non-global regex for .test() checks — avoids lastIndex mutation bugs. */
+const SKILL_ARGUMENTS_TEST_PATTERN = /\$ARGUMENTS\[\d+\]/;
+
 /** Check if a skill can be invoked by the user. */
 export function isSkillUserInvocable(skill: SkillDefinition): boolean {
 	return skill.frontmatter.userInvocable !== false;
@@ -39,5 +42,22 @@ export function extractSkillContent(content: string): string {
  * Check if skill content contains $ARGUMENTS placeholders.
  */
 export function skillHasArguments(content: string): boolean {
-	return SKILL_ARGUMENTS_PATTERN.test(content);
+	return SKILL_ARGUMENTS_TEST_PATTERN.test(content);
+}
+
+/**
+ * Parse a /skills invocation string into name and positional arguments.
+ *
+ * Input:  "/skills my-skill arg0 arg1"
+ * Output: { name: "my-skill", args: ["arg0", "arg1"] }
+ *
+ * Returns null if the text is not a /skills invocation.
+ */
+export function parseSkillInvocation(text: string): { name: string; args: string[] } | null {
+	const match = text.match(/^\/skills\s+(\S+)(?:\s+(.+))?$/s);
+	if (!match) return null;
+	const name = match[1];
+	const argsStr = match[2]?.trim() ?? '';
+	const args = argsStr ? argsStr.split(/\s+/) : [];
+	return { name, args };
 }

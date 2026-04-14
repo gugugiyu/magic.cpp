@@ -186,13 +186,13 @@ The frontend previously used **Dexie** (IndexedDB ORM) for client-side storage. 
 
 **Key changes:**
 
-| Aspect | Before (Dexie) | After (SQLite) |
-|---|---|---|
-| **Storage location** | Browser IndexedDB | Server-side SQLite file |
-| **Access method** | Direct browser API | HTTP requests to backend |
-| **ORM layer** | Dexie (chainable queries) | `DatabaseService` compatibility layer |
-| **Data persistence** | Per-browser, cleared on cache wipe | Persistent across browsers/devices |
-| **Concurrency** | Single-browser only | Multi-user, multi-device safe |
+| Aspect               | Before (Dexie)                     | After (SQLite)                        |
+| -------------------- | ---------------------------------- | ------------------------------------- |
+| **Storage location** | Browser IndexedDB                  | Server-side SQLite file               |
+| **Access method**    | Direct browser API                 | HTTP requests to backend              |
+| **ORM layer**        | Dexie (chainable queries)          | `DatabaseService` compatibility layer |
+| **Data persistence** | Per-browser, cleared on cache wipe | Persistent across browsers/devices    |
+| **Concurrency**      | Single-browser only                | Multi-user, multi-device safe         |
 
 ### DatabaseService Compatibility Layer
 
@@ -208,24 +208,24 @@ The backend uses **Bun's native `bun:sqlite`** module (not `better-sqlite3`):
 
 - **Database initialization**: `packages/backend/src/database/index.ts` — Opens SQLite with WAL mode
 - **Schema definitions**: `packages/backend/src/database/schema.ts` — Table structures
-- **Query modules**: 
+- **Query modules**:
   - `packages/backend/src/database/queries/conversations.ts` — Conversation CRUD
   - `packages/backend/src/database/queries/messages.ts` — Message operations with tree/branching support
 
 ### Backend API Endpoints
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/conversations` | List all conversations |
-| `GET` | `/api/conversations/:id` | Get single conversation |
-| `POST` | `/api/conversations` | Create conversation |
-| `PUT` | `/api/conversations/:id` | Update conversation |
-| `DELETE` | `/api/conversations/:id` | Delete conversation (cascades to messages) |
-| `PUT` | `/api/conversations/:id/node` | Update current branch node |
-| `GET` | `/api/messages?convId=X` | Get messages for conversation |
-| `POST` | `/api/messages` | Create message |
-| `PUT` | `/api/messages/:id` | Update message |
-| `DELETE` | `/api/messages/:id` | Delete message |
+| Method   | Endpoint                      | Purpose                                    |
+| -------- | ----------------------------- | ------------------------------------------ |
+| `GET`    | `/api/conversations`          | List all conversations                     |
+| `GET`    | `/api/conversations/:id`      | Get single conversation                    |
+| `POST`   | `/api/conversations`          | Create conversation                        |
+| `PUT`    | `/api/conversations/:id`      | Update conversation                        |
+| `DELETE` | `/api/conversations/:id`      | Delete conversation (cascades to messages) |
+| `PUT`    | `/api/conversations/:id/node` | Update current branch node                 |
+| `GET`    | `/api/messages?convId=X`      | Get messages for conversation              |
+| `POST`   | `/api/messages`               | Create message                             |
+| `PUT`    | `/api/messages/:id`           | Update message                             |
+| `DELETE` | `/api/messages/:id`           | Delete message                             |
 
 ### Data Flow
 

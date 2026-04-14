@@ -9,12 +9,14 @@
 	import { SkillCard } from '$lib/components/app';
 	import { MarkdownContent } from '$lib/components/app';
 	import { skillsStore } from '$lib/stores/skills.svelte';
-	import { skillHasArguments } from '$lib/services/skill-utils';
+	import { skillHasArguments } from '$lib/utils';
+	import { useDebounce } from '$lib/hooks/use-debounce.svelte';
+	import { Dialog as DialogPrimitive } from 'bits-ui';
 	import { Wrench, Plus, Upload, Search, Loader2, X, FileText, ArrowUpDown } from '@lucide/svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import type { SkillDefinition } from '@shared/types/skills';
-	import { sanitizeSkillName } from '@shared/constants/skills';
+	import { sanitizeSkillName, SKILL_MAX_CONTENT_BYTES } from '@shared/constants/skills';
 
 	interface Props {
 		onOpenChange?: (open: boolean) => void;
@@ -25,12 +27,23 @@
 
 	// View modes
 	let searchQuery = $state('');
+	const debouncedSearchQuery = useDebounce(() => searchQuery, 150);
 	let showImportModal = $state(false);
 	let showNewModal = $state(false);
 	let importContent = $state('');
 	let importName = $state('');
 	let isImporting = $state(false);
 	let importFileInput: HTMLInputElement | null = $state(null);
+
+	// New Skill modal state (separate from Import to avoid shared state bugs)
+	let newSkillName = $state('');
+	let newSkillContent = $state('');
+
+	/** Live preview of what the sanitized skill name will be. */
+	const sanitizedNewNamePreview = $derived.by(() => {
+		const raw = newSkillName.trim();
+		return raw ? sanitizeSkillName(raw) : '';
+	});
 
 	// Edit mode
 	let editingSkill = $state<SkillDefinition | null>(null);
@@ -42,12 +55,15 @@
 	// Delete confirmation
 	let deletingSkill = $state<SkillDefinition | null>(null);
 
+	// In-progress feedback for async card operations (duplicate/delete)
+	let busySkillName = $state<string | null>(null);
+
 	// Sort mode
-	type SortMode = 'recentlyModified' | 'nameAsc' | 'enabledName';
-	let sortMode = $state<SortMode>('recentlyModified');
+	type SortMode = 'default' | 'nameAsc' | 'enabledName';
+	let sortMode = $state<SortMode>('default');
 
 	const sortLabels: Record<SortMode, string> = {
-		recentlyModified: 'Recently Modified',
+		default: 'Default',
 		nameAsc: 'Name (A-Z)',
 		enabledName: 'Enabled, then Name'
 	};
@@ -96,12 +112,12 @@
 	}
 
 	// Filtered and sorted skills
-	const filteredSkills = $derived(() => {
+	const filteredSkills = $derived.by(() => {
 		let result = skillsStore.skills.filter(
 			(s) =>
-				s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				s.description.toLowerCase().includes(searchQuery.toLowerCase())
+				s.title.toLowerCase().includes(debouncedSearchQuery.current.toLowerCase()) ||
+				s.name.toLowerCase().includes(debouncedSearchQuery.current.toLowerCase()) ||
+				s.description.toLowerCase().includes(debouncedSearchQuery.current.toLowerCase())
 		);
 
 		// Get lastModified from the store's internal data (sorted by backend as recently modified)
@@ -115,7 +131,7 @@
 				return a.title.localeCompare(b.title);
 			});
 		}
-		// 'recentlyModified' uses backend order (already sorted newest first)
+		// 'default' uses backend order (already sorted newest first)
 
 		return result;
 	});
@@ -232,6 +248,11 @@
 			return;
 		}
 
+		if (new TextEncoder().encode(importContent).length > SKILL_MAX_CONTENT_BYTES) {
+			toast.error(`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`);
+			return;
+		}
+
 		// Auto-derive name from frontmatter or use provided name
 		let name: string | null = importName.trim();
 		if (!name) {
@@ -263,6 +284,42 @@
 		}
 	}
 
+	async function handleNewSkill() {
+		if (!newSkillContent.trim()) {
+			toast.error('Content is required');
+			return;
+		}
+
+		if (new TextEncoder().encode(newSkillContent).length > SKILL_MAX_CONTENT_BYTES) {
+			toast.error(`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`);
+			return;
+		}
+
+		const name = sanitizeSkillName(newSkillName);
+		if (!name) {
+			toast.error('Please provide a valid skill name');
+			return;
+		}
+
+		isImporting = true;
+		try {
+			await skillsStore.createSkill(name, newSkillContent);
+			toast.success(`Skill "${name}" created`);
+			showNewModal = false;
+		} catch (err) {
+			const errorMessage = (err as Error).message;
+			if (errorMessage.includes('Conflict') || errorMessage.includes('already exists')) {
+				toast.error(
+					`Skill "${name}" already exists. Try a different name or update the existing skill.`
+				);
+			} else {
+				toast.error(`Failed to create: ${errorMessage}`);
+			}
+		} finally {
+			isImporting = false;
+		}
+	}
+
 	function closeImportModal() {
 		showImportModal = false;
 		importContent = '';
@@ -277,7 +334,16 @@
 	}
 
 	async function saveEdit() {
-		if (!editingSkill || !editContent.trim()) return;
+		if (!editingSkill) return;
+		if (!editContent.trim()) {
+			toast.warning('Content cannot be empty');
+			return;
+		}
+
+		if (new TextEncoder().encode(editContent).length > SKILL_MAX_CONTENT_BYTES) {
+			toast.error(`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`);
+			return;
+		}
 
 		try {
 			await skillsStore.updateSkill(editingSkill.name, editContent);
@@ -311,25 +377,46 @@
 	async function handleDelete() {
 		if (!deletingSkill) return;
 
+		const skillToDelete = deletingSkill;
+		deletingSkill = null;
+		busySkillName = skillToDelete.name;
 		try {
-			await skillsStore.deleteSkill(deletingSkill.name);
-			toast.success(`Skill "${deletingSkill.title}" deleted`);
+			await skillsStore.deleteSkill(skillToDelete.name);
+			toast.success(`Skill "${skillToDelete.title}" deleted`);
 		} catch (err) {
 			toast.error(`Failed to delete: ${(err as Error).message}`);
 		} finally {
-			deletingSkill = null;
+			busySkillName = null;
 		}
 	}
 
 	// ─── Duplicate ─────────────────────────────────────────────────────
 
+	/**
+	 * Generate a unique duplicate name by auto-incrementing.
+	 * e.g. my-skill-copy, my-skill-copy-2, my-skill-copy-3, ...
+	 */
+	function generateDuplicateName(baseName: string, existingNames: Set<string>): string {
+		let candidate = `${baseName}-copy`;
+		let suffix = 2;
+		while (existingNames.has(candidate)) {
+			candidate = `${baseName}-copy-${suffix}`;
+			suffix++;
+		}
+		return candidate;
+	}
+
 	async function handleDuplicate(skill: SkillDefinition) {
-		const newName = sanitizeSkillName(`${skill.name}-copy`);
+		const existingNames = new Set(skillsStore.skills.map((s) => s.name));
+		const newName = generateDuplicateName(skill.name, existingNames);
+		busySkillName = skill.name;
 		try {
 			await skillsStore.createSkill(newName, skill.content);
 			toast.success(`Skill duplicated as "${newName}"`);
 		} catch (err) {
 			toast.error(`Failed to duplicate: ${(err as Error).message}`);
+		} finally {
+			busySkillName = null;
 		}
 	}
 </script>
@@ -350,7 +437,9 @@
 				<div class="flex items-center gap-2">
 					<Badge variant="tertiary">{skillsStore.skills.length} total</Badge>
 					<Badge variant="outline">{skillsStore.enabledSkills.length} enabled</Badge>
-					<Badge variant="secondary" class="text-[10px]">Max 1 MB per skill</Badge>
+					<Badge variant="secondary" class="text-[10px]">
+						Max {(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB per skill
+					</Badge>
 				</div>
 			</div>
 
@@ -368,6 +457,7 @@
 					<button
 						type="button"
 						class="absolute top-2.5 right-2.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+						aria-label="Clear search"
 						onclick={() => (searchQuery = '')}
 					>
 						<X class="h-4 w-4" />
@@ -388,7 +478,7 @@
 					<span>{sortLabels[sortMode]}</span>
 				</SelectTrigger>
 				<SelectContent>
-					<SelectItem value="recentlyModified">Recently Modified</SelectItem>
+					<SelectItem value="default">Recently Modified</SelectItem>
 					<SelectItem value="nameAsc">Name (A-Z)</SelectItem>
 					<SelectItem value="enabledName">Enabled, then Name</SelectItem>
 				</SelectContent>
@@ -402,8 +492,8 @@
 			<Button
 				size="sm"
 				onclick={() => {
-					importName = '';
-					importContent = '';
+					newSkillName = '';
+					newSkillContent = '';
 					showNewModal = true;
 				}}
 			>
@@ -421,7 +511,7 @@
 						<p class="mb-4 text-sm">Fetching skills from server…</p>
 						<!-- Skeleton cards -->
 						<div class="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-							{#each Array(6) as i (i)}
+							{#each Array.from({ length: 6 }, (_, i) => i) as i (i)}
 								<div
 									class="flex animate-pulse flex-col rounded-lg border border-border/40 bg-card/60 p-4"
 								>
@@ -494,7 +584,7 @@
 							<MarkdownContent content={previewingSkill.content} />
 						</div>
 					</div>
-				{:else if filteredSkills().length === 0}
+				{:else if filteredSkills.length === 0}
 					<!-- Empty State -->
 					<div
 						in:fade={{ duration: 120 }}
@@ -520,10 +610,11 @@
 						in:fade={{ duration: 150 }}
 						class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
 					>
-						{#each filteredSkills() as skill (skill.name)}
+						{#each filteredSkills as skill (skill.name)}
 							<SkillCard
 								{skill}
 								enabled={skillsStore.isSkillEnabled(skill.name)}
+								isOperating={busySkillName === skill.name}
 								onEdit={() => startEdit(skill)}
 								onDelete={() => confirmDelete(skill)}
 								onDuplicate={() => handleDuplicate(skill)}
@@ -569,9 +660,8 @@
 	<Dialog.Root open={showImportModal} onOpenChange={closeImportModal}>
 		<Dialog.Portal>
 			<Dialog.Overlay class="fixed inset-0 z-[var(--z-modal-backdrop)] bg-black/50" />
-			<Dialog.Content
+			<DialogPrimitive.Content
 				class="fixed top-[50%] left-[50%] z-[var(--z-modal)] mx-4 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background p-6 shadow-xl"
-				onclick={(e) => e.stopPropagation()}
 			>
 				<h2 class="text-lg font-semibold">Import Skill</h2>
 
@@ -634,7 +724,7 @@
 								</Button>
 							</div>
 							<p class="line-clamp-3 text-xs text-muted-foreground">
-								{importContent.slice(0, 200)}...
+								{importContent.length > 200 ? importContent.slice(0, 200) + '...' : importContent}
 							</p>
 						</div>
 					{/if}
@@ -651,7 +741,14 @@
 
 					<div class="flex justify-end gap-2">
 						<Button variant="ghost" onclick={closeImportModal}>Cancel</Button>
-						<Button onclick={handleImport} disabled={isImporting || !importContent.trim()}>
+						<Button
+							onclick={handleImport}
+							disabled={
+								isImporting ||
+								!importContent.trim() ||
+								(!importName.trim() && !extractNameFromContent(importContent))
+							}
+						>
 							{#if isImporting}
 								<Loader2 class="mr-1.5 h-4 w-4 animate-spin" />
 							{/if}
@@ -659,7 +756,7 @@
 						</Button>
 					</div>
 				</div>
-			</Dialog.Content>
+			</DialogPrimitive.Content>
 		</Dialog.Portal>
 	</Dialog.Root>
 {/if}
@@ -669,16 +766,20 @@
 	<Dialog.Root open={showNewModal} onOpenChange={() => (showNewModal = false)}>
 		<Dialog.Portal>
 			<Dialog.Overlay class="fixed inset-0 z-[var(--z-modal-backdrop)] bg-black/50" />
-			<Dialog.Content
+			<DialogPrimitive.Content
 				class="fixed top-[50%] left-[50%] z-[var(--z-modal)] mx-4 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background p-6 shadow-xl"
-				onclick={(e) => e.stopPropagation()}
 			>
 				<h2 class="text-lg font-semibold">New Skill</h2>
 
 				<div class="space-y-4">
 					<div>
 						<label class="mb-1 block text-sm font-medium" for="new-skill-name">Skill Name</label>
-						<Input id="new-skill-name" bind:value={importName} placeholder="my-cool-skill" />
+						<Input id="new-skill-name" bind:value={newSkillName} placeholder="my-cool-skill" />
+						{#if newSkillName.trim() && sanitizedNewNamePreview !== newSkillName.trim()}
+							<p class="mt-1 text-xs text-muted-foreground">
+								Will be saved as: <span class="font-mono">{sanitizedNewNamePreview}</span>
+							</p>
+						{/if}
 					</div>
 
 					<div>
@@ -690,7 +791,7 @@
 						</label>
 						<textarea
 							id="new-skill-content"
-							bind:value={importContent}
+							bind:value={newSkillContent}
 							class="h-64 w-full rounded-md border border-border bg-background p-3 font-mono text-sm transition-shadow focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
 							placeholder="---&#10;title: My Skill&#10;---&#10;&#10;Instructions here..."
 						></textarea>
@@ -699,8 +800,8 @@
 					<div class="flex justify-end gap-2">
 						<Button variant="ghost" onclick={() => (showNewModal = false)}>Cancel</Button>
 						<Button
-							onclick={handleImport}
-							disabled={isImporting || !importContent.trim() || !importName.trim()}
+							onclick={() => handleNewSkill()}
+							disabled={isImporting || !newSkillContent.trim() || !newSkillName.trim()}
 						>
 							{#if isImporting}
 								<Loader2 class="mr-1.5 h-4 w-4 animate-spin" />
@@ -709,7 +810,7 @@
 						</Button>
 					</div>
 				</div>
-			</Dialog.Content>
+			</DialogPrimitive.Content>
 		</Dialog.Portal>
 	</Dialog.Root>
 {/if}

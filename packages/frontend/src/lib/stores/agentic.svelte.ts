@@ -1178,8 +1178,8 @@ class AgenticStore {
 			}
 
 			case 'list_skill': {
-				// Refresh skills from backend to avoid stale data
-				await skillsStore.loadSkills();
+				// Refresh skills from backend only if stale (30s TTL)
+				await skillsStore.loadSkillsIfStale(30_000);
 				const entries = skillsStore.getListSkillEntries();
 				if (entries.length === 0) {
 					return JSON.stringify({
@@ -1195,8 +1195,8 @@ class AgenticStore {
 				if (!name) {
 					return JSON.stringify({ error: 'Missing required parameter: name' });
 				}
-				// Refresh skills from backend to avoid stale data
-				await skillsStore.loadSkills();
+				// Refresh skills from backend only if stale (30s TTL)
+				await skillsStore.loadSkillsIfStale(30_000);
 				const content = skillsStore.getReadSkillContent(name);
 				if (content === null) {
 					return JSON.stringify({ error: `Skill "${name}" not found or not enabled.` });

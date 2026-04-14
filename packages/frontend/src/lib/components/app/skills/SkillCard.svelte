@@ -7,6 +7,7 @@
 	interface Props {
 		skill: SkillDefinition;
 		enabled?: boolean;
+		isOperating?: boolean;
 		onEdit?: () => void;
 		onDelete?: () => void;
 		onDuplicate?: () => void;
@@ -17,6 +18,7 @@
 	let {
 		skill,
 		enabled = true,
+		isOperating = false,
 		onEdit,
 		onDelete,
 		onDuplicate,
@@ -30,7 +32,7 @@
 			: skill.description
 	);
 
-	const charCount = $derived(skill.content.length);
+	const byteCount = $derived(new TextEncoder().encode(skill.content).length);
 
 	const hasFrontmatter = $derived(
 		skill.frontmatter.context !== undefined ||
@@ -40,7 +42,10 @@
 </script>
 
 <div
-	class="group relative flex flex-col rounded-lg border border-border/40 bg-card/60 p-4 backdrop-blur-sm transition-all hover:border-border hover:bg-card/80"
+	class="group relative flex flex-col rounded-lg border border-border/40 bg-card/60 p-4 backdrop-blur-sm transition-all hover:border-border hover:bg-card/80 {isOperating
+		? 'pointer-events-none opacity-50'
+		: ''}"
+	aria-busy={isOperating}
 >
 	<!-- Header: Title + Actions -->
 	<div class="mb-2 flex items-start justify-between gap-2">
@@ -53,6 +58,7 @@
 					type="button"
 					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
 					onclick={onPreview}
+					disabled={isOperating}
 					title="Preview skill"
 					aria-label="Preview skill"
 				>
@@ -64,6 +70,7 @@
 					type="button"
 					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
 					onclick={onDuplicate}
+					disabled={isOperating}
 					title="Duplicate skill"
 					aria-label="Duplicate skill"
 				>
@@ -75,6 +82,7 @@
 					type="button"
 					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
 					onclick={onEdit}
+					disabled={isOperating}
 					title="Edit skill"
 					aria-label="Edit skill"
 				>
@@ -86,6 +94,7 @@
 					type="button"
 					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
 					onclick={onDelete}
+					disabled={isOperating}
 					title="Delete skill"
 					aria-label="Delete skill"
 				>
@@ -103,7 +112,7 @@
 	<!-- Badges -->
 	<div class="mt-auto flex flex-wrap items-center gap-1.5">
 		<Badge variant="tertiary" class="text-[10px]">
-			{charCount.toLocaleString()} chars
+			{(byteCount / 1024).toFixed(1)} KB
 		</Badge>
 
 		{#if hasFrontmatter}

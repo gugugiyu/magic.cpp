@@ -37,7 +37,7 @@
 		return (serverStore.defaultParams ?? {}) as Record<string, unknown>;
 	});
 
-	let serverDefaultsAvailable = $derived(serverStore.props !== null || !serverStore.isRouterMode);
+	// let serverDefaultsAvailable = $derived(serverStore.props !== null || !serverStore.isRouterMode);
 </script>
 
 {#each fields as field (field.key)}

@@ -34,6 +34,7 @@
 	import { mcpHasResourceAttachments } from '$lib/stores/mcp-resources.svelte';
 	import { conversationsStore, activeMessages } from '$lib/stores/conversations.svelte';
 	import type { GetPromptResult, MCPPromptInfo, MCPResourceInfo, PromptMessage } from '$lib/types';
+	import type { SkillDefinition } from '@shared/types/skills';
 	import { isIMEComposing, parseClipboardContent, uuid } from '$lib/utils';
 	import {
 		AudioRecorder,
@@ -507,10 +508,11 @@
 	 *
 	 */
 
-	function handleSkillSelect(skillContent: string) {
-		// Clear the /skills query from input and inject skill content
-		value = skillContent;
-		onValueChange?.(skillContent);
+	function handleSkillSelect(skill: SkillDefinition) {
+		// Write the clean shorthand into the textarea; content expands at send time
+		const display = `/skills ${skill.name}`;
+		value = display;
+		onValueChange?.(display);
 		isSkillPickerOpen = false;
 		skillSearchQuery = '';
 		textareaRef?.focus();

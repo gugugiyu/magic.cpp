@@ -143,6 +143,14 @@ export default defineConfig({
 			{
 				extends: './vite.config.ts',
 				test: {
+					name: 'integration',
+					environment: 'node',
+					include: ['tests/integration/**/*.{test,spec}.{js,ts}']
+				}
+			},
+			{
+				extends: './vite.config.ts',
+				test: {
 					name: 'ui',
 					environment: 'browser',
 					browser: {

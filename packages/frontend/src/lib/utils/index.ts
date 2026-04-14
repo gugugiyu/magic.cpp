@@ -189,4 +189,4 @@ export { safeNumber } from './safe-number';
 
 export { uuid } from './uuid';
 
-export * from './skills'
+export * from './skills';

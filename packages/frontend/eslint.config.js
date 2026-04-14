@@ -53,6 +53,13 @@ export default ts.config(
 		}
 	},
 	{
+		files: ['**/*.test.ts'],
+		rules: {
+			'@typescript-eslint/no-explicit-any': 'off',
+			'@typescript-eslint/ban-ts-comment': 'off'
+		}
+	},
+	{
 		// Exclude Storybook files from main ESLint rules
 		ignores: ['.storybook/**/*']
 	},

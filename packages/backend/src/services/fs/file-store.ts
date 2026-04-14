@@ -158,8 +158,17 @@ export class FileStore {
 }
 
 /** Resolve the backend data directory path. */
+let _dataDir: string | null = null;
+
+export function resetDataDir(dataDir: string): void {
+	_dataDir = dataDir;
+}
+
 function resolveDataDir(): string {
-	return resolve(__dirname, '..', '..', 'data');
+	if (_dataDir !== null) {
+		return _dataDir;
+	}
+	return resolve(__dirname, '..', '..', '..', 'data');
 }
 
 /** Pre-configured file store for skills. */

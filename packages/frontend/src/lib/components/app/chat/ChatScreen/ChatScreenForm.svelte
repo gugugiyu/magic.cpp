@@ -2,11 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { ChatFormHelperText, ChatForm } from '$lib/components/app';
 	import { skillsStore } from '$lib/stores/skills.svelte';
-	import {
-		parseSkillInvocation,
-		extractSkillContent,
-		substituteSkillArguments
-	} from '$lib/utils';
+	import { parseSkillInvocation, extractSkillContent, substituteSkillArguments } from '$lib/utils';
 	import { onMount } from 'svelte';
 
 	interface Props {

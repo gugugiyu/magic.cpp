@@ -9,6 +9,7 @@ import type { Config, UpstreamConfig } from '../../src/config.ts';
 import { tmpdir } from 'os';
 import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
+import { resetDataDir } from '../../src/services/fs/file-store.ts';
 
 export interface TestEnv {
 	db: Database;
@@ -24,6 +25,8 @@ export interface TestEnv {
 export function createTestEnv(upstreams?: UpstreamConfig[]): TestEnv {
 	const skillDir = join(tmpdir(), `magic-test-skills-${crypto.randomUUID()}`);
 	mkdirSync(skillDir, { recursive: true });
+
+	resetDataDir(skillDir);
 
 	// Create in-memory database
 	const db = new Database(':memory:');

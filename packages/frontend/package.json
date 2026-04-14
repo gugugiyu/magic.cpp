@@ -17,6 +17,7 @@
 		"test:e2e": "playwright test",
 		"test:client": "vitest --project=client",
 		"test:unit": "vitest --project=unit",
+		"test:integration": "vitest --project=integration",
 		"test:ui": "vitest --project=ui",
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build",

@@ -46,6 +46,13 @@ if git diff --cached --name-only | grep -q "^packages/frontend/"; then
         exit 1
     fi
 
+    # Run the test command
+    bun run test --concurrent 
+    if [ $? -ne 0 ]; then
+        echo "Error: bun run check failed"
+        exit 1
+    fi
+
     echo "✅ Webui code formatted and checked successfully"
 
     # Build the webui

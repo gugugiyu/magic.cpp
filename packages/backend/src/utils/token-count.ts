@@ -65,7 +65,7 @@ async function tryUpstreamTokenize(
 
     if (!response.ok) return null;
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     // llama.cpp returns { tokens: number[] } or { count: number }
     if (Array.isArray(data.tokens)) return data.tokens.length;

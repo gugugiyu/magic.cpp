@@ -6,6 +6,7 @@
 import { Database } from 'bun:sqlite';
 import {
 	getMessageById,
+	getMessageChildren,
 	updateMessage,
 	deleteMessage,
 	getDescendantMessageIds,
@@ -124,8 +125,11 @@ export function handleDeleteMessage(db: Database, id: string, url: URL): Respons
 
 		db.transaction(() => {
 			// Reparent children if newParentId is provided
-			if (newParentId && message.children.length > 0) {
-				reparentMessageChildren(db, message.children, newParentId);
+			if (newParentId) {
+				const children = getMessageChildren(db, id);
+				if (children.length > 0) {
+					reparentMessageChildren(db, children.map(c => c.id), newParentId);
+				}
 			}
 
 			// Remove this message from its parent's children array

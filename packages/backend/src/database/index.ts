@@ -88,6 +88,22 @@ export function getDatabase(): Database {
 }
 
 /**
+ * Set the active database instance directly (for testing).
+ * Used by E2E tests to inject an in-memory database into the global singleton.
+ */
+export function setDatabase(database: Database): void {
+	db = database;
+}
+
+/**
+ * Reset the database singleton to null (for testing cleanup).
+ * Does NOT close the database - caller is responsible for cleanup.
+ */
+export function resetDatabase(): void {
+	db = null;
+}
+
+/**
  * Close the database connection.
  * Called during graceful shutdown.
  */

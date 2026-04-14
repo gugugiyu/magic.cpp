@@ -10,12 +10,19 @@
 		"dev": "bun run --watch src/index.ts",
 		"start": "bun run src/index.ts",
 		"check": "tsc --noEmit",
-		"build": "echo 'Frontend must be built separately with: bun run build --workspace=@webui'"
+		"build": "echo 'Frontend must be built separately with: bun run build --workspace=@webui'",
+		"test": "bun test",
+		"test:unit": "bun test tests/unit/",
+		"test:integration": "bun test tests/integration/",
+		"test:e2e": "bun test tests/e2e/",
+		"test:coverage": "bun test --coverage",
+		"test:watch": "bun test --watch"
 	},
 	"dependencies": {
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
+		"@types/bun": "^1.3.12",
 		"bun-types": "^1.3.11",
 		"hast": "^1.0.0",
 		"mdast": "^3.0.0",

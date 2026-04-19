@@ -8,6 +8,7 @@ import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { ALL_SCHEMA } from './schema.ts';
 import type { Config } from '../config.ts';
+import { seedBuiltInSkills } from '../services/skill-io.ts';
 
 let db: Database | null = null;
 
@@ -62,6 +63,11 @@ export function initializeDatabase(config: Config): Database {
 
 	// Create tables if they don't exist
 	initializeSchema(db);
+
+	// Seed built-in skills (harmless re-seed if already exist)
+	seedBuiltInSkills().catch((err) => {
+		console.warn('[database] built-in skills seed failed:', err);
+	});
 
 	console.log('[database] SQLite database initialized successfully');
 	return db;

@@ -11,6 +11,7 @@ import { SKILLS_DIRECTORY, SKILL_FILE_EXTENSION, sanitizeSkillName } from '#shar
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { readdir, stat } from 'node:fs/promises';
+import { loadConfig } from '../../config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -157,14 +158,9 @@ export class FileStore {
 	}
 }
 
-/** Resolve the backend data directory path. */
-function resolveDataDir(): string {
-	return resolve(__dirname, '..', '..', 'data');
-}
-
 /** Pre-configured file store for skills. */
 export const skillFileStore = new FileStore({
 	directory: SKILLS_DIRECTORY,
 	extension: SKILL_FILE_EXTENSION,
-	dataDir: resolveDataDir()
+	dataDir: resolve(loadConfig().database.path, "..") ?? resolve(__dirname, '..', '..', 'data') /* Going back once to not nested upon "chat.db" */
 });

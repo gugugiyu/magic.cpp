@@ -24,7 +24,13 @@ import { toast } from 'svelte-sonner';
 import DOMPurify from 'dompurify';
 import { DatabaseService } from '$lib/services/database.service';
 import { config } from '$lib/stores/settings.svelte';
-import { filterByLeafNodeId, findLeafNode, runLegacyMigration, uuid } from '$lib/utils';
+import {
+	filterByLeafNodeId,
+	findLeafNode,
+	runLegacyMigration,
+	uuid,
+	generateConversationTitle
+} from '$lib/utils';
 import type { McpServerOverride } from '$lib/types/database';
 import { MessageRole, AttachmentType } from '$lib/enums';
 import {
@@ -543,7 +549,10 @@ class ConversationsStore {
 			) {
 				await this.updateConversationTitleWithConfirmation(
 					this.activeConversation.id,
-					newFirstUserMessage.content.trim()
+					generateConversationTitle(
+						newFirstUserMessage.content,
+						Boolean(config().titleGenerationUseFirstLine)
+					)
 				);
 			}
 		}

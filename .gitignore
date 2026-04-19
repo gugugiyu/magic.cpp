@@ -1,3 +1,4 @@
 node_modules/
 .kilo/
 packages/public/
+**/data/

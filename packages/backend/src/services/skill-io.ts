@@ -8,6 +8,7 @@
  */
 
 import { skillFileStore } from './fs/file-store.ts';
+import { resolve } from 'path';
 import type {
 	SkillDefinition,
 	SkillFrontmatter
@@ -161,4 +162,44 @@ export async function updateSkill(name: string, content: string): Promise<SkillD
 /** Delete a skill. Returns true if deleted, false if not found. */
 export async function deleteSkill(name: string): Promise<boolean> {
 	return skillFileStore.delete(name);
+}
+
+// ─── Built-in Skills Seeding ──────────────────────────────────────────────────
+
+const BUILT_IN_SKILLS: { name: string; filePath: string }[] = [
+	{
+		name: 'qa-system-guide',
+		filePath: resolve(__dirname, '..', '..', '..', 'data', 'skills', 'qa-system-guide.md')
+	}
+];
+
+/**
+ * Seed all built-in skills into the skill store.
+ * Idempotent: skips skills that already exist.
+ * Called at database initialization time.
+ */
+export async function seedBuiltInSkills(): Promise<void> {
+	await skillFileStore.ensureDirectory();
+
+	for (const { name, filePath } of BUILT_IN_SKILLS) {
+		try {
+			if (await skillFileStore.exists(name)) {
+				continue;
+			}
+			const file = Bun.file(filePath);
+			if (!(await file.exists())) {
+				console.warn(`[skill-io] built-in skill not found: ${filePath}`);
+				continue;
+			}
+			const content = await file.text();
+			await createSkill(name, content);
+			console.log(`[skill-io] seeded built-in skill: ${name}`);
+		} catch (err) {
+			// Already exists or other error — seed is best-effort
+			if ((err as Error).message.includes('already exists')) {
+				continue;
+			}
+			console.warn(`[skill-io] failed to seed skill "${name}":`, err);
+		}
+	}
 }

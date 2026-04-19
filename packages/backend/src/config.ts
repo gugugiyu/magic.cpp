@@ -10,6 +10,12 @@ const StreamingConfigSchema = z.object({
 	bufferWords: z.number().int().nonnegative().default(0)
 });
 
+const CorsConfigSchema = z.object({
+	allowedOrigins: z.array(z.string()).default([]),
+	allowCredentials: z.boolean().default(true),
+	maxAge: z.number().int().nonnegative().default(86400),
+}).default(() => ({ allowedOrigins: [], allowCredentials: true, maxAge: 86400 }));
+
 const DatabaseConfigSchema = z.object({
 	path: z.string().default('data/chat.db')
 }).default(() => ({ path: 'data/chat.db' }));
@@ -33,7 +39,8 @@ const ConfigFileSchema = z.object({
 	modelList: z.array(z.string()).default([]),
 	debug: z.boolean().default(false),
 	streaming: StreamingConfigSchema.default({ enabled: true, bufferWords: 0 }),
-	database: DatabaseConfigSchema.default(() => ({ path: 'data/chat.db' }))
+	database: DatabaseConfigSchema.default(() => ({ path: 'data/chat.db' })),
+	cors: CorsConfigSchema,
 });
 
 export type UpstreamConfig = z.infer<typeof UpstreamSchema> & {
@@ -43,6 +50,7 @@ export type UpstreamConfig = z.infer<typeof UpstreamSchema> & {
 
 export type StreamingConfig = z.infer<typeof StreamingConfigSchema>;
 export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
+export type CorsConfig = z.infer<typeof CorsConfigSchema>;
 
 export type Config = Omit<z.infer<typeof ConfigFileSchema>, 'upstreams'> & {
 	upstreams: UpstreamConfig[];
@@ -51,6 +59,7 @@ export type Config = Omit<z.infer<typeof ConfigFileSchema>, 'upstreams'> & {
 	/** Absolute path to the SQLite database file */
 	resolvedDatabasePath: string;
 	streaming: StreamingConfig;
+	cors: CorsConfig;
 };
 
 function resolveEnvPlaceholder(value: string | null): string | null {

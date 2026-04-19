@@ -1,6 +1,5 @@
 import {
 	isAbortError,
-	generateConversationTitle,
 	getJsonHeaders,
 	formatAttachmentText,
 	detectLanguagePinner,
@@ -605,7 +604,6 @@ export class ChatService {
 
 			if (!content.trim() && !serializedToolCalls) {
 				const noResponseError = new Error('No response received from server. Please try again.');
-
 				throw noResponseError;
 			}
 

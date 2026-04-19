@@ -9,6 +9,11 @@
 		"enabled": true,
 		"bufferWords": 0
 	},
+	"cors": {
+		"allowedOrigins": [],
+		"allowCredentials": true,
+		"maxAge": 86400
+	},
 	"upstreams": [
 		{
 			"id": "local-main",

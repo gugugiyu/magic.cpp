@@ -74,20 +74,19 @@ const server = Bun.serve({
 	port: config.port,
 
 	async fetch(req) {
-		// Handle preflight requests
+		const origin = req.headers.get('origin');
+
 		if (req.method === 'OPTIONS') {
 			return new Response(null, {
 				status: 204,
-				headers: corsHeaders(config),
+				headers: corsHeaders(config.cors),
 			});
 		}
 
-		// Call your existing router
 		const res = await router(req);
 
-		// Clone response and append CORS headers
 		const newHeaders = new Headers(res.headers);
-		applyCorsHeaders(newHeaders);
+		applyCorsHeaders(newHeaders, origin, config.cors);
 
 		return new Response(res.body, {
 			status: res.status,

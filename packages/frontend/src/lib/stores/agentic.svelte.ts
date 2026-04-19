@@ -917,7 +917,23 @@ class AgenticStore {
 			}
 
 			case 'get_time': {
-				return new Date().toISOString();
+				const tz = String(parsed.timezone ?? import.meta.env.TZ ?? 'UTC');
+				const formatter = new Intl.DateTimeFormat('en-CA', {
+					timeZone: tz,
+					year: 'numeric',
+					month: '2-digit',
+					day: '2-digit',
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+					hour12: false,
+					timeZoneName: 'short'
+				});
+				const parts = formatter.formatToParts(new Date());
+				const get = (unit: string) => parts.find((p) => p.type === unit)?.value ?? '';
+				const dateStr = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+				const tzAbbr = parts.find((p) => p.type === 'timeZoneName')?.value ?? tz;
+				return JSON.stringify({ iso: `${dateStr}`, timezone: tz, tz_abbr: tzAbbr });
 			}
 
 			case 'get_location': {

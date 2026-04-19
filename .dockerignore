@@ -1,0 +1,8 @@
+node_modules
+.git
+Dockerfile
+docker-compose.yml
+**/*.log
+packages/frontend
+**/.env
+plans/

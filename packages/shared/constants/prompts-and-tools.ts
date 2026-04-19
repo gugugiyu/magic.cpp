@@ -62,10 +62,17 @@ export const TOOL_GET_TIME: OpenAIToolDefinition = {
 	type: 'function',
 	function: {
 		name: 'get_time',
-		description: 'Return the current UTC date and time as an ISO 8601 string.',
+		description:
+			'Return the current date and time as an ISO 8601 string in the specified timezone (or local timezone if not specified).',
 		parameters: {
 			type: 'object',
-			properties: {},
+			properties: {
+				timezone: {
+					type: 'string',
+					description:
+						'IANA timezone string (e.g. "America/New_York", "Europe/London", "Asia/Bangkok"). Defaults to "UTC" if not set.'
+				}
+			},
 			required: []
 		}
 	}

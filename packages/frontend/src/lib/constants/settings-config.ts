@@ -187,7 +187,7 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 	builtinToolCalculator:
 		'Inject a calculator tool the model can call to evaluate arithmetic expressions without hallucinating results.',
 	builtinToolTime:
-		'Inject a get_time tool the model can call to retrieve the current UTC date and time.',
+		'Inject a get_time tool the model can call to retrieve the current date, time, and timezone (respects TZ env var, defaults to UTC).',
 	builtinToolLocation:
 		'Inject a get_location tool the model can call to retrieve your browser-reported geolocation (requires permission).',
 	builtinToolSequentialThinking:

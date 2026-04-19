@@ -11,7 +11,7 @@ export const builtinToolFields = [
 		key: SETTINGS_KEYS.BUILTIN_TOOL_TIME,
 		label: 'Get time',
 		description:
-			'Inject a get_time tool the model can call to retrieve the current UTC date and time.'
+			'Inject a get_time tool the model can call to retrieve the current date, time, and timezone (respects TZ env var, defaults to UTC).'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_LOCATION,

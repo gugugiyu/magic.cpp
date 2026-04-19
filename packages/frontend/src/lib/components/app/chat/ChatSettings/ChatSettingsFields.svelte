@@ -118,12 +118,28 @@
 				{/if}
 			</Label>
 
+			{#if field.key === SETTINGS_KEYS.SYSTEM_MESSAGE}
+				<div class="mb-2 flex items-center gap-2">
+					<Checkbox
+						id="useOpinionatedSystemPrompt"
+						checked={Boolean(localConfig.useOpinionatedSystemPrompt)}
+						onCheckedChange={(checked) =>
+							onConfigChange(SETTINGS_KEYS.USE_OPINIONATED_SYSTEM_PROMPT, Boolean(checked))}
+					/>
+					<Label for="useOpinionatedSystemPrompt" class="cursor-pointer text-sm font-normal">
+						Use opinionated system prompt
+					</Label>
+				</div>
+			{/if}
+
 			<Textarea
 				id={field.key}
 				value={String(localConfig[field.key] ?? '')}
 				onchange={(e) => onConfigChange(field.key, e.currentTarget.value)}
 				placeholder=""
-				class="min-h-[10rem] w-full md:max-w-2xl"
+				disabled={field.key === SETTINGS_KEYS.SYSTEM_MESSAGE &&
+					Boolean(localConfig.useOpinionatedSystemPrompt)}
+				class="min-h-[10rem] w-full disabled:cursor-not-allowed disabled:opacity-50 md:max-w-2xl"
 			/>
 
 			{#if field.help || SETTING_CONFIG_INFO[field.key]}

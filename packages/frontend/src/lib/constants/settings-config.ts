@@ -6,9 +6,10 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	// Do not use nested objects, keep it single level. Prefix the key if you need to group them.
 	// apiKey: removed - backend handles API key centrally
 	systemMessage: '',
+	useOpinionatedSystemPrompt: false,
 	showSystemMessage: true,
 	theme: ColorMode.SYSTEM,
-	showThoughtInProgress: false,
+	showThoughtInProgress: true,
 	disableReasoningParsing: false,
 	excludeReasoningFromContext: false,
 	showRawOutputSwitch: false,
@@ -30,7 +31,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	mcpServerUsageStats: '{}', // JSON object: { [serverId]: usageCount }
 	agenticMaxTurns: 10,
 	agenticMaxToolPreviewLines: 25,
-	showToolCallInProgress: false,
+	showToolCallInProgress: true,
 	alwaysShowAgenticTurns: false,
 	mcpSummarizeOutputs: false,
 	mcpSummarizeLineThreshold: 400,
@@ -82,6 +83,8 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 export const SETTING_CONFIG_INFO: Record<string, string> = {
 	// apiKey: removed - backend handles API key centrally
 	systemMessage: 'The starting message that defines how model should behave.',
+	useOpinionatedSystemPrompt:
+		'When enabled, replaces the custom system message with an opinionated prompt optimized for agentic workflows. Adapts dynamically to your enabled tools. The custom message is preserved and restored when this is turned off.',
 	showSystemMessage: 'Display the system message at the top of each conversation.',
 	theme:
 		'Choose the color theme for the interface. You can choose between System (follows your device settings), Light, or Dark.',

@@ -10,10 +10,10 @@
 	import { conversationsStore } from '$lib/stores/conversations.svelte';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
 	import { config, settingsStore } from '$lib/stores/settings.svelte';
-	import { SETTINGS_KEYS } from '$lib/constants/settings-keys';
 
 	import { HealthCheckStatus } from '$lib/enums';
 	import type { MCPServerSettingsEntry } from '$lib/types';
+	import { builtinToolFields } from '$lib/enums/builtin-tools';
 
 	interface Props {
 		class?: string;
@@ -102,18 +102,10 @@
 
 	const fileUploadTooltipText = 'Add files, system prompt or MCP Servers';
 
-	// Built-in tools
-	const BUILTIN_TOOLS = [
-		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR, label: 'Calculator' },
-		{ key: SETTINGS_KEYS.BUILTIN_TOOL_TIME, label: 'Get time' },
-		{ key: SETTINGS_KEYS.BUILTIN_TOOL_LOCATION, label: 'Get location' },
-		{ key: SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING, label: 'Sequential thinking' },
-		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent' }
-	] as const;
-
 	let currentConfig = $derived(config());
 
 	function toggleBuiltinTool(key: string, enabled: boolean) {
+		console.log(key as keyof typeof currentConfig, enabled);
 		settingsStore.updateConfig(key as keyof typeof currentConfig, enabled);
 	}
 </script>
@@ -360,7 +352,7 @@
 					</div>
 
 					<div class="max-h-64 overflow-y-auto">
-						{#each BUILTIN_TOOLS as tool (tool.key)}
+						{#each builtinToolFields as tool (tool.key)}
 							{@const isEnabled = !!currentConfig[tool.key]}
 							<button
 								type="button"
@@ -368,7 +360,7 @@
 								onclick={() => toggleBuiltinTool(tool.key, !isEnabled)}
 							>
 								<span class="text-sm">{tool.label}</span>
-								<Switch checked={isEnabled} onclick={(e: MouseEvent) => e.stopPropagation()} />
+								<Switch checked={isEnabled} />
 							</button>
 						{/each}
 					</div>

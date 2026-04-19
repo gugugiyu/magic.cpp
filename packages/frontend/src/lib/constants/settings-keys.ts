@@ -9,6 +9,7 @@ export const SETTINGS_KEYS = {
 	THEME: 'theme',
 	// apiKey: removed - backend handles API key centrally
 	SYSTEM_MESSAGE: 'systemMessage',
+	USE_OPINIONATED_SYSTEM_PROMPT: 'useOpinionatedSystemPrompt',
 	PASTE_LONG_TEXT_TO_FILE_LEN: 'pasteLongTextToFileLen',
 	ANCHOR_MESSAGES_COUNT: 'anchorMessagesCount',
 	COPY_TEXT_ATTACHMENTS_AS_PLAIN_TEXT: 'copyTextAttachmentsAsPlainText',

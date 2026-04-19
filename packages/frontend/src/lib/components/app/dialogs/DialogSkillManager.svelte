@@ -249,7 +249,9 @@
 		}
 
 		if (new TextEncoder().encode(importContent).length > SKILL_MAX_CONTENT_BYTES) {
-			toast.error(`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`);
+			toast.error(
+				`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`
+			);
 			return;
 		}
 
@@ -291,7 +293,9 @@
 		}
 
 		if (new TextEncoder().encode(newSkillContent).length > SKILL_MAX_CONTENT_BYTES) {
-			toast.error(`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`);
+			toast.error(
+				`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`
+			);
 			return;
 		}
 
@@ -341,7 +345,9 @@
 		}
 
 		if (new TextEncoder().encode(editContent).length > SKILL_MAX_CONTENT_BYTES) {
-			toast.error(`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`);
+			toast.error(
+				`Content exceeds maximum size of ${(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB`
+			);
 			return;
 		}
 
@@ -743,11 +749,9 @@
 						<Button variant="ghost" onclick={closeImportModal}>Cancel</Button>
 						<Button
 							onclick={handleImport}
-							disabled={
-								isImporting ||
+							disabled={isImporting ||
 								!importContent.trim() ||
-								(!importName.trim() && !extractNameFromContent(importContent))
-							}
+								(!importName.trim() && !extractNameFromContent(importContent))}
 						>
 							{#if isImporting}
 								<Loader2 class="mr-1.5 h-4 w-4 animate-spin" />

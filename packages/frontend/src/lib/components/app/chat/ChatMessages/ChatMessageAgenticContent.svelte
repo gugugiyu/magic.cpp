@@ -73,7 +73,10 @@
 		filterEmojiRemoval: config().filterEmojiRemoval as boolean,
 		filterCodeblockOnly: config().filterCodeblockOnly as boolean,
 		filterRawMode: config().filterRawMode as boolean,
-		filterNormalizeMarkdown: config().filterNormalizeMarkdown as boolean
+		// Skip normalization during streaming: fixUnclosedCodeBlocks closes in-progress
+		// fences, making MarkdownContent treat them as complete blocks and never render
+		// the streaming scroll container.
+		filterNormalizeMarkdown: !isStreaming && (config().filterNormalizeMarkdown as boolean)
 	});
 
 	const sections = $derived(deriveAgenticSections(message, toolMessages, [], isStreaming));
@@ -168,6 +171,45 @@
 		const currentState = isExpanded(index, section);
 
 		expandedStates[index] = !currentState;
+	}
+
+	function autoScrollOnMutation(node: HTMLElement, active: boolean) {
+		let rafHandle: number | null = null;
+		let observer: MutationObserver | null = null;
+
+		function start() {
+			if (observer) return;
+			observer = new MutationObserver(() => {
+				if (rafHandle !== null) cancelAnimationFrame(rafHandle);
+				rafHandle = requestAnimationFrame(() => {
+					rafHandle = null;
+					node.scrollTop = node.scrollHeight;
+				});
+			});
+			observer.observe(node, { childList: true, subtree: true, characterData: true });
+			node.scrollTop = node.scrollHeight;
+		}
+
+		function stop() {
+			if (rafHandle !== null) {
+				cancelAnimationFrame(rafHandle);
+				rafHandle = null;
+			}
+			observer?.disconnect();
+			observer = null;
+		}
+
+		if (active) start();
+
+		return {
+			update(newActive: boolean) {
+				if (newActive) start();
+				else stop();
+			},
+			destroy() {
+				stop();
+			}
+		};
 	}
 
 	/** Parse a ThoughtEntry from a sequential_thinking tool section's toolArgs string. */
@@ -427,7 +469,7 @@
 			</button>
 
 			{#if isExpanded(index, section)}
-				<div class="agentic-inline-content">
+				<div class="agentic-inline-content" use:autoScrollOnMutation={isStreaming}>
 					<div class="mb-2 text-xs text-muted-foreground/60">Arguments</div>
 					{#if section.toolArgs}
 						<SyntaxHighlightedCode
@@ -627,7 +669,7 @@
 			</button>
 
 			{#if isExpanded(index, section)}
-				<div class="agentic-inline-content">
+				<div class="agentic-inline-content" use:autoScrollOnMutation={isStreaming}>
 					<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
 						{section.content}
 					</div>

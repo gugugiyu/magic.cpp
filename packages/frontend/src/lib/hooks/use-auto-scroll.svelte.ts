@@ -24,7 +24,7 @@ export class AutoScrollController {
 	private _disabled: boolean;
 	private _isColumnReverse: boolean;
 	private _mutationObserver: MutationObserver | null = null;
-	private _rafPending = false;
+	private _rafHandle: number | null = null;
 	private _observerEnabled = false;
 
 	constructor(options: AutoScrollOptions = {}) {
@@ -213,13 +213,12 @@ export class AutoScrollController {
 		const isReverse = this._isColumnReverse;
 
 		this._mutationObserver = new MutationObserver(() => {
-			if (!this._autoScrollEnabled || this._rafPending) return;
-			this._rafPending = true;
-			requestAnimationFrame(() => {
-				this._rafPending = false;
+			if (!this._autoScrollEnabled) return;
+			if (this._rafHandle !== null) cancelAnimationFrame(this._rafHandle);
+			this._rafHandle = requestAnimationFrame(() => {
+				this._rafHandle = null;
 				if (this._autoScrollEnabled && this._container) {
 					if (isReverse) {
-						// column-reverse: scrollTop=0 is the bottom
 						this._container.scrollTop = 0;
 					} else {
 						this._container.scrollTop = this._container.scrollHeight;
@@ -240,7 +239,10 @@ export class AutoScrollController {
 			this._mutationObserver.disconnect();
 			this._mutationObserver = null;
 		}
-		this._rafPending = false;
+		if (this._rafHandle !== null) {
+			cancelAnimationFrame(this._rafHandle);
+			this._rafHandle = null;
+		}
 	}
 }
 

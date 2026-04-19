@@ -37,6 +37,7 @@ import {
 	INACTIVE_CONVERSATION_STATE_MAX_AGE_MS,
 	SYSTEM_MESSAGE_PLACEHOLDER
 } from '$lib/constants';
+import { buildOpinionatedSystemPrompt } from '@shared/constants/prompts-and-tools';
 import type {
 	ChatMessageTimings,
 	ChatMessagePromptProgress,
@@ -493,7 +494,7 @@ class ChatStore {
 				const rootId = await DatabaseService.createRootMessage(currentConv.id);
 				const currentConfig = config();
 				const systemPrompt = currentConfig.systemMessage?.toString().trim();
-				if (systemPrompt) {
+				if (systemPrompt && !currentConfig.useOpinionatedSystemPrompt) {
 					const systemMessage = await DatabaseService.createSystemMessage(
 						currentConv.id,
 						systemPrompt,
@@ -778,11 +779,37 @@ class ChatStore {
 
 		const perChatOverrides = conversationsStore.activeConversation?.mcpServerOverrides;
 
-		const agenticConfig = agenticStore.getConfig(config(), perChatOverrides);
+		const currentConfig = config();
+		let dispatchMessages: (DatabaseMessage | { role: MessageRole; content: string })[] =
+			allMessages;
+		if (currentConfig.useOpinionatedSystemPrompt) {
+			const builtinToolNameMap: Record<string, string[]> = {
+				builtinToolCalculator: ['calculator'],
+				builtinToolTime: ['get_time'],
+				builtinToolLocation: ['get_location'],
+				builtinToolSequentialThinking: ['sequential_thinking'],
+				builtinToolCallSubagent: ['call_subagent'],
+				builtinToolSkills: ['list_skill', 'read_skill']
+			};
+			const enabledToolNames = Object.entries(builtinToolNameMap)
+				.filter(([key]) => currentConfig[key as keyof typeof currentConfig])
+				.flatMap(([, names]) => names);
+			const hasMcpServers = mcpStore.getServers().length > 0;
+			const opinionatedContent = buildOpinionatedSystemPrompt({
+				enabledToolNames,
+				hasMcpServers
+			});
+			dispatchMessages = [
+				{ role: MessageRole.SYSTEM, content: opinionatedContent },
+				...allMessages.filter((m) => m.role !== MessageRole.SYSTEM)
+			];
+		}
+
+		const agenticConfig = agenticStore.getConfig(currentConfig, perChatOverrides);
 		if (agenticConfig.enabled) {
 			const agenticResult = await agenticStore.runAgenticFlow({
 				conversationId: convId,
-				messages: allMessages,
+				messages: dispatchMessages as DatabaseMessage[],
 				options: {
 					...this.getApiOptions(),
 					...(effectiveModel ? { model: effectiveModel } : {})
@@ -796,7 +823,7 @@ class ChatStore {
 
 		// Non-agentic path: direct streaming into the single assistant message
 		await ChatService.sendMessage(
-			allMessages,
+			dispatchMessages as DatabaseMessage[],
 			{
 				...this.getApiOptions(),
 				...(effectiveModel ? { model: effectiveModel } : {}),
@@ -845,16 +872,16 @@ class ChatStore {
 	async stopGeneration(): Promise<void> {
 		const activeConv = conversationsStore.activeConversation;
 		if (!activeConv) return;
-		await this.stopGenerationForChat(activeConv.id);
-	}
-	async stopGenerationForChat(convId: string): Promise<void> {
-		await this.savePartialResponseIfNeeded(convId);
+
+		// Stop generation for chat
+		await this.savePartialResponseIfNeeded(activeConv.id);
 		this.setStreamingActive(false);
-		this.abortRequest(convId);
-		this.setChatLoading(convId, false);
-		this.clearChatStreaming(convId);
-		this.setProcessingState(convId, null);
+		this.abortRequest(activeConv.id);
+		this.setChatLoading(activeConv.id, false);
+		this.clearChatStreaming(activeConv.id);
+		this.setProcessingState(activeConv.id, null);
 	}
+
 	private async savePartialResponseIfNeeded(convId?: string): Promise<void> {
 		const conversationId = convId || conversationsStore.activeConversation?.id;
 		if (!conversationId) return;

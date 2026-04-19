@@ -6,7 +6,7 @@
 		summarizeToolOutput,
 		type PendingSummarizeRequest
 	} from '$lib/services/mcp-summarize-harness';
-	import { FileText, Sparkles, X, ChevronDown, ChevronUp, AlertTriangle } from '@lucide/svelte';
+	import { FileText, Sparkles, ChevronDown, ChevronUp, AlertTriangle } from '@lucide/svelte';
 	import { config } from '$lib/stores/settings.svelte';
 	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 	import { getChatSettingsDialogContext } from '$lib/contexts/chat-settings-dialog.context';
@@ -39,12 +39,6 @@
 			}
 		});
 	});
-
-	function handleCancel() {
-		if (pendingRequest) {
-			resolveRequest(pendingRequest.id, 'cancel');
-		}
-	}
 
 	function handleKeepRaw() {
 		if (pendingRequest) {
@@ -94,27 +88,15 @@
 		<Dialog.Content
 			class="fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg"
 		>
-			<!-- Header with X cancel button -->
-			<div class="flex items-start justify-between gap-2">
-				<div class="space-y-1">
-					<Dialog.Title class="text-lg font-semibold">Long tool output detected</Dialog.Title>
-					<Dialog.Description class="text-sm text-muted-foreground">
-						<span class="font-mono text-xs font-medium text-foreground"
-							>{pendingRequest.toolName}</span
-						>
-						returned {wordCountLabel(pendingRequest.lineCount)} (soft threshold: {threshold} lines, hard
-						cap: {pendingRequest.hardCap >= 0 ? pendingRequest.hardCap : 'disabled'} lines).
-					</Dialog.Description>
-				</div>
-				<button
-					type="button"
-					class="rounded-sm p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 disabled:pointer-events-none"
-					aria-label="Cancel agentic loop"
-					onclick={handleCancel}
-					disabled={isSummarizing}
-				>
-					<X class="h-4 w-4" />
-				</button>
+			<div class="space-y-1">
+				<Dialog.Title class="text-lg font-semibold">Long tool output detected</Dialog.Title>
+				<Dialog.Description class="text-sm text-muted-foreground">
+					<span class="font-mono text-xs font-medium text-foreground"
+						>{pendingRequest.toolName}</span
+					>
+					returned {wordCountLabel(pendingRequest.lineCount)} (soft threshold: {threshold} lines, hard
+					cap: {pendingRequest.hardCap >= 0 ? pendingRequest.hardCap : 'disabled'} lines).
+				</Dialog.Description>
 			</div>
 
 			<!-- Output preview with expand/collapse -->

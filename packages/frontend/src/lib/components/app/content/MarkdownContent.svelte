@@ -18,6 +18,7 @@
 	import { rehypeRtlSupport } from '$lib/markdown/rehype-rtl-support';
 	import { remarkLiteralHtml } from '$lib/markdown/literal-html';
 	import { copyCodeToClipboard, preprocessLaTeX, getImageErrorFallbackHtml } from '$lib/utils';
+	import { toast } from 'svelte-sonner';
 	import {
 		IMAGE_NOT_ERROR_BOUND_SELECTOR,
 		DATA_ERROR_BOUND_ATTR,
@@ -374,7 +375,9 @@
 		// Prevent race conditions: block rapid double-clicks
 		if (wrapper.dataset.renderingInProgress === 'true') return;
 
-		const scrollContainer = wrapper.querySelector<HTMLElement>('.code-block-scroll-container');
+		const scrollContainer =
+			wrapper.querySelector<HTMLElement>('.code-block-scroll-container') ||
+			wrapper.querySelector<HTMLElement>('.streaming-code-scroll-container');
 		if (!scrollContainer) return;
 
 		const info = getCodeInfoFromTarget(target);
@@ -383,9 +386,13 @@
 		// Toggle back to code view if already rendered
 		const existing = wrapper.querySelector<HTMLElement>('.mermaid-render-container');
 		if (existing) {
+			const savedScrollTop = scrollContainer.scrollTop;
 			(existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup?.();
 			existing.remove();
+			// Clean up any skeleton left behind
+			wrapper.querySelector('.diagram-render-skeleton')?.remove();
 			scrollContainer.style.display = '';
+			scrollContainer.scrollTop = savedScrollTop;
 			target.title = 'Render diagram';
 			return;
 		}
@@ -404,6 +411,7 @@
 			target.title = 'Show source';
 		} catch (err) {
 			console.error('Mermaid render failed:', err);
+			toast.error('Mermaid render failed');
 			target.title = 'Render diagram';
 		} finally {
 			target.disabled = false;
@@ -428,7 +436,9 @@
 		// Prevent race conditions: block rapid double-clicks
 		if (wrapper.dataset.renderingInProgress === 'true') return;
 
-		const scrollContainer = wrapper.querySelector<HTMLElement>('.code-block-scroll-container');
+		const scrollContainer =
+			wrapper.querySelector<HTMLElement>('.code-block-scroll-container') ||
+			wrapper.querySelector<HTMLElement>('.streaming-code-scroll-container');
 		if (!scrollContainer) return;
 
 		const info = getCodeInfoFromTarget(target);
@@ -440,6 +450,8 @@
 			const savedScrollTop = scrollContainer.scrollTop;
 			(existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup?.();
 			existing.remove();
+			// Clean up any skeleton left behind
+			wrapper.querySelector('.diagram-render-skeleton')?.remove();
 			scrollContainer.style.display = '';
 			scrollContainer.scrollTop = savedScrollTop;
 			target.title = 'Render SVG';
@@ -785,7 +797,11 @@
 	});
 
 	$effect(() => {
-		streamingAutoScroll.updateInterval(incompleteCodeBlock !== null);
+		if (incompleteCodeBlock !== null) {
+			streamingAutoScroll.startObserving();
+		} else {
+			streamingAutoScroll.stopObserving();
+		}
 	});
 
 	onDestroy(() => {

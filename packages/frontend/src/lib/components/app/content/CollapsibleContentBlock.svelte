@@ -39,8 +39,11 @@
 	});
 
 	$effect(() => {
-		// Only auto-scroll when open and streaming
-		autoScroll.updateInterval(open && isStreaming);
+		if (open && isStreaming) {
+			autoScroll.startObserving();
+		} else {
+			autoScroll.stopObserving();
+		}
 	});
 
 	function handleScroll() {

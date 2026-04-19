@@ -140,6 +140,7 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 					buffer = lines.pop() || '';
 
 					for (const line of lines) {
+						console.log(line)
 						if (line.startsWith('data: ')) {
 							const content = extractContent(line);
 							if (content === null) {

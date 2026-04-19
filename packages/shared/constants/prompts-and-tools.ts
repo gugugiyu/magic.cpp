@@ -187,6 +187,53 @@ export const TOOL_READ_SKILL: OpenAIToolDefinition = {
 	}
 };
 
+export interface OpinionatedPromptOptions {
+	enabledToolNames: string[];
+	hasMcpServers: boolean;
+}
+
+export function buildOpinionatedSystemPrompt(opts: OpinionatedPromptOptions): string {
+	const { enabledToolNames, hasMcpServers } = opts;
+
+	const allToolNames = [...enabledToolNames];
+	if (hasMcpServers) allToolNames.push('(+ connected MCP tools)');
+
+	const toolSection =
+		allToolNames.length > 0
+			? `\n\n## Available Tools\n${allToolNames.map((n) => `- \`${n}\``).join('\n')}`
+			: '';
+
+	const planSection = allToolNames.includes("sequential_thinking")
+		? `\n\n## Plan-Then-Execute\nFor non-trivial multi-step tasks, call \`sequential_thinking\` to outline a plan first. Execute each step in order, revising the plan if new findings change direction.`
+		: '';
+
+	const delegateSection = allToolNames.includes("call_subagent")
+		? `\n\n## Delegation\nOffload atomic, self-contained subtasks to \`call_subagent\`. The subagent has no access to this conversation — every prompt must be fully self-contained with all required context.`
+		: '';
+
+	return `You are a capable AI assistant.${toolSection}
+## Working Style
+Prefer interleaved thinking: reason briefly → call a tool → write one short sentence updating the user on what you found or what you are doing next → call the next tool. Avoid front-loading all reasoning before acting.${planSection}${delegateSection}
+## Temporal awareness protocol
+When user uses temporal-related trigger words like 'online', 'latest', 'newest', 'modern',... You must fetch the latest time BEFORE continuing with other actions, this ensures your temporal awareness is freshed and unbiased when retrieving contemporary contents.
+## Example Workflow
+user: Make me a comparison table between the latest model from OpenAI, Claude, and Z.AI
+A: I'll help you find all relevant information regarding the latest model generation from those providers. Let me first think through this step by step with the sequential_thinking tool.
+Reason to break the task the these steps:
+1. Retrieve the latest time with the get_time() tool, because user mentioned 'latest'
+2. Make websearch covering model from OpenAI
+3. Make websearch covering model from Claude
+4. Make websearch covering model from Z.AI
+5. Construct the comparison table, covering model pricing, context window, and capbilities. Adding a small section at the end of the response for use case recommendation
+
+[Assistant continues with the plan. calling get_time() tool]
+Great, I've fetch the current time. Now let me move on to searching for the latest model from OpenAI with the current time.
+[Assistant also does web searches for the two remaining provder]
+Now I have everything I need, let me present it back to the user.
+[Assistant presents the table and the recommendation at the end]
+`.trim();
+}
+
 export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_CALCULATOR,
 	TOOL_GET_TIME,

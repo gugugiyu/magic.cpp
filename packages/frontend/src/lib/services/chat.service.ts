@@ -882,6 +882,18 @@ export class ChatService {
 	): Promise<Error & { contextInfo?: { n_prompt_tokens: number; n_ctx: number } }> {
 		try {
 			const errorText = await response.text();
+
+			// Handle empty response body
+			if (!errorText || errorText.trim() === '') {
+				const fallback = new Error(
+					`Server error (${response.status}): ${response.statusText}`
+				) as Error & {
+					contextInfo?: { n_prompt_tokens: number; n_ctx: number };
+				};
+				fallback.name = 'HttpError';
+				return fallback;
+			}
+
 			const errorData: ApiErrorResponse = JSON.parse(errorText);
 
 			const message = errorData.error?.message || 'Unknown server error';

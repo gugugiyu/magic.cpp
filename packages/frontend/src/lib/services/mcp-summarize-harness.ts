@@ -20,7 +20,7 @@ import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import { TOOL_OUTPUT_SUMMARIZER_PROMPT } from '@shared/constants/prompts-and-tools';
 import { toast } from 'svelte-sonner';
 
-export const MCP_SUMMARIZE_WORD_THRESHOLD = 400;
+export const MCP_SUMMARIZE_LINE_THRESHOLD = 400;
 
 /**
  * Thrown when the user clicks "Cancel" in the summarize dialog.

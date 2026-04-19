@@ -56,6 +56,7 @@ export const SETTINGS_KEYS = {
 	MCP_SUMMARIZE_LINE_THRESHOLD: 'mcpSummarizeLineThreshold',
 	MCP_SUMMARIZE_HARD_CAP: 'mcpSummarizeHardCap',
 	MCP_SUMMARIZE_ALL_TOOLS: 'mcpSummarizeAllTools',
+	MCP_SUMMARIZE_AUTO_TIMEOUT: 'mcpSummarizeAutoTimeout',
 	// Built-in tools
 	BUILTIN_TOOL_CALCULATOR: 'builtinToolCalculator',
 	BUILTIN_TOOL_TIME: 'builtinToolTime',

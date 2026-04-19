@@ -625,6 +625,11 @@
 											key: SETTINGS_KEYS.MCP_SUMMARIZE_ALL_TOOLS,
 											label: 'Apply to all tools (including built-in)',
 											type: SettingsFieldType.CHECKBOX
+										},
+										{
+											key: SETTINGS_KEYS.MCP_SUMMARIZE_AUTO_TIMEOUT,
+											label: 'Auto-keep-raw timeout (s, 0 = off)',
+											type: SettingsFieldType.INPUT
 										}
 									]}
 									{localConfig}

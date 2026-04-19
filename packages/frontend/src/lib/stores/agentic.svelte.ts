@@ -23,7 +23,7 @@
 import { toast } from 'svelte-sonner';
 import { SvelteSet } from 'svelte/reactivity';
 import { ChatService } from '$lib/services';
-import { config, settingsStore } from '$lib/stores/settings.svelte';
+import { config } from '$lib/stores/settings.svelte';
 import { mcpStore } from '$lib/stores/mcp.svelte';
 import { modelsStore } from '$lib/stores/models.svelte';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
@@ -288,10 +288,9 @@ class AgenticStore {
 			if (!settings[key]) continue;
 
 			if (key === 'builtinToolCallSubagent' && !subagentConfigStore.isConfigured) {
-				toast.warning("Subagent endpoint wasn't available, this tool will be disabled", {
+				toast.warning('Subagent not configured — call_subagent tool will be skipped', {
 					duration: 4000
 				});
-				settingsStore.updateConfig('builtinToolCallSubagent', false);
 				continue;
 			}
 
@@ -306,16 +305,23 @@ class AgenticStore {
 		return tools;
 	}
 
-	getConfig(settings: SettingsConfigType, perChatOverrides?: McpServerOverride[]): AgenticConfig {
+	getConfig(
+		settings: SettingsConfigType,
+		perChatOverrides?: McpServerOverride[],
+		hasMcpOverride?: boolean
+	): AgenticConfig {
 		const maxTurns = Number(settings.agenticMaxTurns) || DEFAULT_AGENTIC_CONFIG.maxTurns;
 		const maxToolPreviewLines =
 			Number(settings.agenticMaxToolPreviewLines) || DEFAULT_AGENTIC_CONFIG.maxToolPreviewLines;
-		const hasMcp = mcpStore.hasEnabledServers(perChatOverrides);
+		const maxToolCallsPerTurn =
+			Number(settings.agenticMaxToolCallsPerTurn) || DEFAULT_AGENTIC_CONFIG.maxToolCallsPerTurn;
+		const hasMcp = hasMcpOverride ?? mcpStore.hasEnabledServers(perChatOverrides);
 		const hasBuiltin = this.getBuiltinTools(settings).length > 0;
 		return {
 			enabled: (hasMcp || hasBuiltin) && DEFAULT_AGENTIC_CONFIG.enabled,
 			maxTurns,
-			maxToolPreviewLines
+			maxToolPreviewLines,
+			maxToolCallsPerTurn
 		};
 	}
 
@@ -323,15 +329,13 @@ class AgenticStore {
 		const { conversationId, messages, options = {}, callbacks, signal, perChatOverrides } = params;
 
 		const settings = config();
-		const agenticConfig = this.getConfig(settings, perChatOverrides);
+		const hasMcpServers = mcpStore.hasEnabledServers(perChatOverrides);
+		const agenticConfig = this.getConfig(settings, perChatOverrides, hasMcpServers);
 		if (!agenticConfig.enabled) return { handled: false };
 
 		// Collect built-in tools first (no async needed)
 		const builtinTools = this.getBuiltinTools(settings);
 		const builtinToolNames = new Set(builtinTools.map((t) => t.function.name));
-
-		// Only initialize MCP when there are MCP servers configured
-		const hasMcpServers = mcpStore.hasEnabledServers(perChatOverrides);
 		let mcpTools: ReturnType<typeof mcpStore.getToolDefinitionsForLLM> = [];
 
 		if (hasMcpServers) {
@@ -669,7 +673,7 @@ class AgenticStore {
 			}
 
 			// Normalize and save assistant turn with tool calls
-			const normalizedCalls = this.normalizeToolCalls(turnToolCalls);
+			let normalizedCalls = this.normalizeToolCalls(turnToolCalls);
 			if (normalizedCalls.length === 0) {
 				await onAssistantTurnComplete?.(
 					turnContent,
@@ -679,6 +683,15 @@ class AgenticStore {
 				);
 				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
 				return;
+			}
+
+			// Cap tool calls per turn to prevent runaway parallel tool storms
+			const maxToolCallsPerTurn = agenticConfig.maxToolCallsPerTurn;
+			if (normalizedCalls.length > maxToolCallsPerTurn) {
+				console.warn(
+					`[AgenticStore] Capping tool calls from ${normalizedCalls.length} to ${maxToolCallsPerTurn} (maxToolCallsPerTurn)`
+				);
+				normalizedCalls = normalizedCalls.slice(0, maxToolCallsPerTurn);
 			}
 
 			totalToolCallCount += normalizedCalls.length;
@@ -1039,6 +1052,7 @@ class AgenticStore {
 				const url = `${endpoint}/v1/chat/completions`;
 				const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 				if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+				const subagentToolsPayload = subagentTools.length > 0 ? subagentTools : undefined;
 
 				const modelDisplayName = subagentModelId.split('/').pop() ?? subagentModelId;
 				// Associate with the last read skill if called shortly after
@@ -1072,15 +1086,15 @@ class AgenticStore {
 					for (let subTurn = 0; subTurn < SUBAGENT_MAX_TURNS; subTurn++) {
 						if (signal?.aborted) {
 							this.setSubagentProgress(conversationId, null);
-							return JSON.stringify({ error: 'Subagent aborted' });
+							throw new DOMException('Aborted', 'AbortError');
 						}
 
 						const requestBody: Record<string, unknown> = {
 							model: subagentModelId,
 							messages: loopMessages,
-							stream: false
+							stream: false,
+							...(subagentToolsPayload !== undefined ? { tools: subagentToolsPayload } : {})
 						};
-						if (subagentTools.length > 0) requestBody.tools = subagentTools;
 
 						const response = await fetch(url, {
 							method: 'POST',
@@ -1188,6 +1202,7 @@ class AgenticStore {
 					});
 				} catch (error) {
 					this.setSubagentProgress(conversationId, null);
+					if (isAbortError(error)) throw error;
 					const message = error instanceof Error ? error.message : String(error);
 					return JSON.stringify({ error: `Subagent request failed: ${message}` });
 				}

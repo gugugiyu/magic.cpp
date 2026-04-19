@@ -131,6 +131,10 @@
 	--z-popover: 1000;
 	--z-modal: 1100;
 	--z-modal-backdrop: 1090;
+	/* Skill manager sits above the settings dialog (z-999999) */
+	--z-skill-manager: 1000000;
+	--z-skill-manager-modal-backdrop: 1000010;
+	--z-skill-manager-modal: 1000020;
 }
 
 @layer base {

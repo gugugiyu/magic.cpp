@@ -15,10 +15,14 @@
 	let pendingRequest = $state<PendingSummarizeRequest | null>(null);
 	let isSummarizing = $state(false);
 	let showFullPreview = $state(false);
+	let countdown = $state(0);
 
 	let settings = $derived(config());
 	let threshold = $derived(
 		((n) => (Number.isNaN(n) ? 400 : n))(Number(settings.mcpSummarizeLineThreshold))
+	);
+	let autoTimeoutSeconds = $derived(
+		((n) => (Number.isNaN(n) ? 0 : Math.max(0, n)))(Number(settings.mcpSummarizeAutoTimeout))
 	);
 	let isSubagentConfigured = $derived(subagentConfigStore.isConfigured);
 
@@ -40,6 +44,25 @@
 		});
 	});
 
+	$effect(() => {
+		if (!pendingRequest || autoTimeoutSeconds <= 0) {
+			countdown = 0;
+			return;
+		}
+		countdown = autoTimeoutSeconds;
+		const timer = setInterval(() => {
+			if (isSummarizing) return;
+			countdown -= 1;
+			if (countdown <= 0) {
+				clearInterval(timer);
+				handleKeepRaw();
+			}
+		}, 1000);
+		return () => {
+			clearInterval(timer);
+		};
+	});
+
 	function handleKeepRaw() {
 		if (pendingRequest) {
 			resolveRequest(pendingRequest.id, false);
@@ -47,11 +70,12 @@
 	}
 
 	async function handleSummarize() {
-		if (!pendingRequest) return;
+		const req = pendingRequest;
+		if (!req) return;
 		isSummarizing = true;
 		try {
-			const summary = await summarizeToolOutput(pendingRequest.rawOutput);
-			resolveRequest(pendingRequest.id, summary ?? false);
+			const summary = await summarizeToolOutput(req.rawOutput);
+			resolveRequest(req.id, summary ?? false);
 		} finally {
 			isSummarizing = false;
 		}
@@ -155,6 +179,9 @@
 				>
 					<FileText class="h-4 w-4" />
 					Keep raw output
+					{#if countdown > 0}
+						<span class="ml-1 text-xs text-muted-foreground tabular-nums">({countdown}s)</span>
+					{/if}
 				</button>
 				<button
 					type="button"

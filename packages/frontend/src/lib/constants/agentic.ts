@@ -12,7 +12,8 @@ export const LLM_ERROR_BLOCK_END = '\n```\n';
 export const DEFAULT_AGENTIC_CONFIG: AgenticConfig = {
 	enabled: true,
 	maxTurns: 100,
-	maxToolPreviewLines: 25
+	maxToolPreviewLines: 25,
+	maxToolCallsPerTurn: 10
 } as const;
 
 /**

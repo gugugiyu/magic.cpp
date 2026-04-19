@@ -429,7 +429,7 @@
 
 <Dialog.Root {open} onOpenChange={handleClose}>
 	<Dialog.Content
-		class="z-[var(--z-dialog)] flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] flex-col gap-0 rounded-none p-0
+		class="z-[var(--z-skill-manager)] flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] flex-col gap-0 rounded-none p-0
 			md:h-auto md:max-h-[85dvh] md:min-h-0 md:max-w-5xl md:rounded-lg"
 	>
 		<!-- Header -->
@@ -665,9 +665,9 @@
 {#if showImportModal}
 	<Dialog.Root open={showImportModal} onOpenChange={closeImportModal}>
 		<Dialog.Portal>
-			<Dialog.Overlay class="fixed inset-0 z-[var(--z-modal-backdrop)] bg-black/50" />
+			<Dialog.Overlay class="fixed inset-0 z-[var(--z-skill-manager-modal-backdrop)] bg-black/50" />
 			<DialogPrimitive.Content
-				class="fixed top-[50%] left-[50%] z-[var(--z-modal)] mx-4 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background p-6 shadow-xl"
+				class="fixed top-[50%] left-[50%] z-[var(--z-skill-manager-modal)] mx-4 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background p-6 shadow-xl"
 			>
 				<h2 class="text-lg font-semibold">Import Skill</h2>
 
@@ -769,9 +769,9 @@
 {#if showNewModal}
 	<Dialog.Root open={showNewModal} onOpenChange={() => (showNewModal = false)}>
 		<Dialog.Portal>
-			<Dialog.Overlay class="fixed inset-0 z-[var(--z-modal-backdrop)] bg-black/50" />
+			<Dialog.Overlay class="fixed inset-0 z-[var(--z-skill-manager-modal-backdrop)] bg-black/50" />
 			<DialogPrimitive.Content
-				class="fixed top-[50%] left-[50%] z-[var(--z-modal)] mx-4 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background p-6 shadow-xl"
+				class="fixed top-[50%] left-[50%] z-[var(--z-skill-manager-modal)] mx-4 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background p-6 shadow-xl"
 			>
 				<h2 class="text-lg font-semibold">New Skill</h2>
 

@@ -32,12 +32,14 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	mcpServerUsageStats: '{}', // JSON object: { [serverId]: usageCount }
 	agenticMaxTurns: 10,
 	agenticMaxToolPreviewLines: 25,
+	agenticMaxToolCallsPerTurn: 10,
 	showToolCallInProgress: true,
 	alwaysShowAgenticTurns: false,
 	mcpSummarizeOutputs: false,
 	mcpSummarizeLineThreshold: 400,
 	mcpSummarizeHardCap: 800,
 	mcpSummarizeAllTools: false,
+	mcpSummarizeAutoTimeout: 5,
 	// filter settings
 	filterEmojiRemoval: false,
 	filterCodeblockOnly: false,
@@ -165,6 +167,8 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 		'Maximum number of tool execution cycles before stopping (prevents infinite loops).',
 	agenticMaxToolPreviewLines:
 		'Number of lines shown in tool output previews (last N lines). Only these previews and the final LLM response persist after the agentic loop completes.',
+	agenticMaxToolCallsPerTurn:
+		'Maximum number of tool calls the model may execute in a single turn. Excess calls are dropped and a warning is appended to the context. Prevents runaway parallel tool storms.',
 	showToolCallInProgress:
 		'Automatically expand tool call details while executing and keep them expanded after completion.',
 	mcpSummarizeOutputs:
@@ -175,6 +179,8 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 		'Hard line cap for tool outputs. When exceeded, output is immediately trimmed to show head+tail with a [... X lines trimmed ...] marker. Set to -1 to disable.',
 	mcpSummarizeAllTools:
 		'When enabled, the summarization threshold also applies to built-in tool outputs (calculator, time, location, etc.), not just MCP tools.',
+	mcpSummarizeAutoTimeout:
+		'Seconds before the summarize dialog auto-selects "Keep raw output". Set to 0 to disable the auto-timeout.',
 	filterEmojiRemoval:
 		'Remove all emoji characters from model responses. Applied after the full response is received.',
 	filterCodeblockOnly:

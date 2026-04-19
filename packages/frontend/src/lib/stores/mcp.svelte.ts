@@ -769,6 +769,19 @@ class MCPStore {
 			this.initPromise = null;
 		}
 
+		// Wait for active flows to complete before tearing down connections (5s timeout)
+		if (this.activeFlowCount > 0) {
+			const deadline = Date.now() + 5000;
+			while (this.activeFlowCount > 0 && Date.now() < deadline) {
+				await new Promise((r) => setTimeout(r, 100));
+			}
+			if (this.activeFlowCount > 0) {
+				console.warn(
+					`[MCPStore] Shutdown proceeding with ${this.activeFlowCount} active flow(s) still running`
+				);
+			}
+		}
+
 		if (this.connections.size === 0) {
 			return;
 		}

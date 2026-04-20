@@ -3,7 +3,12 @@
 	import * as Table from '$lib/components/ui/table';
 	import { BadgeModality, ActionIconCopyToClipboard } from '$lib/components/app';
 	import { serverStore } from '$lib/stores/server.svelte';
-	import { modelsStore, modelOptions, modelsLoading, hasAttemptedFetch } from '$lib/stores/models.svelte';
+	import {
+		modelsStore,
+		modelOptions,
+		modelsLoading,
+		hasAttemptedFetch
+	} from '$lib/stores/models.svelte';
 	import { formatFileSize, formatParameters, formatNumber } from '$lib/utils';
 	import type { ApiLlamaCppServerProps } from '$lib/types';
 

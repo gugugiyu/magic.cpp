@@ -129,9 +129,7 @@ function withMcpToolTimeout<T>(promise: Promise<T>, toolName: string): Promise<T
 	const timeoutPromise = new Promise<never>((_, reject) => {
 		timerId = setTimeout(
 			() =>
-				reject(
-					new Error(`Tool "${toolName}" timed out after ${MCP_TOOL_EXECUTION_TIMEOUT_MS}ms`)
-				),
+				reject(new Error(`Tool "${toolName}" timed out after ${MCP_TOOL_EXECUTION_TIMEOUT_MS}ms`)),
 			MCP_TOOL_EXECUTION_TIMEOUT_MS
 		);
 	});

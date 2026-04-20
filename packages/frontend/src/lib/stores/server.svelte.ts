@@ -161,7 +161,9 @@ class ServerStore {
 		if ('default_generation_settings' in obj) {
 			const dgs = obj.default_generation_settings;
 			if (!dgs || typeof dgs !== 'object') return false;
-			if (!('params' in (dgs as Record<string, unknown>))) return false;
+			// ik_llama.cpp wrap up to default_generation_settings only
+			// we'll check inline whether temp is found
+			if (!('params' in (dgs as Record<string, unknown>)) && !('temperature' in (dgs as Record<string, unknown>))) return false;
 		}
 		return true;
 	}

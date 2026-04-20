@@ -6,13 +6,15 @@
 import { browser } from '$app/environment';
 import { MimeTypeApplication, MimeTypeImage } from '$lib/enums';
 import * as pdfjs from 'pdfjs-dist';
+import { createModuleLogger } from '$lib/utils/logger';
+
+const logger = createModuleLogger('pdf');
 
 type TextContent = {
 	items: Array<{ str: string }>;
 };
 
 if (browser) {
-	// Import worker as text and create blob URL for inline bundling
 	import('pdfjs-dist/build/pdf.worker.min.mjs?raw')
 		.then((workerModule) => {
 			const workerBlob = new Blob([workerModule.default], {
@@ -21,7 +23,7 @@ if (browser) {
 			pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
 		})
 		.catch(() => {
-			console.warn('Failed to load PDF.js worker, PDF processing may not work');
+			logger.warn('Failed to load PDF.js worker, PDF processing may not work');
 		});
 }
 
@@ -76,7 +78,7 @@ export async function convertPDFToText(file: File): Promise<string> {
 
 		return textItems.join('\n');
 	} catch (error) {
-		console.error('Error converting PDF to text:', error);
+		logger.error('Error converting PDF to text:', error);
 		throw new Error(
 			`Failed to convert PDF to text: ${error instanceof Error ? error.message : 'Unknown error'}`
 		);
@@ -126,7 +128,7 @@ export async function convertPDFToImage(file: File, scale: number = 1.5): Promis
 
 		return await Promise.all(pages);
 	} catch (error) {
-		console.error('Error converting PDF to images:', error);
+		logger.error('Error converting PDF to images:', error);
 		throw new Error(
 			`Failed to convert PDF to images: ${error instanceof Error ? error.message : 'Unknown error'}`
 		);

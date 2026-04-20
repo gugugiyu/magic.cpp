@@ -5,9 +5,12 @@ import { FileTypeCategory, AttachmentType, SpecialFileType } from '$lib/enums';
 import { config, settingsStore } from '$lib/stores/settings.svelte';
 import { modelsStore } from '$lib/stores/models.svelte';
 import { getFileTypeCategory } from '$lib/utils';
+import { createModuleLogger } from './logger';
 import { readFileAsText, isLikelyTextFile } from './text-files';
 import { toast } from 'svelte-sonner';
 import type { FileProcessingResult, ChatUploadedFile, DatabaseMessageExtra } from '$lib/types';
+
+const logger = createModuleLogger('files');
 
 function readFileAsBase64(file: File): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -55,13 +58,13 @@ export async function parseFilesToMessageExtras(
 					try {
 						base64Url = await svgBase64UrlToPngDataURL(base64Url);
 					} catch (error) {
-						console.error('Failed to convert SVG to PNG for database storage:', error);
+						logger.error('Failed to convert SVG to PNG for database storage:', error);
 					}
 				} else if (isWebpMimeType(file.type)) {
 					try {
 						base64Url = await webpBase64UrlToPngDataURL(base64Url);
 					} catch (error) {
-						console.error('Failed to convert WebP to PNG for database storage:', error);
+						logger.error('Failed to convert WebP to PNG for database storage:', error);
 					}
 				}
 
@@ -72,7 +75,6 @@ export async function parseFilesToMessageExtras(
 				});
 			}
 		} else if (getFileTypeCategory(file.type) === FileTypeCategory.AUDIO) {
-			// Process audio files (MP3 and WAV)
 			try {
 				const base64Data = await readFileAsBase64(file.file);
 
@@ -83,7 +85,7 @@ export async function parseFilesToMessageExtras(
 					mimeType: file.type
 				});
 			} catch (error) {
-				console.error(`Failed to process audio file ${file.name}:`, error);
+				logger.error(`Failed to process audio file ${file.name}:`, error);
 			}
 		} else if (getFileTypeCategory(file.type) === FileTypeCategory.PDF) {
 			try {
@@ -100,7 +102,7 @@ export async function parseFilesToMessageExtras(
 
 				// If user had pdfAsImage enabled but model doesn't support vision, update setting and notify
 				if (currentConfig.pdfAsImage && !hasVisionSupport) {
-					console.log('Non-vision model detected: forcing PDF-to-text mode and updating settings');
+					logger.info('Non-vision model detected: forcing PDF-to-text mode and updating settings');
 
 					// Update the setting in localStorage
 					settingsStore.updateConfig('pdfAsImage', false);
@@ -138,7 +140,7 @@ export async function parseFilesToMessageExtras(
 							base64Data: base64Data
 						});
 					} catch (imageError) {
-						console.warn(
+						logger.warn(
 							`Failed to process PDF ${file.name} as images, falling back to text:`,
 							imageError
 						);
@@ -172,7 +174,7 @@ export async function parseFilesToMessageExtras(
 					});
 				}
 			} catch (error) {
-				console.error(`Failed to process PDF file ${file.name}:`, error);
+				logger.error(`Failed to process PDF file ${file.name}:`, error);
 			}
 		} else {
 			try {
@@ -180,7 +182,7 @@ export async function parseFilesToMessageExtras(
 
 				// Check if file is empty
 				if (content.trim() === '') {
-					console.warn(`File ${file.name} is empty and will be skipped`);
+					logger.warn(`File ${file.name} is empty and will be skipped`);
 					emptyFiles.push(file.name);
 				} else if (isLikelyTextFile(content)) {
 					extras.push({
@@ -189,10 +191,10 @@ export async function parseFilesToMessageExtras(
 						content: content
 					});
 				} else {
-					console.warn(`File ${file.name} appears to be binary and will be skipped`);
+					logger.warn(`File ${file.name} appears to be binary and will be skipped`);
 				}
 			} catch (error) {
-				console.error(`Failed to read file ${file.name}:`, error);
+				logger.error(`Failed to read file ${file.name}:`, error);
 			}
 		}
 	}

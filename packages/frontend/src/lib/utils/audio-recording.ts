@@ -1,4 +1,7 @@
 import { MimeTypeAudio } from '$lib/enums';
+import { createModuleLogger } from '$lib/utils/logger';
+
+const logger = createModuleLogger('audio');
 
 /**
  * AudioRecorder - Browser-based audio recording with MediaRecorder API
@@ -36,7 +39,7 @@ export class AudioRecorder {
 			this.mediaRecorder!.start(100);
 			this.recordingState = true;
 		} catch (error) {
-			console.error('Failed to start recording:', error);
+			logger.error('Failed to start recording:', error);
 			throw new Error('Failed to access microphone. Please check permissions.');
 		}
 	}
@@ -58,7 +61,7 @@ export class AudioRecorder {
 			};
 
 			this.mediaRecorder.onerror = (event) => {
-				console.error('Recording error:', event);
+				logger.error('Recording error:', event);
 				this.cleanup();
 				reject(new Error('Recording failed'));
 			};
@@ -90,7 +93,7 @@ export class AudioRecorder {
 		} else if (MediaRecorder.isTypeSupported(MimeTypeAudio.MP4)) {
 			options.mimeType = MimeTypeAudio.MP4;
 		} else {
-			console.warn('No preferred audio format supported, using default');
+			logger.warn('No preferred audio format supported, using default');
 		}
 
 		this.mediaRecorder = new MediaRecorder(stream, options);
@@ -106,7 +109,7 @@ export class AudioRecorder {
 		};
 
 		this.mediaRecorder.onerror = (event) => {
-			console.error('MediaRecorder error:', event);
+			logger.error('MediaRecorder error:', event);
 			this.recordingState = false;
 		};
 	}
@@ -144,7 +147,7 @@ export async function convertToWav(audioBlob: Blob): Promise<Blob> {
 
 		return wavBlob;
 	} catch (error) {
-		console.error('Failed to convert audio to WAV:', error);
+		logger.error('Failed to convert audio to WAV:', error);
 		return audioBlob;
 	}
 }

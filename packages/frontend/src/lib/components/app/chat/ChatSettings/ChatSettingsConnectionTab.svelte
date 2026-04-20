@@ -27,7 +27,7 @@
 	}
 
 	// ─── Subagent state ───────────────────────────────────────────────────────
-	let subagentEndpointInput = $state(subagentConfigStore.config.endpoint);
+	let subagentEndpointInput = $derived(subagentConfigStore.config.endpoint || endpointInput);
 	let subagentSelectedModel = $derived(subagentConfigStore.config.model);
 	let subagentSummarizeEnabled = $derived(subagentConfigStore.config.summarizeEnabled);
 

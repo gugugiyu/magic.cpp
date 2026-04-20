@@ -6,6 +6,9 @@ import { settingsStore } from '$lib/stores/settings.svelte';
 import { toast } from 'svelte-sonner';
 import { getFileTypeCategory } from '$lib/utils';
 import { convertPDFToText } from './pdf-processing';
+import { createModuleLogger } from './logger';
+
+const logger = createModuleLogger('process-uploaded-files');
 
 /**
  * Read a file as a data URL (base64 encoded)
@@ -72,13 +75,13 @@ export async function processFilesToChatUploaded(
 					try {
 						preview = await svgBase64UrlToPngDataURL(preview);
 					} catch (err) {
-						console.error('Failed to convert SVG to PNG:', err);
+						logger.error('Failed to convert SVG to PNG:', err);
 					}
 				} else if (isWebpMimeType(file.type)) {
 					try {
 						preview = await webpBase64UrlToPngDataURL(preview);
 					} catch (err) {
-						console.error('Failed to convert WebP to PNG:', err);
+						logger.error('Failed to convert WebP to PNG:', err);
 					}
 				}
 
@@ -89,7 +92,7 @@ export async function processFilesToChatUploaded(
 					const textContent = await convertPDFToText(file);
 					results.push({ ...base, textContent });
 				} catch (err) {
-					console.warn('Failed to extract text from PDF, adding without content:', err);
+					logger.warn('Failed to extract text from PDF, adding without content:', err);
 					results.push(base);
 				}
 
@@ -122,12 +125,12 @@ export async function processFilesToChatUploaded(
 					const textContent = await readFileAsUTF8(file);
 					results.push({ ...base, textContent });
 				} catch (err) {
-					console.warn('Failed to read file as text, adding without content:', err);
+					logger.warn('Failed to read file as text, adding without content:', err);
 					results.push(base);
 				}
 			}
 		} catch (error) {
-			console.error('Error processing file', file.name, error);
+			logger.error('Error processing file', file.name, error);
 			results.push(base);
 		}
 	}

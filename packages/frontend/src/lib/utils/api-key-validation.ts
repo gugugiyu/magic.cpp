@@ -1,6 +1,9 @@
 import { base } from '$app/paths';
 import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
+import { createModuleLogger } from './logger';
+
+const logger = createModuleLogger('api-key-validation');
 
 /**
  * Validates API key by making a request to the server props endpoint
@@ -20,7 +23,7 @@ export async function validateApiKey(fetch: typeof globalThis.fetch): Promise<vo
 				throw error(401, 'Access denied');
 			}
 
-			console.warn(`Server responded with status ${response.status} during API key validation`);
+			logger.warn(`Server responded with status ${response.status} during API key validation`);
 			return;
 		}
 	} catch (err) {
@@ -28,6 +31,6 @@ export async function validateApiKey(fetch: typeof globalThis.fetch): Promise<vo
 			throw err;
 		}
 
-		console.warn('Cannot connect to server for API key validation:', err);
+		logger.warn('Cannot connect to server for API key validation:', err);
 	}
 }

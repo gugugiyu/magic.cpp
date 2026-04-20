@@ -190,3 +190,6 @@ export { safeNumber } from './safe-number';
 export { uuid } from './uuid';
 
 export * from './skills';
+
+// Logger utilities
+export { logger, createModuleLogger, LogLevel, type Logger } from './logger';

@@ -19,6 +19,9 @@ import { LEGACY_AGENTIC_REGEX, LEGACY_REASONING_TAGS } from '$lib/constants';
 import { DatabaseService } from '$lib/services/database.service';
 import { MessageRole, MessageType } from '$lib/enums';
 import type { DatabaseMessage } from '$lib/types/database';
+import { createModuleLogger } from './logger';
+
+const logger = createModuleLogger('legacy-migration');
 
 const MIGRATION_DONE_KEY = 'llama-webui-migration-v2-done';
 
@@ -324,7 +327,7 @@ async function migrateConversation(convId: string): Promise<number> {
 export async function runLegacyMigration(): Promise<void> {
 	if (!isMigrationNeeded()) return;
 
-	console.log('[Migration] Starting legacy message format migration...');
+	logger.info('Starting legacy message format migration...');
 
 	try {
 		const conversations = await DatabaseService.getAllConversations();
@@ -336,17 +339,16 @@ export async function runLegacyMigration(): Promise<void> {
 		}
 
 		if (totalMigrated > 0) {
-			console.log(
-				`[Migration] Migrated ${totalMigrated} messages across ${conversations.length} conversations`
+			logger.info(
+				`Migrated ${totalMigrated} messages across ${conversations.length} conversations`
 			);
 		} else {
-			console.log('[Migration] No legacy messages found, marking as done');
+			logger.info('No legacy messages found, marking as done');
 		}
 
 		markMigrationDone();
 	} catch (error) {
-		console.error('[Migration] Failed to migrate legacy messages:', error);
-		// Still mark as done to avoid infinite retry loops
+		logger.error('Failed to migrate legacy messages:', error);
 		markMigrationDone();
 	}
 }

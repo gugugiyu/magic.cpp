@@ -33,6 +33,9 @@ import {
 } from '@lucide/svelte';
 import type { Component } from 'svelte';
 import type { MimeTypeUnion } from '$lib/types/common';
+import { createModuleLogger } from '$lib/utils/logger';
+
+const logger = createModuleLogger('mcp');
 
 /**
  * Detects the MCP transport type from a URL.
@@ -65,7 +68,7 @@ export function parseMcpServerSettings(rawServers: unknown): MCPServerSettingsEn
 		try {
 			parsed = JSON.parse(trimmed);
 		} catch (error) {
-			console.warn('[MCP] Failed to parse mcpServers JSON, ignoring value:', error);
+			logger.warn('Failed to parse mcpServers JSON, ignoring value:', error);
 
 			return [];
 		}

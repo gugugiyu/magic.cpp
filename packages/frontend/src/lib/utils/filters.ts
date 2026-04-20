@@ -1,3 +1,7 @@
+import { createModuleLogger } from '$lib/utils/logger';
+
+const logger = createModuleLogger('filters');
+
 export function applyEmojiRemoval(text: string): string {
 	return text.replace(
 		/\p{Extended_Pictographic}(?:[\uFE00-\uFE0F]|[\u{1F3FB}-\u{1F3FF}]|\u{20E3}|\u{200D}\p{Extended_Pictographic}(?:[\uFE00-\uFE0F]|[\u{1F3FB}-\u{1F3FF}]|\u{20E3})?)*/gu,
@@ -220,7 +224,7 @@ export function normalizeMarkdown(message: string): string {
 
 		return content;
 	} catch (err) {
-		console.error('Markdown normalization failed:', err);
+		logger.error('Markdown normalization failed:', err);
 		return message;
 	}
 }

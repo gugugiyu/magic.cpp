@@ -1,4 +1,7 @@
 import { FileExtensionImage, MimeTypeImage } from '$lib/enums';
+import { createModuleLogger } from './logger';
+
+const logger = createModuleLogger('webp-to-png');
 
 /**
  * Convert a WebP base64 data URL to a PNG data URL
@@ -46,7 +49,7 @@ export function webpBase64UrlToPngDataURL(
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			const errorMessage = `Error converting WebP to PNG: ${message}`;
-			console.error(errorMessage, error);
+			logger.error(errorMessage, error);
 			reject(new Error(errorMessage));
 		}
 	});

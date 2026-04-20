@@ -1,5 +1,8 @@
 import { toast } from 'svelte-sonner';
 import { AttachmentType } from '$lib/enums';
+import { createModuleLogger } from './logger';
+
+const logger = createModuleLogger('clipboard');
 import type {
 	DatabaseMessageExtra,
 	DatabaseMessageExtraTextFile,
@@ -53,7 +56,7 @@ export async function copyToClipboard(
 			throw new Error('execCommand failed');
 		}
 	} catch (error) {
-		console.error('Failed to copy to clipboard:', error);
+		logger.error('Failed to copy to clipboard:', error);
 		toast.error(errorMessage);
 		return false;
 	}

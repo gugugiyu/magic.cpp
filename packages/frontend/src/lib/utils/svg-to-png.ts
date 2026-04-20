@@ -1,4 +1,7 @@
 import { MimeTypeImage } from '$lib/enums';
+import { createModuleLogger } from '$lib/utils/logger';
+
+const logger = createModuleLogger('svg');
 
 /**
  * Convert an SVG base64 data URL to a PNG data URL
@@ -46,7 +49,7 @@ export function svgBase64UrlToPngDataURL(
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			const errorMessage = `Error converting SVG to PNG: ${message}`;
-			console.error(errorMessage, error);
+			logger.error(errorMessage, error);
 			reject(new Error(errorMessage));
 		}
 	});

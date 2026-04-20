@@ -27,7 +27,12 @@
 		BookOpen
 	} from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
-	import { agenticStore, type SubagentProgress } from '$lib/stores/agentic.svelte';
+	import {
+		agenticStore,
+		agenticSubagentFinalStats,
+		type SubagentProgress,
+		type SubagentFinalStats
+	} from '$lib/stores/agentic.svelte';
 	import { cn } from '$lib/components/ui/utils';
 	import { AgenticSectionType, FileTypeText } from '$lib/enums';
 	import { formatJsonPretty, applyResponseFilters, copyToClipboard } from '$lib/utils';
@@ -65,6 +70,10 @@
 	const subagentProgress = $derived(
 		agenticStore.subagentProgress(message.convId)
 	) satisfies SubagentProgress | null;
+
+	const subagentFinalStats = $derived(
+		agenticSubagentFinalStats(message.convId)
+	) satisfies SubagentFinalStats | null;
 
 	const showToolCallInProgress = $derived(config().showToolCallInProgress as boolean);
 	const showThoughtInProgress = $derived(config().showThoughtInProgress as boolean);
@@ -540,30 +549,46 @@
 				{/if}
 			</button>
 
-			{#if isPending && section.toolName === 'call_subagent' && subagentProgress}
+			{#if section.toolName === 'call_subagent' && (subagentProgress || subagentFinalStats)}
+				{@const activeProgress = subagentProgress}
+				{@const activeFinal = subagentFinalStats}
+				{@const displayTotal = (activeProgress?.usage?.total ?? activeFinal?.totalTokens)}
+				{@const displayToolCalls = (activeProgress?.toolCallsCount ?? activeFinal?.toolCallsCount)}
 				<div class="subagent-steps">
-					{#if subagentProgress.originSkill}
+					{#if activeProgress?.originSkill}
 						<div class="subagent-step">
 							<Badge variant="outline" class="text-[10px]">
-								Triggered by skill: {subagentProgress.originSkill}
+								Triggered by skill: {activeProgress.originSkill}
 							</Badge>
 						</div>
 					{/if}
-					{#each subagentProgress.steps as step, i (i)}
-						<div class="subagent-step">
-							{#if step.status === 'calling'}
-								<Loader2 class="h-3 w-3 shrink-0 animate-spin" />
-							{:else}
-								<Bot class="h-3 w-3 shrink-0" />
+					{#if activeProgress?.steps?.length}
+						{#each activeProgress.steps as step, i (i)}
+							<div class="subagent-step">
+								{#if step.status === 'calling'}
+									<Loader2 class="h-3 w-3 shrink-0 animate-spin" />
+								{:else}
+									<Bot class="h-3 w-3 shrink-0" />
+								{/if}
+								<span class="text-xs text-muted-foreground">
+									<span class="font-mono">{activeProgress.modelName}</span> →
+									<span class="agentic-name">{step.toolName}</span>(){step.status === 'calling'
+										? '…'
+										: ''}
+								</span>
+							</div>
+						{/each}
+					{/if}
+					{#if displayTotal || displayToolCalls}
+						<div class="subagent-stats">
+							{#if displayTotal}
+								<span>{displayTotal.toLocaleString()} tokens</span>
 							{/if}
-							<span class="text-xs text-muted-foreground">
-								<span class="font-mono">{subagentProgress.modelName}</span> →
-								<span class="agentic-name">{step.toolName}</span>(){step.status === 'calling'
-									? '…'
-									: ''}
-							</span>
+							{#if displayToolCalls}
+								<span>• {displayToolCalls} tool calls</span>
+							{/if}
 						</div>
-					{/each}
+					{/if}
 				</div>
 			{/if}
 
@@ -895,6 +920,16 @@
 		align-items: center;
 		gap: 0.375rem;
 		color: var(--muted-foreground);
+	}
+
+	.subagent-stats {
+		display: flex;
+		gap: 0.5rem;
+		margin-left: 1.5rem;
+		margin-top: 0.25rem;
+		font-size: 10px;
+		color: var(--muted-foreground);
+		opacity: 0.6;
 	}
 
 	@keyframes thinking-pulse {

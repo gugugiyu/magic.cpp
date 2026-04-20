@@ -103,6 +103,19 @@ export interface SubagentProgress {
 	steps: SubagentStep[];
 	/** The skill name that triggered this subagent invocation, if applicable. */
 	originSkill?: string;
+	/** Running totals accumulated during subagent execution. */
+	usage?: {
+		total: number;
+		prompt: number;
+		completion: number;
+	};
+	toolCallsCount?: number;
+}
+
+/** Final stats for a completed subagent, persisted after progress is cleared. */
+export interface SubagentFinalStats {
+	totalTokens?: number;
+	toolCallsCount?: number;
 }
 
 // Built-in tool definitions imported from $lib/constants/prompts
@@ -156,10 +169,12 @@ function toAgenticMessages(messages: ApiChatMessageData[]): AgenticMessage[] {
 class AgenticStore {
 	private _sessions = $state<Map<string, AgenticSession>>(new Map());
 	private _subagentProgress = $state<Record<string, SubagentProgress | null>>({});
+	/** Persisted final stats shown in UI after subagent completes. */
+	private _subagentFinalStats = $state<Record<string, SubagentFinalStats | null>>({});
 	/** Tracks startedAt timestamps for sequential_thinking tool calls by tool call ID. */
 	private _sequentialThinkingStartedAt = $state<Map<string, number>>(new Map());
 	/** Tracks the last skill name read via read_skill, for associating with subsequent call_subagent. */
-	private _lastReadSkill = $state<string | null>(null);
+	private _lastReadSkill = $state<Map<string, string>>(new Map());
 
 	get isReady(): boolean {
 		return true;
@@ -225,13 +240,13 @@ class AgenticStore {
 	}
 
 	/** Get the last skill name read via read_skill, for associating with subsequent call_subagent. */
-	getLastReadSkill(): string | null {
-		return this._lastReadSkill;
+	getLastReadSkill(conversationId: string): string | undefined {
+		return this._lastReadSkill.get(conversationId);
 	}
 
 	/** Clear the last read skill tracking. */
-	clearLastReadSkill(): void {
-		this._lastReadSkill = null;
+	clearLastReadSkill(conversationId: string): void {
+		this._lastReadSkill.delete(conversationId);
 	}
 
 	clearError(conversationId: string): void {
@@ -273,6 +288,10 @@ class AgenticStore {
 			...this._subagentProgress,
 			[conversationId]: { ...current, steps }
 		};
+	}
+
+	subagentFinalStats(conversationId: string): SubagentFinalStats | null {
+		return this._subagentFinalStats[conversationId] ?? null;
 	}
 
 	private getBuiltinTools(settings: SettingsConfigType): OpenAIToolDefinition[] {
@@ -1056,14 +1075,14 @@ class AgenticStore {
 
 				const modelDisplayName = subagentModelId.split('/').pop() ?? subagentModelId;
 				// Associate with the last read skill if called shortly after
-				const originSkill = this._lastReadSkill ?? undefined;
+				const originSkill = this._lastReadSkill.get(conversationId) ?? undefined;
 				this.setSubagentProgress(conversationId, {
 					modelName: modelDisplayName,
 					steps: [],
 					originSkill
 				});
 				// Clear after associating
-				this._lastReadSkill = null;
+				this._lastReadSkill.delete(conversationId);
 
 				// Running message history for the subagent loop (OpenAI wire format)
 				const loopMessages: Record<string, unknown>[] = [];
@@ -1081,6 +1100,12 @@ class AgenticStore {
 				loopMessages.push({ role: 'user', content: prompt });
 
 				const SUBAGENT_MAX_TURNS = 10;
+
+				// Token and tool-call accumulators for the subagent session
+				let totalTokens = 0;
+				let promptTokens = 0;
+				let completionTokens = 0;
+				let toolCallsCount = 0;
 
 				try {
 					for (let subTurn = 0; subTurn < SUBAGENT_MAX_TURNS; subTurn++) {
@@ -1122,7 +1147,19 @@ class AgenticStore {
 								};
 								finish_reason?: string;
 							}[];
+							usage?: {
+								prompt_tokens?: number;
+								completion_tokens?: number;
+								total_tokens?: number;
+							};
 						};
+
+						// Accumulate usage stats
+						if (data.usage) {
+							promptTokens += data.usage.prompt_tokens ?? 0;
+							completionTokens += data.usage.completion_tokens ?? 0;
+							totalTokens += data.usage.total_tokens ?? 0;
+						}
 
 						const choice = data.choices?.[0];
 						if (!choice) {
@@ -1149,6 +1186,20 @@ class AgenticStore {
 								const tcId = tc.id ?? `call_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
 								this.addSubagentStep(conversationId, { toolName: tcName, status: 'calling' });
+
+								// Increment tool-call counter and update running stats
+								toolCallsCount++;
+								const currentProgress = this._subagentProgress[conversationId];
+								if (currentProgress) {
+									this._subagentProgress = {
+										...this._subagentProgress,
+										[conversationId]: {
+											...currentProgress,
+											toolCallsCount,
+											usage: { total: totalTokens, prompt: promptTokens, completion: completionTokens }
+										}
+									};
+								}
 
 								let toolResult: string;
 								try {
@@ -1191,17 +1242,30 @@ class AgenticStore {
 											.join('') ?? '');
 
 							this.setSubagentProgress(conversationId, null);
+							// Persist final stats so UI can show them after progress is cleared
+							this._subagentFinalStats = {
+								...this._subagentFinalStats,
+								[conversationId]: { totalTokens, toolCallsCount }
+							};
 							return JSON.stringify({ result: resultContent });
 						}
 					}
 
 					// Max sub-turns exhausted
 					this.setSubagentProgress(conversationId, null);
+					this._subagentFinalStats = {
+						...this._subagentFinalStats,
+						[conversationId]: { totalTokens, toolCallsCount }
+					};
 					return JSON.stringify({
 						error: 'Subagent reached maximum turn limit without producing a final answer'
 					});
 				} catch (error) {
 					this.setSubagentProgress(conversationId, null);
+					this._subagentFinalStats = {
+						...this._subagentFinalStats,
+						[conversationId]: { totalTokens, toolCallsCount }
+					};
 					if (isAbortError(error)) throw error;
 					const message = error instanceof Error ? error.message : String(error);
 					return JSON.stringify({ error: `Subagent request failed: ${message}` });
@@ -1233,7 +1297,7 @@ class AgenticStore {
 					return JSON.stringify({ error: `Skill "${name}" not found or not enabled.` });
 				}
 				// Track this skill was read, for potential association with next call_subagent
-				this._lastReadSkill = name;
+				this._lastReadSkill.set(conversationId, name);
 				return JSON.stringify({ name, content });
 			}
 
@@ -1248,9 +1312,11 @@ class AgenticStore {
 	): ChatMessageTimings | undefined {
 		if (agenticTimings.toolCallsCount === 0) return capturedTimings;
 		return {
-			predicted_n: capturedTimings?.predicted_n,
+			// Use cumulative token counts from agenticTimings.llm for total context bar display
+			predicted_n: agenticTimings.llm.predicted_n,
+			prompt_n: agenticTimings.llm.prompt_n,
+			// Keep last-turn timing so predicted_per_n (tokens/sec) reflects current turn speed
 			predicted_ms: capturedTimings?.predicted_ms,
-			prompt_n: capturedTimings?.prompt_n,
 			prompt_ms: capturedTimings?.prompt_ms,
 			cache_n: capturedTimings?.cache_n,
 			agentic: agenticTimings
@@ -1346,6 +1412,10 @@ export function agenticStreamingToolCall(conversationId: string) {
 
 export function agenticSubagentProgress(conversationId: string) {
 	return agenticStore.subagentProgress(conversationId);
+}
+
+export function agenticSubagentFinalStats(conversationId: string): SubagentFinalStats | null {
+	return agenticStore.subagentFinalStats(conversationId);
 }
 
 export function agenticIsAnyRunning() {

@@ -1630,7 +1630,10 @@ class ChatStore {
 	}
 
 	restoreProcessingStateFromMessages(messages: DatabaseMessage[], conversationId: string): void {
-		for (let i = messages.length - 1; i >= 0; i--) {
+		// Iterate from first message to last (chronological order) to find the first assistant
+		// message with timings. onFlowComplete writes cumulative timings to the FIRST assistant
+		// message, so we must read from the first one, not the last.
+		for (let i = 0; i < messages.length; i++) {
 			const message = messages[i];
 			if (message.role === MessageRole.ASSISTANT && message.timings) {
 				const restoredState = this.parseTimingData({

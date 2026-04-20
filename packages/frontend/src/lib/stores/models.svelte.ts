@@ -70,7 +70,7 @@ class ModelsStore {
 		ttlMs: MODEL_PROPS_CACHE_TTL_MS,
 		maxEntries: MODEL_PROPS_CACHE_MAX_ENTRIES
 	});
-	private modelPropsFetching = $state<Set<string>>(new Set());
+	private modelPropsFetching = $state<SvelteSet<string>>(new SvelteSet());
 
 	/**
 	 * Version counter for props cache - used to trigger reactivity when props are updated
@@ -587,6 +587,8 @@ class ModelsStore {
 
 	/** Polling interval in ms for checking model status */
 	private static readonly STATUS_POLL_INTERVAL = 500;
+	/** Maximum polling attempts before timing out (60s at 500ms interval = 120 attempts) */
+	private static readonly MAX_POLL_ATTEMPTS = 120;
 
 	/**
 	 * Poll for expected model status after load/unload operation.
@@ -624,6 +626,11 @@ class ModelsStore {
 			}
 
 			attempt++;
+			if (attempt >= ModelsStore.MAX_POLL_ATTEMPTS) {
+				throw new Error(
+					`Timed out waiting for model to ${expectedStatus === ServerModelStatus.LOADED ? 'load' : 'unload'} after ${attempt} attempts`
+				);
+			}
 			await new Promise((resolve) => setTimeout(resolve, ModelsStore.STATUS_POLL_INTERVAL));
 		}
 	}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { ChatFormHelperText, ChatForm } from '$lib/components/app';
+	import { modelsStore } from '$lib/stores/models.svelte';
 	import { skillsStore } from '$lib/stores/skills.svelte';
 	import { parseSkillInvocation, extractSkillContent, substituteSkillArguments } from '$lib/utils';
 	import { onMount } from 'svelte';
@@ -123,7 +124,7 @@
 		bind:value={message}
 		bind:uploadedFiles
 		class={className}
-		{disabled}
+		disabled={disabled || modelsStore.models.length === 0}
 		{isLoading}
 		showMcpPromptButton
 		onFilesAdd={handleFilesAdd}

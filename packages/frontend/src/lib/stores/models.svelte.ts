@@ -53,6 +53,8 @@ class ModelsStore {
 	loading = $state(false);
 	updating = $state(false);
 	error = $state<string | null>(null);
+	/** Whether we have attempted to fetch models at least once (success or failure) */
+	hasAttemptedFetch = $state(false);
 	selectedModelId = $state<string | null>(null);
 	selectedModelName = $state<string | null>(null);
 
@@ -275,6 +277,7 @@ class ModelsStore {
 
 		this.loading = true;
 		this.error = null;
+		this.hasAttemptedFetch = true;
 
 		try {
 			if (!serverStore.props) {
@@ -787,6 +790,7 @@ class ModelsStore {
 		this.loading = false;
 		this.updating = false;
 		this.error = null;
+		this.hasAttemptedFetch = false;
 		this.selectedModelId = null;
 		this.selectedModelName = null;
 		this.saveSelectedModelToStorage(null);
@@ -812,6 +816,7 @@ export const routerModels = () => modelsStore.routerModels;
 export const modelsLoading = () => modelsStore.loading;
 export const modelsUpdating = () => modelsStore.updating;
 export const modelsError = () => modelsStore.error;
+export const hasAttemptedFetch = () => modelsStore.hasAttemptedFetch;
 export const selectedModelId = () => modelsStore.selectedModelId;
 export const selectedModelName = () => modelsStore.selectedModelName;
 export const selectedModelOption = () => modelsStore.selectedModel;

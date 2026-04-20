@@ -3,7 +3,7 @@
 	import * as Table from '$lib/components/ui/table';
 	import { BadgeModality, ActionIconCopyToClipboard } from '$lib/components/app';
 	import { serverStore } from '$lib/stores/server.svelte';
-	import { modelsStore, modelOptions, modelsLoading } from '$lib/stores/models.svelte';
+	import { modelsStore, modelOptions, modelsLoading, hasAttemptedFetch } from '$lib/stores/models.svelte';
 	import { formatFileSize, formatParameters, formatNumber } from '$lib/utils';
 	import type { ApiLlamaCppServerProps } from '$lib/types';
 
@@ -51,7 +51,7 @@
 
 	// Ensure models are fetched when dialog opens
 	$effect(() => {
-		if (open && models.length === 0) {
+		if (open && models.length === 0 && !isLoadingModels && !hasAttemptedFetch()) {
 			modelsStore.fetch();
 		}
 	});

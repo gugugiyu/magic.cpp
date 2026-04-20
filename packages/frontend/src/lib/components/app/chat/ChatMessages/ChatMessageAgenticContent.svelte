@@ -24,7 +24,8 @@
 		Scissors,
 		Sparkles,
 		Search,
-		BookOpen
+		BookOpen,
+		FileText
 	} from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import {
@@ -552,8 +553,8 @@
 			{#if section.toolName === 'call_subagent' && (subagentProgress || subagentFinalStats)}
 				{@const activeProgress = subagentProgress}
 				{@const activeFinal = subagentFinalStats}
-				{@const displayTotal = (activeProgress?.usage?.total ?? activeFinal?.totalTokens)}
-				{@const displayToolCalls = (activeProgress?.toolCallsCount ?? activeFinal?.toolCallsCount)}
+				{@const displayTotal = activeProgress?.usage?.total ?? activeFinal?.totalTokens}
+				{@const displayToolCalls = activeProgress?.toolCallsCount ?? activeFinal?.toolCallsCount}
 				<div class="subagent-steps">
 					{#if activeProgress?.originSkill}
 						<div class="subagent-step">
@@ -581,12 +582,15 @@
 					{/if}
 					{#if displayTotal || displayToolCalls}
 						<div class="subagent-stats">
-							{#if displayTotal}
-								<span>{displayTotal.toLocaleString()} tokens</span>
-							{/if}
-							{#if displayToolCalls}
-								<span>• {displayToolCalls} tool calls</span>
-							{/if}
+							<div class="subagent-step">
+								<FileText class="h-3 w-3 shrink-0" />
+								{#if displayTotal}
+									<span>{displayTotal.toLocaleString()} tokens</span>
+								{/if}
+								{#if displayToolCalls}
+									<span>• {displayToolCalls} tool calls</span>
+								{/if}
+							</div>
 						</div>
 					{/if}
 				</div>

@@ -218,9 +218,13 @@ export function buildOpinionatedSystemPrompt(opts: OpinionatedPromptOptions): st
 		? `\n\n## Delegation\nOffload atomic, self-contained subtasks to \`call_subagent\`. The subagent has no access to this conversation — every prompt must be fully self-contained with all required context.`
 		: '';
 
+	const parallelSection = allToolNames.length > 1
+		? `\n\n## Parallel Tool Calls\nMultiple tool calls per response are supported. For independent tasks (e.g. parallel web searches, fetching multiple resources, calling unrelated tools simultaneously), issue all tool calls in a single response turn to maximize efficiency. Only serialize calls when a later call depends on the result of an earlier one.`
+		: '';
+
 	return `You are a capable AI assistant.${toolSection}
 ## Working Style
-Prefer interleaved thinking: reason briefly → call a tool → write one short sentence updating the user on what you found or what you are doing next → call the next tool. Avoid front-loading all reasoning before acting.${planSection}${delegateSection}
+Prefer interleaved thinking: reason briefly → call a tool → write one short sentence updating the user on what you found or what you are doing next → call the next tool. Avoid front-loading all reasoning before acting.${planSection}${delegateSection}${parallelSection}
 ## Temporal awareness protocol
 When user uses temporal-related trigger words like 'online', 'latest', 'newest', 'modern',... You must fetch the latest time BEFORE continuing with other actions, this ensures your temporal awareness is freshed and unbiased when retrieving contemporary contents.
 ## Example Workflow

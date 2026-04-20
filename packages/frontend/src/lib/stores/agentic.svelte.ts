@@ -122,6 +122,22 @@ export interface SubagentFinalStats {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const MCP_TOOL_EXECUTION_TIMEOUT_MS = 120_000;
+
+function withMcpToolTimeout<T>(promise: Promise<T>, toolName: string): Promise<T> {
+	let timerId: ReturnType<typeof setTimeout> | undefined;
+	const timeoutPromise = new Promise<never>((_, reject) => {
+		timerId = setTimeout(
+			() =>
+				reject(
+					new Error(`Tool "${toolName}" timed out after ${MCP_TOOL_EXECUTION_TIMEOUT_MS}ms`)
+				),
+			MCP_TOOL_EXECUTION_TIMEOUT_MS
+		);
+	});
+	return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timerId));
+}
+
 function createDefaultSession(): AgenticSession {
 	return {
 		isRunning: false,
@@ -740,68 +756,93 @@ class AgenticStore {
 				tool_calls: normalizedCalls
 			});
 
-			// Execute each tool call and create result messages
-			for (const toolCall of normalizedCalls) {
-				if (signal?.aborted) {
+			// Phase 1: Execute all tool calls in parallel
+			type ToolCallOutcome = {
+				toolCall: (typeof normalizedCalls)[number];
+				result: string;
+				success: boolean;
+				durationMs: number;
+			};
+
+			if (signal?.aborted) {
+				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+				return;
+			}
+
+			let toolOutcomes: ToolCallOutcome[];
+			try {
+				toolOutcomes = await Promise.all(
+					normalizedCalls.map(async (toolCall): Promise<ToolCallOutcome> => {
+						const toolStartTime = performance.now();
+						const mcpCall: MCPToolCall = {
+							id: toolCall.id,
+							function: {
+								name: toolCall.function.name,
+								arguments: toolCall.function.arguments
+							}
+						};
+						let result: string;
+						let success = true;
+						try {
+							if (builtinToolNames.has(mcpCall.function.name)) {
+								result = await this.executeBuiltinTool(
+									mcpCall.function.name,
+									typeof mcpCall.function.arguments === 'string'
+										? mcpCall.function.arguments
+										: JSON.stringify(mcpCall.function.arguments),
+									conversationId,
+									firstAssistantMessageId,
+									tools,
+									signal,
+									mcpCall.id
+								);
+								if (result.startsWith('Error:')) success = false;
+							} else {
+								const executionResult = await withMcpToolTimeout(
+									mcpStore.executeTool(mcpCall, signal),
+									mcpCall.function.name
+								);
+								result = executionResult.content;
+							}
+						} catch (error) {
+							if (isAbortError(error)) throw error;
+							result = `Error: ${error instanceof Error ? error.message : String(error)}`;
+							success = false;
+						}
+						return {
+							toolCall,
+							result,
+							success,
+							durationMs: Math.round(performance.now() - toolStartTime)
+						};
+					})
+				);
+			} catch (error) {
+				if (isAbortError(error)) {
 					onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
 					return;
 				}
+				throw error;
+			}
 
-				const toolStartTime = performance.now();
-				const mcpCall: MCPToolCall = {
-					id: toolCall.id,
-					function: {
-						name: toolCall.function.name,
-						arguments: toolCall.function.arguments
-					}
-				};
+			if (signal?.aborted) {
+				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+				return;
+			}
 
-				let result: string;
-				let toolSuccess = true;
-
-				try {
-					if (builtinToolNames.has(mcpCall.function.name)) {
-						result = await this.executeBuiltinTool(
-							mcpCall.function.name,
-							typeof mcpCall.function.arguments === 'string'
-								? mcpCall.function.arguments
-								: JSON.stringify(mcpCall.function.arguments),
-							conversationId,
-							firstAssistantMessageId,
-							tools,
-							signal,
-							mcpCall.id
-						);
-					} else {
-						const executionResult = await mcpStore.executeTool(mcpCall, signal);
-						result = executionResult.content;
-					}
-				} catch (error) {
-					if (isAbortError(error)) {
-						onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
-						return;
-					}
-					result = `Error: ${error instanceof Error ? error.message : String(error)}`;
-					toolSuccess = false;
-				}
-
-				const toolDurationMs = performance.now() - toolStartTime;
+			// Phase 2: Process results sequentially (DB writes and session ordering must be serial)
+			for (const { toolCall, result, success: toolSuccess, durationMs } of toolOutcomes) {
 				const toolTiming: ChatMessageToolCallTiming = {
 					name: toolCall.function.name,
-					duration_ms: Math.round(toolDurationMs),
+					duration_ms: durationMs,
 					success: toolSuccess
 				};
 
 				agenticTimings.toolCalls!.push(toolTiming);
 				agenticTimings.toolCallsCount++;
-				agenticTimings.toolsMs += Math.round(toolDurationMs);
+				agenticTimings.toolsMs += durationMs;
 				turnStats.toolCalls.push(toolTiming);
-				turnStats.toolsMs += Math.round(toolDurationMs);
-
-				if (signal?.aborted) {
-					onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
-					return;
-				}
+				turnStats.toolsMs += durationMs;
 
 				const { cleanedResult: rawCleanedResult, attachments } =
 					this.extractBase64Attachments(result);
@@ -1196,7 +1237,11 @@ class AgenticStore {
 										[conversationId]: {
 											...currentProgress,
 											toolCallsCount,
-											usage: { total: totalTokens, prompt: promptTokens, completion: completionTokens }
+											usage: {
+												total: totalTokens,
+												prompt: promptTokens,
+												completion: completionTokens
+											}
 										}
 									};
 								}
@@ -1325,14 +1370,16 @@ class AgenticStore {
 
 	private normalizeToolCalls(toolCalls: ApiChatCompletionToolCall[]): AgenticToolCallList {
 		if (!toolCalls) return [];
-		return toolCalls.map((call, index) => ({
-			id: call?.id ?? `tool_${index}`,
-			type: (call?.type as ToolCallType.FUNCTION) ?? ToolCallType.FUNCTION,
-			function: {
-				name: call?.function?.name ?? '',
-				arguments: call?.function?.arguments ?? ''
-			}
-		}));
+		return toolCalls
+			.map((call, index) => ({
+				id: call?.id ?? `tool_${index}`,
+				type: (call?.type as ToolCallType.FUNCTION) ?? ToolCallType.FUNCTION,
+				function: {
+					name: call?.function?.name ?? '',
+					arguments: call?.function?.arguments ?? ''
+				}
+			}))
+			.filter((call) => call.function.name.trim() !== '');
 	}
 
 	private extractBase64Attachments(result: string): {

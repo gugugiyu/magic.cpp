@@ -1,21 +1,38 @@
-FROM oven/bun:alpine
-
+# ---- Stage 1: Builder ----
+FROM oven/bun:alpine AS builder
 WORKDIR /app
-ENV NODE_ENV=production
 
-# copy workspace root
-COPY package.json ./
+# 1. Copy root config AND the lockfile (Crucial for consistent builds)
+COPY package.json bun.lock ./
+COPY packages/backend/package.json ./packages/backend/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/frontend/package.json ./packages/frontend/
 
-# copy packages
+# 2. Install ALL dependencies
+# Running this at the root ensures workspaces are linked correctly
+RUN bun install
+
+# 3. Copy source code
 COPY packages ./packages
 
-# install deps for entire workspace
-RUN bun install --workspaces --production \
- && rm -rf /root/.bun/install/cache
+# 4. Build Frontend (Vite)
+# Run from ROOT using the filter; this ensures Bun finds the vite binary in the root node_modules
+RUN bun run --filter webui build
 
-# run backend
+# 5. Build Backend
 WORKDIR /app/packages/backend
+RUN bun build src/index.ts --outdir dist --target=bun --bundle
+
+# ---- Stage 2: Runtime ----
+FROM oven/bun:distroless
+WORKDIR /app
+
+# Only copy the essential artifacts
+COPY --from=builder /app/packages/backend/dist/index.js ./packages/backend/src/index.js
+COPY --from=builder /app/packages/public ./packages/public
+COPY packages/backend/config.json ./packages/backend/config.json 
 
 EXPOSE 3000
 
-CMD ["bun", "run", "src/index.ts"]
+# Use 'bun' directly for the entrypoint in distroless
+ENTRYPOINT ["bun", "packages/backend/src/index.js"]

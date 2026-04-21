@@ -214,23 +214,42 @@ function _notify(): void {
 
 /**
  * Subscribe to pending request changes. Fires immediately with the current
- * value, then again whenever a request is added or resolved.
+ * first pending request, then again whenever a request is added or resolved.
  * Returns an unsubscribe function suitable for Svelte $effect cleanup.
  */
 export function subscribePendingRequest(fn: PendingListener): () => void {
-	fn(getPendingRequest());
+	try {
+		fn(getPendingRequest());
+	} catch (error) {
+		console.warn('[McpSummarizeHarness] subscribePendingRequest initial callback error:', error);
+	}
 	_listeners.add(fn);
 	return () => _listeners.delete(fn);
 }
 
 /**
- * Get the current pending summarize request (if any)
+ * Get the current pending summarize request (if any) — returns the earliest
+ * pending request (FIFO). Use getAllPendingRequests() for the full queue.
  */
 export function getPendingRequest(): PendingSummarizeRequest | null {
 	for (const request of pendingRequests.values()) {
 		return request;
 	}
 	return null;
+}
+
+/**
+ * Get all pending requests in order (earliest first).
+ */
+export function getAllPendingRequests(): PendingSummarizeRequest[] {
+	return Array.from(pendingRequests.values());
+}
+
+/**
+ * Get the number of pending requests.
+ */
+export function getPendingCount(): number {
+	return pendingRequests.size;
 }
 
 /**
@@ -243,11 +262,14 @@ export function getPendingRequest(): PendingSummarizeRequest | null {
  */
 export function resolveRequest(id: string, result: false | 'cancel' | string): void {
 	const request = pendingRequests.get(id);
-	if (request) {
+	if (!request) return;
+	try {
 		request.resolve(result);
-		pendingRequests.delete(id);
-		_notify();
+	} catch (error) {
+		console.warn('[McpSummarizeHarness] resolveRequest: resolver threw:', error);
 	}
+	pendingRequests.delete(id);
+	_notify();
 }
 
 /**
@@ -322,7 +344,11 @@ export async function processToolOutput(
 						settled = true;
 						pendingRequests.delete(id);
 						_notify();
-						resolve(false);
+						try {
+							resolve(false);
+						} catch (error) {
+							console.warn('[McpSummarizeHarness] abort handler: resolve threw:', error);
+						}
 					}
 				},
 				{ once: true }

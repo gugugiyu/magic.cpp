@@ -240,6 +240,18 @@
 		}
 	}
 
+	/** Safely extract the skill name from a read_skill section's toolArgs string. */
+	function parseReadSkillName(section: (typeof sectionsParsed)[number]): string {
+		if (!section.toolArgs) return '';
+		try {
+			const raw =
+				typeof section.toolArgs === 'string' ? JSON.parse(section.toolArgs) : section.toolArgs;
+			return String(raw?.name ?? '');
+		} catch {
+			return '';
+		}
+	}
+
 	/**
 	 * Check if this section is the first sequential_thinking section across ALL sections (global, not per-turn).
 	 * Used to determine where to render the single header-only stepper.
@@ -533,12 +545,10 @@
 								: 'Model found skills'}
 					{:else if isReadSkill}
 						{#if isPending}
-							Model now reading skill {section.toolArgs
-								? JSON.parse(section.toolArgs).name || ''
-								: ''}...
+							Model now reading skill {parseReadSkillName(section)}...
 						{:else}
 							{hasError ? 'Error reading skill' : 'Model read skill'}
-							{section.toolArgs ? JSON.parse(section.toolArgs).name || '' : ''}
+							{parseReadSkillName(section)}
 						{/if}
 					{:else}
 						{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}

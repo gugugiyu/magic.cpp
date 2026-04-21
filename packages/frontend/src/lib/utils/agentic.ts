@@ -88,7 +88,7 @@ function deriveSingleTurnSections(
 		sections.push({
 			type: resultMsg ? AgenticSectionType.TOOL_CALL : AgenticSectionType.TOOL_CALL_PENDING,
 			content: resultMsg?.content || '',
-			toolName: tc.function?.name,
+			toolName: tc.function?.name?.trim() || undefined,
 			toolArgs: tc.function?.arguments,
 			toolResult: resultMsg?.content,
 			toolResultExtras: resultMsg?.extra,
@@ -105,7 +105,7 @@ function deriveSingleTurnSections(
 		sections.push({
 			type: AgenticSectionType.TOOL_CALL_STREAMING,
 			content: '',
-			toolName: tc.function?.name,
+			toolName: tc.function?.name?.trim() || undefined,
 			toolArgs: tc.function?.arguments,
 			sourceMessageId: message.id
 		});

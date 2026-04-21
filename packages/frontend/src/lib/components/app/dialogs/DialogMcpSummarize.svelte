@@ -3,6 +3,7 @@
 	import {
 		subscribePendingRequest,
 		resolveRequest,
+		getAllPendingRequests,
 		summarizeToolOutput,
 		type PendingSummarizeRequest
 	} from '$lib/services/mcp-summarize-harness';
@@ -11,11 +12,13 @@
 	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 	import { getChatSettingsDialogContext } from '$lib/contexts/chat-settings-dialog.context';
 	import { SETTINGS_SECTION_TITLES } from '$lib/constants';
+	import { untrack } from 'svelte';
 
-	let pendingRequest = $state<PendingSummarizeRequest | null>(null);
+	let pendingRequests = $state<PendingSummarizeRequest[]>([]);
 	let isSummarizing = $state(false);
 	let showFullPreview = $state(false);
 	let countdown = $state(0);
+	let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
 	let settings = $derived(config());
 	let threshold = $derived(
@@ -33,51 +36,81 @@
 		// context not available outside chat route
 	}
 
+	let currentRequest = $derived(pendingRequests[0] ?? null);
+	let pendingCount = $derived(pendingRequests.length);
+	let hasMorePending = $derived(pendingRequests.length > 1);
+
 	$effect(() => {
 		return subscribePendingRequest((req) => {
-			pendingRequest = req;
-			// Reset state when a new request arrives
-			if (req) {
-				isSummarizing = false;
-				showFullPreview = false;
-			}
+			untrack(() => {
+				if (req) {
+					const existingIds = new Set(pendingRequests.map((r) => r.id));
+					if (!existingIds.has(req.id)) {
+						pendingRequests = [...pendingRequests, req];
+					}
+				} else {
+					pendingRequests = getAllPendingRequests();
+				}
+			});
 		});
 	});
 
 	$effect(() => {
-		if (!pendingRequest || autoTimeoutSeconds <= 0) {
+		if (!currentRequest || autoTimeoutSeconds <= 0) {
 			countdown = 0;
+			if (countdownTimer) {
+				clearInterval(countdownTimer);
+				countdownTimer = null;
+			}
 			return;
 		}
+		if (countdownTimer) return;
 		countdown = autoTimeoutSeconds;
-		const timer = setInterval(() => {
+		countdownTimer = setInterval(() => {
 			if (isSummarizing) return;
 			countdown -= 1;
 			if (countdown <= 0) {
-				clearInterval(timer);
+				if (countdownTimer) {
+					clearInterval(countdownTimer);
+					countdownTimer = null;
+				}
 				handleKeepRaw();
 			}
 		}, 1000);
 		return () => {
-			clearInterval(timer);
+			if (countdownTimer) {
+				clearInterval(countdownTimer);
+				countdownTimer = null;
+			}
 		};
 	});
 
 	function handleKeepRaw() {
-		if (pendingRequest) {
-			resolveRequest(pendingRequest.id, false);
+		if (currentRequest) {
+			const req = currentRequest;
+			pendingRequests = pendingRequests.filter((r) => r.id !== req.id);
+			resolveRequest(req.id, false);
 		}
 	}
 
 	async function handleSummarize() {
-		const req = pendingRequest;
+		const req = currentRequest;
 		if (!req) return;
 		isSummarizing = true;
 		try {
 			const summary = await summarizeToolOutput(req.rawOutput);
+			pendingRequests = pendingRequests.filter((r) => r.id !== req.id);
 			resolveRequest(req.id, summary ?? false);
 		} finally {
 			isSummarizing = false;
+		}
+	}
+
+	function handleDialogOpenChange(open: boolean) {
+		if (!open && currentRequest) {
+			const req = currentRequest;
+			pendingRequests = pendingRequests.filter((r) => r.id !== req.id);
+			resolveRequest(req.id, false);
 		}
 	}
 
@@ -99,15 +132,15 @@
 	}
 
 	let hasMore = $derived.by(() => {
-		if (!pendingRequest) return false;
-		const lines = pendingRequest.rawOutput.split('\n');
+		if (!currentRequest) return false;
+		const lines = currentRequest.rawOutput.split('\n');
 		const preview = lines.slice(0, PREVIEW_LINES).join('\n');
 		return lines.length > PREVIEW_LINES || preview.length > PREVIEW_CHARS;
 	});
 </script>
 
-{#if pendingRequest}
-	<Dialog.Root open onOpenChange={() => {}}>
+{#if currentRequest}
+	<Dialog.Root open={!!currentRequest} onOpenChange={handleDialogOpenChange}>
 		<Dialog.Overlay class="fixed inset-0 z-50 bg-black/30" />
 		<Dialog.Content
 			class="fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg"
@@ -116,10 +149,15 @@
 				<Dialog.Title class="text-lg font-semibold">Long tool output detected</Dialog.Title>
 				<Dialog.Description class="text-sm text-muted-foreground">
 					<span class="font-mono text-xs font-medium text-foreground"
-						>{pendingRequest.toolName}</span
+						>{currentRequest.toolName || 'unknown tool'}</span
 					>
-					returned {wordCountLabel(pendingRequest.lineCount)} (soft threshold: {threshold} lines, hard
-					cap: {pendingRequest.hardCap >= 0 ? pendingRequest.hardCap : 'disabled'} lines).
+					returned {wordCountLabel(currentRequest.lineCount)} (soft threshold: {threshold} lines, hard
+					cap: {currentRequest.hardCap >= 0 ? currentRequest.hardCap : 'disabled'} lines).
+					{#if hasMorePending}
+						<span class="ml-1 text-amber-600 dark:text-amber-400">
+							({pendingCount - 1} more pending)
+						</span>
+					{/if}
 				</Dialog.Description>
 			</div>
 
@@ -129,8 +167,8 @@
 					class="font-mono text-xs break-words whitespace-pre-wrap text-muted-foreground {showFullPreview
 						? 'max-h-64 overflow-y-auto'
 						: ''}">{showFullPreview
-						? pendingRequest.rawOutput
-						: previewSnippet(pendingRequest.rawOutput)}</pre>
+						? currentRequest.rawOutput
+						: previewSnippet(currentRequest.rawOutput)}</pre>
 				{#if hasMore}
 					<button
 						type="button"

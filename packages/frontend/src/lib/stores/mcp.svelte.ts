@@ -669,6 +669,7 @@ class MCPStore {
 				this.connections.set(name, connection);
 
 				for (const tool of connection.tools) {
+					if (!tool.name?.trim()) continue;
 					if (this.toolsIndex.has(tool.name))
 						console.warn(
 							`[MCPStore] Tool name conflict: "${tool.name}" exists in "${this.toolsIndex.get(tool.name)}" and "${name}". Using tool from "${name}".`
@@ -739,6 +740,7 @@ class MCPStore {
 		connection.tools = tools;
 
 		for (const tool of tools) {
+			if (!tool.name?.trim()) continue;
 			if (this.toolsIndex.has(tool.name))
 				console.warn(
 					`[MCPStore] Tool name conflict after list change: "${tool.name}" exists in "${this.toolsIndex.get(tool.name)}" and "${serverName}". Using tool from "${serverName}".`
@@ -872,6 +874,7 @@ class MCPStore {
 			if (ownerServer === serverName) this.toolsIndex.delete(toolName);
 		}
 		for (const tool of connection.tools) {
+			if (!tool.name?.trim()) continue;
 			this.toolsIndex.set(tool.name, serverName);
 		}
 
@@ -978,6 +981,7 @@ class MCPStore {
 						if (ownerServer === serverName) this.toolsIndex.delete(toolName);
 					}
 					for (const tool of connection.tools) {
+						if (!tool.name?.trim()) continue;
 						this.toolsIndex.set(tool.name, serverName);
 					}
 
@@ -1578,6 +1582,7 @@ class MCPStore {
 	private promoteHealthCheckToConnection(serverId: string, connection: MCPConnection): void {
 		// Register tools from the connection
 		for (const tool of connection.tools) {
+			if (!tool.name?.trim()) continue;
 			if (this.toolsIndex.has(tool.name)) {
 				console.warn(
 					`[MCPStore] Tool name conflict during promotion: "${tool.name}" exists in "${this.toolsIndex.get(tool.name)}" and "${serverId}". Using tool from "${serverId}".`

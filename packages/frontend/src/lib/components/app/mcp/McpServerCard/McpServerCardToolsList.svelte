@@ -33,9 +33,9 @@
 
 	<Collapsible.Content class="mt-2">
 		<div class="max-h-64 space-y-3 overflow-y-auto">
-			{#each tools as tool (tool.name)}
+			{#each tools as tool, i (tool.name || i)}
 				<div>
-					<Badge variant="secondary">{tool.name}</Badge>
+					<Badge variant="secondary">{tool.name || '(unnamed)'}</Badge>
 
 					{#if tool.description}
 						<p class="mt-1 text-xs text-muted-foreground">{tool.description}</p>

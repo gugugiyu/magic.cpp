@@ -10,6 +10,7 @@ import type { DatabaseMessage } from '../../types/database';
  * Create a new message.
  */
 export function createMessage(db: Database, message: DatabaseMessage): void {
+	console.log(message)
 	const stmt = db.prepare(
 		`INSERT INTO messages (id, conv_id, type, timestamp, role, content, parent_id, reasoning_content, tool_calls, tool_call_id, extra, timings, model)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`

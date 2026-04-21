@@ -474,7 +474,10 @@ export async function handleImportConversations(req: Request, db: Database): Pro
 		let skippedCount = 0;
 
 		db.transaction(() => {
-			for (const item of data) {
+			const sortedItems = topologicalSort(data);
+			const importableIds = new Set(sortedItems.map((item) => item.conv.id));
+
+			for (const item of sortedItems) {
 				const { conv, messages } = item;
 
 				const existing = getConversation(db, conv.id);
@@ -484,7 +487,15 @@ export async function handleImportConversations(req: Request, db: Database): Pro
 					continue;
 				}
 
-				createConversation(db, conv);
+				const conversationToInsert = { ...conv };
+				if (conv.forkedFromConversationId && !importableIds.has(conv.forkedFromConversationId)) {
+					console.warn(
+						`Conversation "${conv.name}" references external parent "${conv.forkedFromConversationId}", setting to null`
+					);
+					conversationToInsert.forkedFromConversationId = undefined;
+				}
+
+				createConversation(db, conversationToInsert);
 				for (const msg of messages) {
 					createMessage(db, msg);
 				}
@@ -504,12 +515,118 @@ export async function handleImportConversations(req: Request, db: Database): Pro
 }
 
 /**
+ * Topologically sort conversations so parents are imported before their forks.
+ */
+function topologicalSort(
+	items: { conv: DatabaseConversation; messages: DatabaseMessage[] }[]
+): { conv: DatabaseConversation; messages: DatabaseMessage[] }[] {
+	const convMap = new Map<string, { conv: DatabaseConversation; messages: DatabaseMessage[] }>();
+	const inDegree = new Map<string, number>();
+	const adjacency = new Map<string, string[]>();
+
+	for (const item of items) {
+		const id = item.conv.id;
+		convMap.set(id, item);
+		inDegree.set(id, 0);
+		adjacency.set(id, []);
+	}
+
+	for (const item of items) {
+		const parentId = item.conv.forkedFromConversationId;
+		if (parentId && convMap.has(parentId)) {
+			adjacency.get(parentId)!.push(item.conv.id);
+			inDegree.set(item.conv.id, inDegree.get(item.conv.id)! + 1);
+		}
+	}
+
+	const queue: string[] = [];
+	for (const [id, degree] of inDegree) {
+		if (degree === 0) queue.push(id);
+	}
+
+	const sorted: { conv: DatabaseConversation; messages: DatabaseMessage[] }[] = [];
+	while (queue.length > 0) {
+		const id = queue.shift()!;
+		sorted.push(convMap.get(id)!);
+		for (const childId of adjacency.get(id)!) {
+			inDegree.set(childId, inDegree.get(childId)! - 1);
+			if (inDegree.get(childId) === 0) queue.push(childId);
+		}
+	}
+
+	if (sorted.length !== items.length) {
+		console.warn('[import] circular dependency detected, some conversations may be out of order');
+		const sortedIds = new Set(sorted.map((s) => s.conv.id));
+		for (const item of items) {
+			if (!sortedIds.has(item.conv.id)) sorted.push(item);
+		}
+	}
+
+	return sorted;
+}
+
+/**
+ * DELETE /api/conversations
+ * Delete all conversations (bulk delete).
+ * Query params: deleteWithForks (boolean) - if true, recursively delete all forks
+ */
+export function handleDeleteAllConversations(db: Database, url: URL): Response {
+	try {
+		const deleteWithForks = url.searchParams.get('deleteWithForks') === 'true';
+
+		db.transaction(() => {
+			if (deleteWithForks) {
+				// Recursively delete all conversations including forks
+				const allConversations = getAllConversations(db);
+				for (const conv of allConversations) {
+					deleteConversation(db, conv.id);
+				}
+			} else {
+				// Only delete root conversations (those without forkedFromConversationId)
+				// Forked conversations are reparented to have no parent
+				const rootConversations = db
+					.query('SELECT id FROM conversations WHERE forked_from_conversation_id IS NULL')
+					.all() as Array<{ id: string }>;
+
+				for (const row of rootConversations) {
+					deleteConversation(db, row.id);
+				}
+
+				// Clear forkedFromConversationId for remaining conversations
+				db.query('UPDATE conversations SET forked_from_conversation_id = NULL').run();
+			}
+		})();
+
+		return new Response(null, { status: 204 });
+	} catch (error) {
+		console.error('[api] failed to delete all conversations:', error);
+		return Response.json(
+			{ error: 'Failed to delete conversations' },
+			{ status: 500 }
+		);
+	}
+}
+
+/**
  * GET /api/conversations/export
  * Export all conversations with their messages.
+ * Query params: limit (number, optional) - maximum number of conversations to export
  */
-export function handleExportConversations(db: Database): Response {
+export function handleExportConversations(db: Database, url: URL): Response {
 	try {
-		const conversations = getAllConversations(db);
+		const limitParam = url.searchParams.get('limit');
+		const limit = limitParam ? parseInt(limitParam, 10) : -1;
+
+		let conversations = getAllConversations(db);
+
+		// Sort by lastModified DESC (most recent first)
+		conversations.sort((a, b) => b.lastModified - a.lastModified);
+
+		// Apply limit if specified
+		if (limit > 0) {
+			conversations = conversations.slice(0, limit);
+		}
+
 		const exportData = conversations.map((conv) => {
 			const messages = getConversationMessages(db, conv.id);
 			return { conv, messages };

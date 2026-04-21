@@ -101,14 +101,30 @@ export async function importConversations(
 
 /**
  * Export all conversations.
+ * @param limit - Optional maximum number of conversations to export (most recent first)
  */
-export async function exportConversations(): Promise<
-	{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]
-> {
+export async function exportConversations(
+	limit?: number
+): Promise<{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]> {
+	const params: Record<string, string> = {};
+	if (limit !== undefined && limit > 0) {
+		params.limit = limit.toString();
+	}
 	return apiFetchWithParams<{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]>(
 		'/api/conversations/export',
-		{}
+		params
 	);
+}
+
+/**
+ * Delete all conversations.
+ * @param deleteWithForks - If true, recursively delete all forked conversations too
+ */
+export async function deleteAllConversations(deleteWithForks: boolean = false): Promise<void> {
+	const params = deleteWithForks ? '?deleteWithForks=true' : '';
+	await apiFetch(`/api/conversations${params}`, {
+		method: 'DELETE'
+	});
 }
 
 /**

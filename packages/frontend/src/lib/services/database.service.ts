@@ -66,10 +66,14 @@ export class DatabaseService {
 		return conversationsAPI.importConversations(data);
 	}
 
-	static async exportConversations(): Promise<
-		{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]
-	> {
-		return conversationsAPI.exportConversations();
+	static async exportConversations(
+		limit?: number
+	): Promise<{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]> {
+		return conversationsAPI.exportConversations(limit);
+	}
+
+	static async deleteAllConversations(deleteWithForks: boolean = false): Promise<void> {
+		await conversationsAPI.deleteAllConversations(deleteWithForks);
 	}
 
 	/**

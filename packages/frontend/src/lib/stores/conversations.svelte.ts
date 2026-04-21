@@ -352,14 +352,11 @@ class ConversationsStore {
 
 	/**
 	 * Deletes all conversations and their messages
+	 * @param deleteWithForks - If true, recursively delete all forked conversations too
 	 */
-	async deleteAll(): Promise<void> {
+	async deleteAll(deleteWithForks: boolean = false): Promise<void> {
 		try {
-			const allConversations = await DatabaseService.getAllConversations();
-
-			for (const conv of allConversations) {
-				await DatabaseService.deleteConversation(conv.id);
-			}
+			await DatabaseService.deleteAllConversations(deleteWithForks);
 
 			this.clearActiveConversation();
 			this.conversations = [];
@@ -905,7 +902,7 @@ class ConversationsStore {
 
 		const downloadFilename = filename ?? this.generateConversationFilename(conversation, msgs);
 
-		const blob = new Blob([JSON.stringify(data, null, 2)], {
+		const blob = new Blob([JSON.stringify([data], null, 2)], {
 			type: 'application/json'
 		});
 		const url = URL.createObjectURL(blob);
@@ -936,6 +933,20 @@ class ConversationsStore {
 		}
 
 		this.downloadConversationFile({ conv: conversation, messages });
+	}
+
+	/**
+	 * Exports all conversations using the backend endpoint.
+	 * @param limit - Optional maximum number of conversations to export (most recent first)
+	 */
+	async exportAllConversations(limit?: number): Promise<void> {
+		const data = await DatabaseService.exportConversations(limit);
+		const timestamp = new Date().toISOString().split('T')[0];
+		const filename =
+			limit && limit > 0
+				? `${timestamp}_conversations_${limit}.json`
+				: `${timestamp}_conversations.json`;
+		this.downloadConversationFile(data, filename);
 	}
 
 	/**

@@ -15,6 +15,7 @@ import {
 	handleCreateConversation,
 	handleUpdateConversation,
 	handleDeleteConversation,
+	handleDeleteAllConversations,
 	handleGetConversationMessages,
 	handleCreateMessage,
 	handleForkConversation,
@@ -101,12 +102,16 @@ async function dispatchRoute(req: Request, pool: ModelPool, config: Config): Pro
 		return handleCreateConversation(req, getDatabase());
 	}
 
+	if (pathname === '/api/conversations' && method === 'DELETE') {
+		return handleDeleteAllConversations(getDatabase(), url);
+	}
+
 	if (pathname === '/api/conversations/import' && method === 'POST') {
 		return handleImportConversations(req, getDatabase());
 	}
 
 	if (pathname === '/api/conversations/export' && method === 'GET') {
-		return handleExportConversations(getDatabase());
+		return handleExportConversations(getDatabase(), url);
 	}
 
 	// Match /api/conversations/:id

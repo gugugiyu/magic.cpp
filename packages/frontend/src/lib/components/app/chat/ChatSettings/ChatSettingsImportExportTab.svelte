@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Download, Upload, Trash2 } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { DialogConversationSelection, DialogConfirmation } from '$lib/components/app';
 	import { createMessageCountMap } from '$lib/utils';
-	import { ISO_DATE_TIME_SEPARATOR } from '$lib/constants';
 	import { conversationsStore, conversations } from '$lib/stores/conversations.svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -12,7 +12,6 @@
 	let showExportSummary = $state(false);
 	let showImportSummary = $state(false);
 
-	let showExportDialog = $state(false);
 	let showImportDialog = $state(false);
 	let availableConversations = $state<DatabaseConversation[]>([]);
 	let messageCountMap = $state<Map<string, number>>(new Map());
@@ -20,8 +19,13 @@
 		[]
 	);
 
+	// Export limit state
+	let exportLimit = $state<string>('');
+	let isExporting = $state(false);
+
 	// Delete functionality state
 	let showDeleteDialog = $state(false);
+	let deleteWithForks = $state(true);
 
 	async function handleExportClick() {
 		try {
@@ -31,43 +35,20 @@
 				return;
 			}
 
-			const conversationsWithMessages = await Promise.all(
-				allConversations.map(async (conv: DatabaseConversation) => {
-					const messages = await conversationsStore.getConversationMessages(conv.id);
-					return { conv, messages };
-				})
-			);
+			isExporting = true;
+			const limit = exportLimit ? parseInt(exportLimit, 10) : undefined;
+			await conversationsStore.exportAllConversations(limit);
 
-			messageCountMap = createMessageCountMap(conversationsWithMessages);
-			availableConversations = allConversations;
-			showExportDialog = true;
-		} catch (err) {
-			console.error('Failed to load conversations:', err);
-			alert('Failed to load conversations');
-		}
-	}
-
-	async function handleExportConfirm(selectedConversations: DatabaseConversation[]) {
-		try {
-			const allData: ExportedConversations = await Promise.all(
-				selectedConversations.map(async (conv) => {
-					const messages = await conversationsStore.getConversationMessages(conv.id);
-					return { conv: $state.snapshot(conv), messages: $state.snapshot(messages) };
-				})
-			);
-
-			conversationsStore.downloadConversationFile(
-				allData,
-				`${new Date().toISOString().split(ISO_DATE_TIME_SEPARATOR)[0]}_conversations.json`
-			);
-
-			exportedConversations = selectedConversations;
+			const count =
+				limit && limit > 0 ? Math.min(limit, allConversations.length) : allConversations.length;
+			exportedConversations = allConversations.slice(0, count);
 			showExportSummary = true;
 			showImportSummary = false;
-			showExportDialog = false;
 		} catch (err) {
-			console.error('Export failed:', err);
-			alert('Failed to export conversations');
+			console.error('Failed to export conversations:', err);
+			toast.error('Failed to export conversations');
+		} finally {
+			isExporting = false;
 		}
 	}
 
@@ -161,7 +142,7 @@
 
 	async function handleDeleteAllConfirm() {
 		try {
-			await conversationsStore.deleteAll();
+			await conversationsStore.deleteAll(deleteWithForks);
 
 			showDeleteDialog = false;
 		} catch (err) {
@@ -184,15 +165,31 @@
 				conversation history.
 			</p>
 
-			<Button
-				class="w-full justify-start justify-self-start md:w-auto"
-				onclick={handleExportClick}
-				variant="outline"
-			>
-				<Download class="mr-2 h-4 w-4" />
+			<div class="flex flex-col gap-2 md:flex-row md:items-end">
+				<div class="flex-1">
+					<label class="mb-1 block text-xs text-muted-foreground" for="export-limit">
+						Number of conversations (leave empty for all)
+					</label>
+					<Input
+						id="export-limit"
+						type="number"
+						min="1"
+						placeholder="All"
+						bind:value={exportLimit}
+						class="w-full md:w-32"
+					/>
+				</div>
 
-				Export conversations
-			</Button>
+				<Button
+					class="justify-start justify-self-start md:w-auto"
+					onclick={handleExportClick}
+					variant="outline"
+					disabled={isExporting}
+				>
+					<Download class="mr-2 h-4 w-4" />
+					{isExporting ? 'Exporting...' : 'Export conversations'}
+				</Button>
+			</div>
 
 			{#if showExportSummary && exportedConversations.length > 0}
 				<div class="mt-4 grid overflow-x-auto rounded-lg border border-border/50 bg-muted/30 p-4">
@@ -281,15 +278,6 @@
 <DialogConversationSelection
 	conversations={availableConversations}
 	{messageCountMap}
-	mode="export"
-	bind:open={showExportDialog}
-	onCancel={() => (showExportDialog = false)}
-	onConfirm={handleExportConfirm}
-/>
-
-<DialogConversationSelection
-	conversations={availableConversations}
-	{messageCountMap}
 	mode="import"
 	bind:open={showImportDialog}
 	onCancel={() => (showImportDialog = false)}
@@ -299,11 +287,22 @@
 <DialogConfirmation
 	bind:open={showDeleteDialog}
 	title="Delete all conversations"
-	description="Are you sure you want to delete all conversations? This action cannot be undone and will permanently remove all your conversations and messages."
+	description={`Are you sure you want to delete all conversations${deleteWithForks ? ' including all forked conversations' : ''}? This action cannot be undone and will permanently remove all your conversations and messages.`}
 	confirmText="Delete All"
 	cancelText="Cancel"
 	variant="destructive"
 	icon={Trash2}
 	onConfirm={handleDeleteAllConfirm}
 	onCancel={handleDeleteAllCancel}
-/>
+>
+	<!-- {#snippet children()}
+		<label class="mt-4 flex items-center gap-2 text-sm">
+			<input
+				type="checkbox"
+				bind:checked={deleteWithForks}
+				class="rounded border-border accent-destructive"
+			/>
+			<span class="text-muted-foreground">Also delete forked conversations</span>
+		</label>
+	{/snippet} -->
+</DialogConfirmation>

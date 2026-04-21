@@ -20,7 +20,6 @@
  * @see mcpStore in stores/mcp.svelte.ts for MCP operations
  */
 
-import { toast } from 'svelte-sonner';
 import { SvelteSet } from 'svelte/reactivity';
 import { ChatService } from '$lib/services';
 import { config } from '$lib/stores/settings.svelte';
@@ -28,7 +27,8 @@ import { mcpStore } from '$lib/stores/mcp.svelte';
 import { modelsStore } from '$lib/stores/models.svelte';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
-import { isAbortError, safeNumber } from '$lib/utils';
+import { getActiveBuiltinTools, getBuiltinToolNames } from '$lib/enums/builtin-tools';
+import { isAbortError, safeNumber, createLinkedController } from '$lib/utils';
 import { sequentialThinkingStore, type ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
 import {
 	DEFAULT_AGENTIC_CONFIG,
@@ -37,7 +37,7 @@ import {
 	LLM_ERROR_BLOCK_START,
 	LLM_ERROR_BLOCK_END
 } from '$lib/constants';
-import { SUBAGENT_DEFAULT_PROMPT, BUILTIN_TOOLS } from '@shared/constants/prompts-and-tools';
+import { SUBAGENT_DEFAULT_PROMPT } from '@shared/constants/prompts-and-tools';
 import { skillsStore } from '$lib/stores/skills.svelte';
 import {
 	processToolOutput as processMcpToolOutput,
@@ -129,7 +129,12 @@ function withMcpToolTimeout<T>(promise: Promise<T>, toolName: string): Promise<T
 	const timeoutPromise = new Promise<never>((_, reject) => {
 		timerId = setTimeout(
 			() =>
-				reject(new Error(`Tool "${toolName}" timed out after ${MCP_TOOL_EXECUTION_TIMEOUT_MS}ms`)),
+				reject(
+					new DOMException(
+						`Tool "${toolName}" timed out after ${MCP_TOOL_EXECUTION_TIMEOUT_MS}ms`,
+						'TimeoutError'
+					)
+				),
 			MCP_TOOL_EXECUTION_TIMEOUT_MS
 		);
 	});
@@ -309,33 +314,7 @@ class AgenticStore {
 	}
 
 	private getBuiltinTools(settings: SettingsConfigType): OpenAIToolDefinition[] {
-		const tools: OpenAIToolDefinition[] = [];
-		const settingKeyToTool: Record<string, OpenAIToolDefinition> = {
-			builtinToolCalculator: BUILTIN_TOOLS[0],
-			builtinToolTime: BUILTIN_TOOLS[1],
-			builtinToolLocation: BUILTIN_TOOLS[2],
-			builtinToolSequentialThinking: BUILTIN_TOOLS[3],
-			builtinToolCallSubagent: BUILTIN_TOOLS[4]
-		};
-		for (const [key, def] of Object.entries(settingKeyToTool)) {
-			if (!settings[key]) continue;
-
-			if (key === 'builtinToolCallSubagent' && !subagentConfigStore.isConfigured) {
-				toast.warning('Subagent not configured — call_subagent tool will be skipped', {
-					duration: 4000
-				});
-				continue;
-			}
-
-			tools.push(def);
-		}
-
-		// Add skill tools if enabled
-		if (settings.builtinToolSkills) {
-			tools.push(BUILTIN_TOOLS[5], BUILTIN_TOOLS[6]);
-		}
-
-		return tools;
+		return getActiveBuiltinTools(settings);
 	}
 
 	getConfig(
@@ -705,7 +684,7 @@ class AgenticStore {
 				return;
 			}
 
-			// Normalize and save assistant turn with tool calls
+			// Normalize, deduplicate, and save assistant turn with tool calls
 			let normalizedCalls = this.normalizeToolCalls(turnToolCalls);
 			if (normalizedCalls.length === 0) {
 				await onAssistantTurnComplete?.(
@@ -716,6 +695,13 @@ class AgenticStore {
 				);
 				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
 				return;
+			}
+
+			normalizedCalls = this.deduplicateToolCalls(normalizedCalls);
+			if (import.meta.env.DEV && normalizedCalls.length < turnToolCalls.length) {
+				console.log(
+					`[agentic] Deduplicated ${turnToolCalls.length - normalizedCalls.length} duplicate calls, remaining: ${normalizedCalls.length}`
+				);
 			}
 
 			// Cap tool calls per turn to prevent runaway parallel tool storms
@@ -971,12 +957,11 @@ class AgenticStore {
 			case 'calculator': {
 				const expression = String(parsed.expression ?? '');
 				if (!expression) return 'Error: missing expression';
+				const confirmed = window.confirm(
+					`The AI assistant wants to evaluate this expression:\n\n${expression}\n\nAllow?`
+				);
+				if (!confirmed) return 'User denied calculator execution.';
 				try {
-					// Only allow safe arithmetic characters to prevent code injection
-					// if (!/^[\d\s+\-*/().%^,eE]+$/.test(expression)) {
-					// 	return 'Error: expression contains disallowed characters';
-					// }
-
 					const result = new Function(`"use strict"; return (${expression})`)();
 					if (typeof result !== 'number' || !isFinite(result)) {
 						return 'Error: expression did not produce a finite number';
@@ -1054,13 +1039,7 @@ class AgenticStore {
 				};
 
 				// Mark the previous thought in this message as completed
-				const existingTurn = sequentialThinkingStore.getTurn(conversationId, messageId);
-				if (existingTurn && existingTurn.thoughts.length > 0) {
-					const prevThought = existingTurn.thoughts[existingTurn.thoughts.length - 1];
-					if (!prevThought.completedAt) {
-						prevThought.completedAt = completedAt;
-					}
-				}
+				sequentialThinkingStore.completeLastThought(conversationId, messageId, completedAt);
 
 				sequentialThinkingStore.recordThought({ conversationId, messageId, thought: entry });
 
@@ -1074,10 +1053,10 @@ class AgenticStore {
 			}
 
 			case 'call_subagent': {
-				if (!subagentConfigStore.isConfigured) {
+				if (!subagentConfigStore.isConfigured || !subagentConfigStore.isEnabled) {
 					return JSON.stringify({
 						error:
-							'Subagent not configured. Please set endpoint, model, and enable the subagent in Settings.'
+							'Subagent not configured or not enabled. Please set endpoint, model, and enable the subagent in Settings.'
 					});
 				}
 
@@ -1102,8 +1081,11 @@ class AgenticStore {
 					const tName = t.function?.name;
 					return tName && tName !== 'call_subagent' && tName !== 'sequential_thinking';
 				});
-				const builtinNameSet = new SvelteSet(BUILTIN_TOOLS.map((t) => t.function.name));
+				const builtinNameSet = getBuiltinToolNames();
 				builtinNameSet.delete('call_subagent');
+
+				const linkedController = createLinkedController(signal);
+				const subagentSignal = linkedController.signal;
 
 				const endpoint = subagentConfigStore.getEndpoint();
 				const apiKey = subagentConfigStore.getApiKey();
@@ -1148,7 +1130,7 @@ class AgenticStore {
 
 				try {
 					for (let subTurn = 0; subTurn < SUBAGENT_MAX_TURNS; subTurn++) {
-						if (signal?.aborted) {
+						if (subagentSignal?.aborted) {
 							this.setSubagentProgress(conversationId, null);
 							throw new DOMException('Aborted', 'AbortError');
 						}
@@ -1164,7 +1146,7 @@ class AgenticStore {
 							method: 'POST',
 							headers,
 							body: JSON.stringify(requestBody),
-							signal
+							signal: subagentSignal
 						});
 
 						if (!response.ok) {
@@ -1207,10 +1189,9 @@ class AgenticStore {
 						}
 
 						const assistantMsg = choice.message;
-						const finishReason = choice.finish_reason;
 						const toolCalls = assistantMsg?.tool_calls;
 
-						if (finishReason === 'tool_calls' || (toolCalls && toolCalls.length > 0)) {
+						if (toolCalls && toolCalls.length > 0) {
 							// Append assistant message with tool_calls to history
 							loopMessages.push({
 								role: 'assistant',
@@ -1253,17 +1234,18 @@ class AgenticStore {
 											conversationId,
 											messageId,
 											allTools,
-											signal,
+											subagentSignal,
 											tcId
 										);
 									} else {
 										const mcpResult = await mcpStore.executeTool(
 											{ id: tcId, function: { name: tcName, arguments: tcArgs } },
-											signal
+											subagentSignal
 										);
 										toolResult = mcpResult.content;
 									}
 								} catch (err) {
+									if (err instanceof DOMException && err.name === 'AbortError') throw err;
 									toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`;
 								}
 
@@ -1378,6 +1360,19 @@ class AgenticStore {
 				}
 			}))
 			.filter((call) => call.function.name.trim() !== '');
+	}
+
+	private deduplicateToolCalls(calls: AgenticToolCallList): AgenticToolCallList {
+		const seen = new SvelteSet<string>();
+		const unique: AgenticToolCallList = [];
+		for (const call of calls) {
+			const key = `${call.function.name}:${call.function.arguments}`;
+			if (!seen.has(key)) {
+				seen.add(key);
+				unique.push(call);
+			}
+		}
+		return unique;
 	}
 
 	private extractBase64Attachments(result: string): {

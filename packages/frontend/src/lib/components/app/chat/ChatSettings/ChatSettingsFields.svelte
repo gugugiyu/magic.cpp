@@ -5,7 +5,7 @@
 	import Label from '$lib/components/ui/label/label.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { SETTING_CONFIG_INFO, SETTINGS_KEYS } from '$lib/constants';
+	import { buildOpinionatedSystemPrompt, SETTING_CONFIG_INFO, SETTINGS_KEYS } from '$lib/constants';
 	import { SettingsFieldType } from '$lib/enums/settings';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { serverStore, serverLoading } from '$lib/stores/server.svelte';
@@ -13,6 +13,7 @@
 	import { normalizeFloatingPoint } from '$lib/utils/precision';
 	import { ChatSettingsParameterSourceIndicator } from '$lib/components/app';
 	import type { Component } from 'svelte';
+	import { getBuiltinToolNames } from '$lib/enums/builtin-tools';
 
 	interface Props {
 		fields: SettingsFieldConfig[];
@@ -127,7 +128,10 @@
 							onConfigChange(SETTINGS_KEYS.USE_OPINIONATED_SYSTEM_PROMPT, Boolean(checked))}
 					/>
 					<Label for="useOpinionatedSystemPrompt" class="cursor-pointer text-sm font-normal">
-						Use opinionated system prompt
+						Use opinionated system prompt (~{buildOpinionatedSystemPrompt({
+							hasMcpServers: false,
+							enabledBuiltinToolNames: [...getBuiltinToolNames()]
+						}).length} chars
 					</Label>
 				</div>
 			{/if}

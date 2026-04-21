@@ -146,6 +146,21 @@ class SequentialThinkingStore {
 	}
 
 	/**
+	 * Stamp the last thought in a turn with a completedAt timestamp.
+	 * Callers should use this instead of directly mutating the thought object.
+	 */
+	completeLastThought(conversationId: string, messageId: string, completedAt: number): void {
+		const turn = this._turns.find(
+			(t) => t.conversationId === conversationId && t.messageId === messageId
+		);
+		if (!turn || turn.thoughts.length === 0) return;
+		const idx = turn.thoughts.length - 1;
+		if (!turn.thoughts[idx].completedAt) {
+			turn.thoughts[idx] = { ...turn.thoughts[idx], completedAt };
+		}
+	}
+
+	/**
 	 * Update the text of a specific thought in-place.
 	 * Used by ChatThinkingDrawer to apply per-step edits that propagate to the inline stepper.
 	 */

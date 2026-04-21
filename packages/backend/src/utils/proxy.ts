@@ -28,6 +28,7 @@ export async function proxyRequest(
 		method: req.method,
 		headers,
 		body: bodyText || undefined,
+		signal: req.signal,
 	});
 
 	let resp: Response;

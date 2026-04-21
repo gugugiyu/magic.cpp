@@ -1,5 +1,6 @@
 import {
 	isAbortError,
+	throwIfAborted,
 	getJsonHeaders,
 	formatAttachmentText,
 	detectLanguagePinner,
@@ -22,6 +23,7 @@ import {
 import type { ApiChatMessageContentPart, ApiChatCompletionToolCall } from '$lib/types/api';
 import type { DatabaseMessageExtraMcpPrompt, DatabaseMessageExtraMcpResource } from '$lib/types';
 import { modelsStore } from '$lib/stores/models.svelte';
+import { parseReasoningChunk, parseReasoningMessage } from '$lib/utils/reasoning-parser';
 
 export class ChatService {
 	/**
@@ -454,7 +456,8 @@ export class ChatService {
 						try {
 							const parsed: ApiChatCompletionStreamChunk = JSON.parse(data);
 							const content = parsed.choices[0]?.delta?.content;
-							const reasoningContent = parsed.choices[0]?.delta?.reasoning_content;
+							// Some other generic endpoint api might return as "reasoning" or "analysis", not "reasoning_content"
+							const reasoningContent = parseReasoningChunk(parsed).reasoning;
 							const toolCalls = parsed.choices[0]?.delta?.tool_calls;
 							const timings = parsed.timings;
 							const promptProgress = parsed.prompt_progress;
@@ -476,16 +479,16 @@ export class ChatService {
 
 							if (content) {
 								finalizeOpenToolCallBatch();
-								aggregatedContent += content;
 								if (!abortSignal?.aborted) {
+									aggregatedContent += content;
 									onChunk?.(content);
 								}
 							}
 
 							if (reasoningContent) {
 								finalizeOpenToolCallBatch();
-								fullReasoningContent += reasoningContent;
 								if (!abortSignal?.aborted) {
+									fullReasoningContent += reasoningContent;
 									onReasoningChunk?.(reasoningContent);
 								}
 							}
@@ -537,11 +540,11 @@ export class ChatService {
 				);
 			}
 		} catch (error) {
-			const err = error instanceof Error ? error : new Error('Stream error');
+			if (!isAbortError(error)) {
+				onError?.(error instanceof Error ? error : new Error('Stream error'));
+			}
 
-			onError?.(err);
-
-			throw err;
+			throw error;
 		} finally {
 			reader.releaseLock();
 		}
@@ -567,8 +570,11 @@ export class ChatService {
 		) => void,
 		onError?: (error: Error) => void,
 		onToolCallChunk?: (chunk: string) => void,
-		onModel?: (model: string) => void
+		onModel?: (model: string) => void,
+		signal?: AbortSignal
 	): Promise<string> {
+		throwIfAborted(signal);
+
 		try {
 			const responseText = await response.text();
 
@@ -586,7 +592,7 @@ export class ChatService {
 			}
 
 			const content = data.choices[0]?.message?.content || '';
-			const reasoningContent = data.choices[0]?.message?.reasoning_content;
+			const reasoningContent = parseReasoningMessage(data).reasoning;
 			const toolCalls = data.choices[0]?.message?.tool_calls;
 
 			let serializedToolCalls: string | undefined;
@@ -611,11 +617,11 @@ export class ChatService {
 
 			return content;
 		} catch (error) {
-			const err = error instanceof Error ? error : new Error('Parse error');
+			if (!isAbortError(error)) {
+				onError?.(error instanceof Error ? error : new Error('Parse error'));
+			}
 
-			onError?.(err);
-
-			throw err;
+			throw error;
 		}
 	}
 

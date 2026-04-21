@@ -30,7 +30,10 @@ import {
 	parseMcpServerSettings,
 	detectMcpTransportFromUrl,
 	getFaviconUrl,
-	uuid
+	uuid,
+	isAbortError,
+	throwIfAborted,
+	createLinkedController
 } from '$lib/utils';
 import {
 	MCPConnectionPhase,
@@ -95,6 +98,7 @@ class MCPStore {
 	private configSignature: string | null = null;
 	private initPromise: Promise<boolean> | null = null;
 	private activeFlowCount = 0;
+	private shutdownController = new AbortController();
 
 	constructor() {
 		if (browser) {
@@ -643,7 +647,8 @@ class MCPStore {
 							this.autoReconnect(name);
 						}
 					},
-					listChangedHandlers
+					listChangedHandlers,
+					this.shutdownController.signal
 				);
 
 				return { name, connection };
@@ -763,7 +768,10 @@ class MCPStore {
 		return this.activeFlowCount;
 	}
 
-	async shutdown(): Promise<void> {
+	async shutdown(signal?: AbortSignal): Promise<void> {
+		// Cancel all running autoReconnect loops so they don't outlive the shutdown.
+		this.shutdownController.abort();
+
 		if (this.initPromise) {
 			await this.initPromise.catch(() => {});
 			this.initPromise = null;
@@ -773,9 +781,15 @@ class MCPStore {
 		if (this.activeFlowCount > 0) {
 			const deadline = Date.now() + 5000;
 			while (this.activeFlowCount > 0 && Date.now() < deadline) {
+				if (signal?.aborted) {
+					console.warn(
+						`[MCPStore] Shutdown aborted, proceeding with ${this.activeFlowCount} active flow(s) still running`
+					);
+					break;
+				}
 				await new Promise((r) => setTimeout(r, 100));
 			}
-			if (this.activeFlowCount > 0) {
+			if (this.activeFlowCount > 0 && !signal?.aborted) {
 				console.warn(
 					`[MCPStore] Shutdown proceeding with ${this.activeFlowCount} active flow(s) still running`
 				);
@@ -804,6 +818,9 @@ class MCPStore {
 			toolCount: 0,
 			connectedServers: []
 		});
+
+		// Reset so the next initialize() cycle gets a fresh controller.
+		this.shutdownController = new AbortController();
 	}
 
 	/**
@@ -815,7 +832,10 @@ class MCPStore {
 	 * this performs a single immediate reconnection attempt since the server is known
 	 * to be reachable (it responded with 404).
 	 */
-	private async reconnectServer(serverName: string): Promise<void> {
+	private async reconnectServer(serverName: string, signal?: AbortSignal): Promise<void> {
+		const combinedSignal = createLinkedController(signal, this.shutdownController.signal).signal;
+		throwIfAborted(combinedSignal);
+
 		const serverConfig = this.serverConfigs.get(serverName);
 		if (!serverConfig) {
 			throw new Error(`[MCPStore] No config found for ${serverName}, cannot reconnect`);
@@ -839,14 +859,18 @@ class MCPStore {
 			(phase) => {
 				if (phase === MCPConnectionPhase.DISCONNECTED) {
 					console.log(`[MCPStore][${serverName}] Connection lost, starting auto-reconnect`);
-					this.autoReconnect(serverName);
+					this.autoReconnect(serverName, signal);
 				}
 			},
-			listChangedHandlers
+			listChangedHandlers,
+			combinedSignal
 		);
 
-		// Replace connection and rebuild tool index for this server
+		// Replace connection and rebuild tool index for this server (evict stale entries first)
 		this.connections.set(serverName, connection);
+		for (const [toolName, ownerServer] of this.toolsIndex.entries()) {
+			if (ownerServer === serverName) this.toolsIndex.delete(toolName);
+		}
 		for (const tool of connection.tools) {
 			this.toolsIndex.set(tool.name, serverName);
 		}
@@ -867,7 +891,11 @@ class MCPStore {
 	 * set inside the phase callback and honoured in the `finally` block after
 	 * the guard entry has been removed.
 	 */
-	private async autoReconnect(serverName: string): Promise<void> {
+	private async autoReconnect(serverName: string, signal?: AbortSignal): Promise<void> {
+		// Combine caller signal with shutdown signal so this loop stops on either.
+		const combinedSignal = createLinkedController(signal, this.shutdownController.signal).signal;
+		throwIfAborted(combinedSignal);
+
 		// Guard against concurrent reconnections
 		if (this.reconnectingServers.has(serverName)) {
 			console.log(`[MCPStore][${serverName}] Reconnection already in progress, skipping`);
@@ -891,23 +919,26 @@ class MCPStore {
 		try {
 			while (true) {
 				await new Promise((resolve) => setTimeout(resolve, backoff));
+				throwIfAborted(combinedSignal);
 
 				console.log(`[MCPStore][${serverName}] Auto-reconnecting...`);
 
 				try {
-					// Per-attempt timeout: reject if the server doesn't respond in time,
-					// then fall through to backoff logic as with any other failure.
-					const timeoutPromise = new Promise<never>((_, reject) =>
-						setTimeout(
-							() =>
-								reject(
-									new Error(
-										`Reconnect attempt timed out after ${MCP_RECONNECT_ATTEMPT_TIMEOUT_MS}ms`
-									)
-								),
-							MCP_RECONNECT_ATTEMPT_TIMEOUT_MS
-						)
-					);
+					// Per-attempt controller: aborted when the timeout fires so that the
+					// in-flight MCPService.connect call is cancelled and doesn't become an
+					// orphaned promise that silently holds a live connection.
+					const attemptController = createLinkedController(combinedSignal);
+					let reconnectTimeoutId: ReturnType<typeof setTimeout>;
+					const timeoutPromise = new Promise<never>((_, reject) => {
+						reconnectTimeoutId = setTimeout(() => {
+							attemptController.abort(
+								new Error(`Reconnect attempt timed out after ${MCP_RECONNECT_ATTEMPT_TIMEOUT_MS}ms`)
+							);
+							reject(
+								new Error(`Reconnect attempt timed out after ${MCP_RECONNECT_ATTEMPT_TIMEOUT_MS}ms`)
+							);
+						}, MCP_RECONNECT_ATTEMPT_TIMEOUT_MS);
+					});
 
 					needsReconnect = false;
 					const listChangedHandlers = this.createListChangedHandlers(serverName);
@@ -925,19 +956,27 @@ class MCPStore {
 									console.log(
 										`[MCPStore][${serverName}] Connection lost, restarting auto-reconnect`
 									);
-									this.autoReconnect(serverName);
+									this.autoReconnect(serverName, signal);
 								}
 							}
 						},
-						listChangedHandlers
+						listChangedHandlers,
+						attemptController.signal
 					);
 
 					const connection = await Promise.race([connectPromise, timeoutPromise]);
+					clearTimeout(reconnectTimeoutId!);
+					// Suppress the AbortError from the orphaned connectPromise when the
+					// timeout won the race (connect is still running in the background).
+					connectPromise.catch(() => {});
 
 					// Replace old connection with new one
 					this.connections.set(serverName, connection);
 
-					// Rebuild tool index for this server
+					// Rebuild tool index for this server (evict stale entries first)
+					for (const [toolName, ownerServer] of this.toolsIndex.entries()) {
+						if (ownerServer === serverName) this.toolsIndex.delete(toolName);
+					}
 					for (const tool of connection.tools) {
 						this.toolsIndex.set(tool.name, serverName);
 					}
@@ -945,6 +984,9 @@ class MCPStore {
 					console.log(`[MCPStore][${serverName}] Reconnected successfully`);
 					break;
 				} catch (error) {
+					// If the combined signal (parent abort or shutdown) triggered this
+					// error, stop retrying — propagate out of the loop.
+					if (isAbortError(error) && combinedSignal.aborted) throw error;
 					console.warn(`[MCPStore][${serverName}] Reconnection failed:`, error);
 					backoff = Math.min(backoff * MCP_RECONNECT_BACKOFF_MULTIPLIER, MCP_RECONNECT_MAX_DELAY);
 				}
@@ -957,7 +999,7 @@ class MCPStore {
 				console.log(
 					`[MCPStore][${serverName}] Deferred disconnect detected, restarting auto-reconnect`
 				);
-				this.autoReconnect(serverName);
+				this.autoReconnect(serverName, signal);
 			}
 		}
 	}
@@ -965,23 +1007,27 @@ class MCPStore {
 	getToolDefinitionsForLLM(): OpenAIToolDefinition[] {
 		const tools: OpenAIToolDefinition[] = [];
 
-		for (const connection of this.connections.values()) {
-			for (const tool of connection.tools) {
-				const rawSchema = (tool.inputSchema as Record<string, unknown>) ?? {
-					type: JsonSchemaType.OBJECT,
-					properties: {},
-					required: []
-				};
+		// Iterate via toolsIndex so each tool name appears exactly once,
+		// even when multiple servers expose identically-named tools.
+		for (const [toolName, serverName] of this.toolsIndex.entries()) {
+			const connection = this.connections.get(serverName);
+			const tool = connection?.tools.find((t) => t.name === toolName);
+			if (!tool) continue;
 
-				tools.push({
-					type: ToolCallType.FUNCTION as const,
-					function: {
-						name: tool.name,
-						description: tool.description,
-						parameters: this.normalizeSchemaProperties(rawSchema)
-					}
-				});
-			}
+			const rawSchema = (tool.inputSchema as Record<string, unknown>) ?? {
+				type: JsonSchemaType.OBJECT,
+				properties: {},
+				required: []
+			};
+
+			tools.push({
+				type: ToolCallType.FUNCTION as const,
+				function: {
+					name: tool.name,
+					description: tool.description,
+					parameters: this.normalizeSchemaProperties(rawSchema)
+				}
+			});
 		}
 
 		return tools;
@@ -1021,9 +1067,24 @@ class MCPStore {
 					normalizedProp.items = this.normalizeSchemaProperties(
 						normalizedProp.items as Record<string, unknown>
 					);
+				for (const combiner of ['allOf', 'anyOf', 'oneOf'] as const) {
+					if (Array.isArray(normalizedProp[combiner])) {
+						normalizedProp[combiner] = (normalizedProp[combiner] as Record<string, unknown>[]).map(
+							(sub) => this.normalizeSchemaProperties(sub)
+						);
+					}
+				}
 				normalizedProps[key] = normalizedProp;
 			}
 			normalized.properties = normalizedProps;
+		}
+
+		for (const combiner of ['allOf', 'anyOf', 'oneOf'] as const) {
+			if (Array.isArray(normalized[combiner])) {
+				normalized[combiner] = (normalized[combiner] as Record<string, unknown>[]).map((sub) =>
+					this.normalizeSchemaProperties(sub)
+				);
+			}
 		}
 
 		return normalized;
@@ -1165,11 +1226,13 @@ class MCPStore {
 		} catch (error) {
 			// Session expired (server restarted) - reconnect and retry once
 			if (MCPService.isSessionExpiredError(error)) {
-				await this.reconnectServer(serverName);
+				if (signal?.aborted) throw error;
+				await this.reconnectServer(serverName, signal);
 
 				const newConnection = this.connections.get(serverName);
 				if (!newConnection) throw new Error(`Failed to reconnect to "${serverName}"`);
 
+				if (signal?.aborted) throw error;
 				return MCPService.callTool(newConnection, { name: toolName, arguments: args }, signal);
 			}
 
@@ -1191,11 +1254,13 @@ class MCPStore {
 			return await MCPService.callTool(connection, { name: toolName, arguments: args }, signal);
 		} catch (error) {
 			if (MCPService.isSessionExpiredError(error)) {
-				await this.reconnectServer(serverName);
+				if (signal?.aborted) throw error;
+				await this.reconnectServer(serverName, signal);
 
 				const newConnection = this.connections.get(serverName);
 				if (!newConnection) throw new Error(`Failed to reconnect to "${serverName}"`);
 
+				if (signal?.aborted) throw error;
 				return MCPService.callTool(newConnection, { name: toolName, arguments: args }, signal);
 			}
 
@@ -1453,7 +1518,9 @@ class MCPStore {
 						);
 						this.autoReconnect(server.id);
 					}
-				}
+				},
+				undefined,
+				this.shutdownController.signal
 			);
 
 			const tools = connection.tools.map((tool) => ({

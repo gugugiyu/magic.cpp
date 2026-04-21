@@ -296,13 +296,19 @@ export async function processToolOutput(
 	//   'cancel' → user cancelled the agentic loop
 	//   string   → pre-summarized content from the dialog
 	const result = await new Promise<false | 'cancel' | string>((resolve) => {
+		let settled = false;
 		const request: PendingSummarizeRequest = {
 			id,
 			toolName,
 			rawOutput: output,
 			lineCount,
 			hardCap,
-			resolve
+			resolve: (r) => {
+				if (!settled) {
+					settled = true;
+					resolve(r);
+				}
+			}
 		};
 		pendingRequests.set(id, request);
 		_notify();
@@ -312,7 +318,8 @@ export async function processToolOutput(
 			signal.addEventListener(
 				'abort',
 				() => {
-					if (pendingRequests.has(id)) {
+					if (!settled) {
+						settled = true;
 						pendingRequests.delete(id);
 						_notify();
 						resolve(false);

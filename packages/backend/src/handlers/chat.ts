@@ -115,15 +115,24 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 			let buffer = '';
 			let wordCount = 0;
 
+			const abortHandler = () => {
+				controller.close();
+			};
+			req.signal.addEventListener('abort', abortHandler);
+
 			try {
+				if (req.signal.aborted) {
+					return;
+				}
+
 				const response = await fetch(upstreamUrl, {
 					method: 'POST',
 					headers,
 					body: JSON.stringify(parsed),
+					signal: req.signal,
 				});
 
 				if (!response.body) {
-					controller.close();
 					return;
 				}
 
@@ -140,11 +149,10 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 					buffer = lines.pop() || '';
 
 					for (const line of lines) {
-						console.log(line)
 						if (line.startsWith('data: ')) {
 							const content = extractContent(line);
+
 							if (content === null) {
-								// [DONE] or no content field (e.g., tool_calls only) — forward immediately
 								controller.enqueue(encoder.encode(line + '\n'));
 								continue;
 							}
@@ -160,8 +168,12 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 					controller.enqueue(encoder.encode(buffer + '\n'));
 				}
 			} catch (err) {
+				if (err instanceof Error && err.name === 'AbortError') {
+					return;
+				}
 				console.error('[streaming] error:', err);
 			} finally {
+				req.signal.removeEventListener('abort', abortHandler);
 				controller.close();
 			}
 		}

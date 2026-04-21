@@ -240,8 +240,10 @@ export class MCPService {
 		clientInfo?: Implementation,
 		capabilities?: ClientCapabilities,
 		onPhase?: MCPPhaseCallback,
-		listChangedHandlers?: ListChangedHandlers
+		listChangedHandlers?: ListChangedHandlers,
+		signal?: AbortSignal
 	): Promise<MCPConnection> {
+		throwIfAborted(signal);
 		const startTime = performance.now();
 		const effectiveClientInfo = clientInfo ?? DEFAULT_MCP_CONFIG.clientInfo;
 		const effectiveCapabilities = capabilities ?? DEFAULT_MCP_CONFIG.capabilities;
@@ -298,6 +300,7 @@ export class MCPService {
 
 		console.log(`[MCPService][${serverName}] Connecting to server...`);
 		await client.connect(transport);
+		throwIfAborted(signal);
 
 		const serverVersion = client.getServerVersion();
 		const serverCapabilities = client.getServerCapabilities();
@@ -339,6 +342,7 @@ export class MCPService {
 			transportType,
 			connectionTimeMs: 0
 		});
+		throwIfAborted(signal);
 
 		const connectionTimeMs = Math.round(performance.now() - startTime);
 

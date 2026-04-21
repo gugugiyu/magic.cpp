@@ -795,12 +795,12 @@ class ChatStore {
 				builtinToolCallSubagent: ['call_subagent'],
 				builtinToolSkills: ['list_skill', 'read_skill']
 			};
-			const enabledToolNames = Object.entries(builtinToolNameMap)
+			const enabledBuiltinToolNames = Object.entries(builtinToolNameMap)
 				.filter(([key]) => currentConfig[key as keyof typeof currentConfig])
 				.flatMap(([, names]) => names);
 			const hasMcpServers = mcpStore.getServers().length > 0;
 			const opinionatedContent = buildOpinionatedSystemPrompt({
-				enabledToolNames,
+				enabledBuiltinToolNames,
 				hasMcpServers
 			});
 			dispatchMessages = [

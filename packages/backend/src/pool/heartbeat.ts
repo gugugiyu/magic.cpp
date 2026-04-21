@@ -7,7 +7,7 @@ export class Heartbeat {
 
 	constructor(
 		private readonly pool: ModelPool,
-		private readonly config: Config,
+		private config: Config,
 	) {}
 
 	start(): void {
@@ -23,6 +23,15 @@ export class Heartbeat {
 			clearInterval(this.timer);
 			this.timer = null;
 		}
+	}
+
+	/**
+	 * Update configuration and restart the heartbeat timer with the new interval.
+	 */
+	updateConfig(newConfig: Config): void {
+		this.config = newConfig;
+		this.stop();
+		this.start();
 	}
 
 	private async tick(): Promise<void> {

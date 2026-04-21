@@ -1,15 +1,19 @@
-import { loadConfig } from './config.ts';
+import { loadConfig, type Config } from './config.ts';
 import { ModelPool } from './pool/model-pool.ts';
 import { Heartbeat } from './pool/heartbeat.ts';
 import { createRouter } from './router.ts';
 import { applyCorsHeaders, corsHeaders } from './utils/cors.ts';
 import { initializeDatabase, closeDatabase } from './database/index.ts';
-import { dirname } from 'path';
+import { dirname, resolve as resolvePath } from 'path';
+import { watchConfig } from './config-watcher.ts';
+
+// Resolve config path explicitly
+const configPath = resolvePath(__dirname, '..', 'config.json');
 
 // Load configuration with graceful error handling
-let config: ReturnType<typeof loadConfig>;
+let config: Config;
 try {
-	config = loadConfig();
+	config = loadConfig(configPath);
 } catch (err) {
 	console.error('');
 	console.error('╔═══════════════════════════════════════════════════════════╗');
@@ -51,6 +55,7 @@ try {
 	process.exit(1);
 }
 
+// Core components (mutable so we can update them on config reload)
 const pool = new ModelPool(config);
 const heartbeat = new Heartbeat(pool, config);
 if (config.debug) {
@@ -68,7 +73,8 @@ try {
 
 heartbeat.start();
 
-const router = createRouter(pool, config);
+// Mutable router so we can recreate it when config changes
+let router = createRouter(pool, config);
 
 const server = Bun.serve({
 	port: config.port,
@@ -103,12 +109,56 @@ const server = Bun.serve({
 
 console.log(`[server] listening on http://localhost:${server.port}`);
 
+// --- Hot Reload Watcher ---
+let stopWatcher: (() => void) | null = null;
+
+try {
+	stopWatcher = watchConfig(configPath, (newConfig) => {
+		console.log('[config] reloading configuration...');
+
+		// Check for settings that require restart
+		let needsRestart = false;
+		if (newConfig.port !== config.port) {
+			console.warn(`[config] port changed from ${config.port} to ${newConfig.port} — requires server restart`);
+			needsRestart = true;
+		}
+		if (newConfig.staticDir !== config.staticDir) {
+			console.warn(`[config] staticDir changed from "${config.staticDir}" to "${newConfig.staticDir}" — requires server restart`);
+			needsRestart = true;
+		}
+		if (newConfig.database?.path !== config.database?.path) {
+			console.warn(`[config] database.path changed from "${config.database?.path}" to "${newConfig.database?.path}" — requires server restart`);
+			needsRestart = true;
+		}
+
+		if (needsRestart) {
+			console.error('[config] Some settings cannot be hot-reloaded. Please restart the server manually.');
+			// Still apply other changes (upstreams, CORS, etc.) but alert user
+		}
+
+		// Apply new configuration
+		pool.applyConfig(newConfig);
+		heartbeat.updateConfig(newConfig);
+		router = createRouter(pool, newConfig);
+		config = newConfig;
+
+		console.log('[config] reload complete');
+	});
+
+	console.log(`[config-watcher] watching ${configPath} for changes`);
+} catch (err) {
+	console.error('[config-watcher] failed to start watcher:', (err as Error).message);
+}
+
 // Graceful shutdown
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
 	process.on(sig, () => {
 		console.log(`\n[server] ${sig} received, shutting down`);
 		heartbeat.stop();
 		closeDatabase();
+		if (stopWatcher) {
+			stopWatcher();
+		}
 		server.stop();
 		process.exit(0);
 	});

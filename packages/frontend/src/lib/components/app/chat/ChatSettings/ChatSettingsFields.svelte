@@ -131,7 +131,7 @@
 						Use opinionated system prompt (~{buildOpinionatedSystemPrompt({
 							hasMcpServers: false,
 							enabledBuiltinToolNames: [...getBuiltinToolNames()]
-						}).length} chars
+						}).length} chars)
 					</Label>
 				</div>
 			{/if}

@@ -55,6 +55,8 @@ cp packages/backend/.env.example packages/backend/.env
 
 Config is loaded from `config.json` (adjacent to `src/`) at startup. Environment variables for API keys are loaded from `.env` (adjacent to `src/`). Placeholders like `$OPENAI_KEY` in `config.json` are resolved against the environment — if the variable is not set, the upstream will have no API key and requests to it will likely fail with an auth error.
 
+**Hot Reload**: The server watches `config.json` for changes and automatically reloads most settings without requiring a restart. Changes to `port`, `staticDir`, or `database.path` require a full server restart and will be logged as warnings.
+
 ```json
 {
   "port": 3000,
@@ -107,6 +109,34 @@ Config is loaded from `config.json` (adjacent to `src/`) at startup. Environment
 | `upstreams[].apiKey` | string \| null | `null` | API key, or `$ENV_VAR` to read from environment |
 | `upstreams[].enabled` | boolean | `true` | Enable/disable this upstream |
 | `upstreams[].modelList` | array | `[]` | Per-upstream whitelist of model IDs (empty = all models) |
+
+---
+
+#### Hot-Reloadable Settings
+
+The following settings are automatically reloaded when `config.json` changes:
+
+| Field | Description |
+|---|---|
+| `upstreams` | Add/remove/disable upstreams, change URLs, API keys |
+| `modelList` | Global model whitelist |
+| `streaming.enabled` | Enable/disable streaming mode |
+| `streaming.bufferWords` | Buffer size before streaming |
+| `cors.allowedOrigins` | CORS origin whitelist |
+| `cors.allowCredentials` | CORS credentials flag |
+| `cors.maxAge` | CORS preflight max-age |
+| `heartbeatInterval` | Seconds between health checks |
+
+#### Settings Requiring Restart
+
+These changes are logged as warnings but **require** server restart to take effect:
+
+| Field | Description |
+|---|---|
+| `port` | HTTP server bind port |
+| `staticDir` | Frontend static files directory |
+| `database.path` | SQLite database file location |
+
 
 ---
 

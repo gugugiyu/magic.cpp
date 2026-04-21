@@ -116,6 +116,36 @@ export class ModelPool {
 		this._initialized = true;
 	}
 
+	/**
+	 * Apply a new configuration in-place, updating all mutable state.
+	 * Clears existing upstreams and model cache, then refreshes model lists asynchronously.
+	 */
+	applyConfig(newConfig: Config): void {
+		// Update derived config fields
+		this.globalModelList = newConfig.modelList || [];
+		this.streamingConfig = newConfig.streaming || { enabled: true, bufferWords: 0 };
+
+		// Rebuild upstreams map
+		this.upstreams.clear();
+		for (const u of newConfig.upstreams) {
+			this.upstreams.set(u.id, {
+				...u,
+				health: 'unknown',
+				modelIds: new Set(),
+			});
+		}
+
+		// Clear cached models and routing; mark as uninitialized
+		this.pooledModels = [];
+		this.routingMap.clear();
+		this._initialized = false;
+
+		// Async refresh to fetch new model lists
+		this.refresh().catch((err) => {
+			console.error('[model-pool] config reload: refresh failed:', err);
+		});
+	}
+
 	private async fetchModels(
 		upstream: Upstream,
 	): Promise<{ upstream: Upstream; models: PooledModel[] }> {

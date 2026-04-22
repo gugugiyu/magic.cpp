@@ -189,6 +189,22 @@ export class DatabaseService {
 			anchorMessageId
 		});
 	}
+
+	/**
+	 * Toggles the pinned status of a conversation.
+	 *
+	 * @param id - Conversation ID
+	 * @returns The new pinned status
+	 */
+	static async toggleConversationPin(id: string): Promise<boolean> {
+		const conversation = await db.conversations.get(id);
+		if (!conversation) {
+			throw new Error(`Conversation ${id} not found`);
+		}
+		const newPinnedState = !conversation.pinned;
+		await this.updateConversation(id, { pinned: newPinnedState });
+		return newPinnedState;
+	}
 }
 
 // Export db compatibility object for callers that need it

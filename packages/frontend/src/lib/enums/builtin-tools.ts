@@ -93,8 +93,17 @@ const SETTING_KEY_TO_TOOL: Record<string, OpenAIToolDefinition> = {
 
 /** Maps a group setting key → the list of tool definitions it enables. */
 const SETTING_KEY_TO_TOOL_GROUP: Record<string, OpenAIToolDefinition[]> = {
-	[SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS]: [TOOL_READ_FILE, TOOL_LIST_DIRECTORY, TOOL_SEARCH_FILES],
-	[SETTINGS_KEYS.BUILTIN_TOOL_MUTATING_FILE_TOOLS]: [TOOL_WRITE_FILE, TOOL_PATCH_FILE, TOOL_DELETE_FILE, TOOL_MOVE_FILE]
+	[SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS]: [
+		TOOL_READ_FILE,
+		TOOL_LIST_DIRECTORY,
+		TOOL_SEARCH_FILES
+	],
+	[SETTINGS_KEYS.BUILTIN_TOOL_MUTATING_FILE_TOOLS]: [
+		TOOL_WRITE_FILE,
+		TOOL_PATCH_FILE,
+		TOOL_DELETE_FILE,
+		TOOL_MOVE_FILE
+	]
 };
 
 /** Routes tool execution: 'frontend' means browser-side switch, 'backend' means POST /api/tools/execute. */

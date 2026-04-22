@@ -1,154 +1,97 @@
 /**
- * Message database queries.
- * All operations related to messages in SQLite using bun:sqlite with tree/branching support.
+ * Message database queries using Drizzle ORM.
+ * Tree/branching support: children arrays are computed, never stored.
  */
 
-import { Database } from 'bun:sqlite';
+import { eq, asc, inArray } from 'drizzle-orm';
+import { messages as messagesTable } from '../schema-drizzle.ts';
+import type { Message } from '../schema-drizzle.ts';
+import type { DrizzleDB } from '../index.ts';
 import type { DatabaseMessage } from '../../types/database';
 
-/**
- * Create a new message.
- */
-export function createMessage(db: Database, message: DatabaseMessage): void {
-	console.log(message)
-	const stmt = db.prepare(
-		`INSERT INTO messages (id, conv_id, type, timestamp, role, content, parent_id, reasoning_content, tool_calls, tool_call_id, extra, timings, model)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	);
-	stmt.run([
-		message.id,
-		message.convId,
-		message.type,
-		message.timestamp,
-		message.role,
-		message.content,
-		message.parent || null,
-		message.reasoningContent || null,
-		message.toolCalls || null,
-		message.toolCallId || null,
-		message.extra ? JSON.stringify(message.extra) : null,
-		message.timings ? JSON.stringify(message.timings) : null,
-		message.model || null
-	] as any);
+export function createMessage(db: DrizzleDB, message: DatabaseMessage): void {
+	db.insert(messagesTable).values({
+		id: message.id,
+		convId: message.convId,
+		type: message.type,
+		timestamp: message.timestamp,
+		role: message.role,
+		content: message.content,
+		parentId: message.parent ?? null,
+		reasoningContent: message.reasoningContent ?? null,
+		toolCalls: message.toolCalls ?? null,
+		toolCallId: message.toolCallId ?? null,
+		extra: message.extra ? JSON.stringify(message.extra) : null,
+		timings: message.timings ? JSON.stringify(message.timings) : null,
+		model: message.model ?? null
+	}).run();
 }
 
-/**
- * Get a message by ID.
- */
-export function getMessageById(db: Database, id: string): DatabaseMessage | undefined {
-	const row = db.query('SELECT * FROM messages WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+export function getMessageById(db: DrizzleDB, id: string): DatabaseMessage | undefined {
+	const row = db.select().from(messagesTable).where(eq(messagesTable.id, id)).get();
 	if (!row) return undefined;
 	return rowToMessage(row);
 }
 
-/**
- * Get all messages in a conversation sorted by timestamp.
- */
-export function getConversationMessages(db: Database, convId: string): DatabaseMessage[] {
+export function getConversationMessages(db: DrizzleDB, convId: string): DatabaseMessage[] {
 	const rows = db
-		.query('SELECT * FROM messages WHERE conv_id = ? ORDER BY timestamp ASC')
-		.all(convId) as Record<string, unknown>[];
-
+		.select()
+		.from(messagesTable)
+		.where(eq(messagesTable.convId, convId))
+		.orderBy(asc(messagesTable.timestamp))
+		.all();
 	return rows.map(rowToMessage);
 }
 
-/**
- * Update a message. Only provided fields are updated.
- */
 export function updateMessage(
-	db: Database,
+	db: DrizzleDB,
 	id: string,
 	updates: Partial<Omit<DatabaseMessage, 'id'>>
 ): void {
-	const sets: string[] = [];
-	const values: unknown[] = [];
+	const set: Partial<typeof messagesTable.$inferInsert> = {};
 
-	if (updates.content !== undefined) {
-		sets.push('content = ?');
-		values.push(updates.content);
-	}
-	if (updates.type !== undefined) {
-		sets.push('type = ?');
-		values.push(updates.type);
-	}
-	if (updates.role !== undefined) {
-		sets.push('role = ?');
-		values.push(updates.role);
-	}
-	if (updates.parent !== undefined) {
-		sets.push('parent_id = ?');
-		values.push(updates.parent || null);
-	}
-	if (updates.reasoningContent !== undefined) {
-		sets.push('reasoning_content = ?');
-		values.push(updates.reasoningContent || null);
-	}
-	if (updates.toolCalls !== undefined) {
-		sets.push('tool_calls = ?');
-		values.push(updates.toolCalls || null);
-	}
-	if (updates.toolCallId !== undefined) {
-		sets.push('tool_call_id = ?');
-		values.push(updates.toolCallId || null);
-	}
+	if (updates.content !== undefined) set.content = updates.content;
+	if (updates.type !== undefined) set.type = updates.type;
+	if (updates.role !== undefined) set.role = updates.role;
+	if (updates.parent !== undefined) set.parentId = updates.parent ?? null;
+	if (updates.reasoningContent !== undefined) set.reasoningContent = updates.reasoningContent ?? null;
+	if (updates.toolCalls !== undefined) set.toolCalls = updates.toolCalls ?? null;
+	if (updates.toolCallId !== undefined) set.toolCallId = updates.toolCallId ?? null;
 	if (updates.extra !== undefined) {
-		sets.push('extra = ?');
-		values.push(updates.extra ? JSON.stringify(updates.extra) : null);
+		set.extra = updates.extra ? JSON.stringify(updates.extra) : null;
 	}
 	if (updates.timings !== undefined) {
-		sets.push('timings = ?');
-		values.push(updates.timings ? JSON.stringify(updates.timings) : null);
+		set.timings = updates.timings ? JSON.stringify(updates.timings) : null;
 	}
-	if (updates.model !== undefined) {
-		sets.push('model = ?');
-		values.push(updates.model || null);
-	}
-	if (updates.timestamp !== undefined) {
-		sets.push('timestamp = ?');
-		values.push(updates.timestamp);
-	}
+	if (updates.model !== undefined) set.model = updates.model ?? null;
+	if (updates.timestamp !== undefined) set.timestamp = updates.timestamp;
+	// children is computed from parent_id relationships, not stored
 
-	if (sets.length === 0) return;
+	if (Object.keys(set).length === 0) return;
 
-	values.push(id);
-	const sql = `UPDATE messages SET ${sets.join(', ')} WHERE id = ?`;
-	const stmt = db.prepare(sql);
-	stmt.run(values as any);
+	db.update(messagesTable).set(set).where(eq(messagesTable.id, id)).run();
 }
 
-/**
- * Delete a message by ID.
- */
-export function deleteMessage(db: Database, id: string): void {
-	const stmt = db.prepare('DELETE FROM messages WHERE id = ?');
-	stmt.run([id] as any);
+export function deleteMessage(db: DrizzleDB, id: string): void {
+	db.delete(messagesTable).where(eq(messagesTable.id, id)).run();
 }
 
-/**
- * Delete multiple messages by IDs.
- */
-export function deleteMessages(db: Database, ids: string[]): void {
+export function deleteMessages(db: DrizzleDB, ids: string[]): void {
 	if (ids.length === 0) return;
-	const placeholders = ids.map(() => '?').join(', ');
-	const stmt = db.prepare(`DELETE FROM messages WHERE id IN (${placeholders})`);
-	stmt.run(ids as any);
+	db.delete(messagesTable).where(inArray(messagesTable.id, ids)).run();
 }
 
-/**
- * Get direct children of a message.
- */
-export function getMessageChildren(db: Database, parentId: string): DatabaseMessage[] {
+export function getMessageChildren(db: DrizzleDB, parentId: string): DatabaseMessage[] {
 	const rows = db
-		.query('SELECT * FROM messages WHERE parent_id = ? ORDER BY timestamp ASC')
-		.all(parentId) as Record<string, unknown>[];
-
+		.select()
+		.from(messagesTable)
+		.where(eq(messagesTable.parentId, parentId))
+		.orderBy(asc(messagesTable.timestamp))
+		.all();
 	return rows.map(rowToMessage);
 }
 
-/**
- * Get all descendant message IDs (for cascading delete).
- */
-export function getDescendantMessageIds(db: Database, messageId: string): string[] {
+export function getDescendantMessageIds(db: DrizzleDB, messageId: string): string[] {
 	const ids: string[] = [];
 	const queue = [messageId];
 
@@ -164,29 +107,19 @@ export function getDescendantMessageIds(db: Database, messageId: string): string
 	return ids;
 }
 
-/**
- * Reparent message children to a new parent.
- */
 export function reparentMessageChildren(
-	db: Database,
+	db: DrizzleDB,
 	childIds: string[],
 	newParentId: string | null
 ): void {
 	if (childIds.length === 0) return;
-
-	const placeholders = childIds.map(() => '?').join(', ');
-	const sql = `UPDATE messages SET parent_id = ? WHERE id IN (${placeholders})`;
-	const stmt = db.prepare(sql);
-	stmt.run([newParentId, ...childIds] as any);
+	db.update(messagesTable)
+		.set({ parentId: newParentId })
+		.where(inArray(messagesTable.id, childIds))
+		.run();
 }
 
-/**
- * Create a root message for a new conversation.
- */
-export function createRootMessage(
-	db: Database,
-	convId: string
-): DatabaseMessage {
+export function createRootMessage(db: DrizzleDB, convId: string): DatabaseMessage {
 	const rootMessage: DatabaseMessage = {
 		id: crypto.randomUUID(),
 		convId,
@@ -198,16 +131,12 @@ export function createRootMessage(
 		toolCalls: '',
 		children: []
 	};
-
 	createMessage(db, rootMessage);
 	return rootMessage;
 }
 
-/**
- * Create a system prompt message.
- */
 export function createSystemMessage(
-	db: Database,
+	db: DrizzleDB,
 	convId: string,
 	systemPrompt: string,
 	parentId: string
@@ -234,17 +163,15 @@ export function createSystemMessage(
 
 /**
  * Build children arrays for messages from parent_id relationships.
- * SQLite stores only parent_id, so we compute children for the frontend.
+ * SQLite stores only parent_id; this computes children for the frontend.
  */
 export function buildMessageTree(messages: DatabaseMessage[]): DatabaseMessage[] {
 	const messageMap = new Map<string, DatabaseMessage>();
-	
-	// Initialize all messages with empty children arrays
+
 	for (const msg of messages) {
 		messageMap.set(msg.id, { ...msg, children: [] });
 	}
 
-	// Build parent-child relationships
 	for (const msg of messages) {
 		if (msg.parent && messageMap.has(msg.parent)) {
 			const parent = messageMap.get(msg.parent)!;
@@ -255,24 +182,21 @@ export function buildMessageTree(messages: DatabaseMessage[]): DatabaseMessage[]
 	return Array.from(messageMap.values());
 }
 
-/**
- * Helper: Convert a database row to DatabaseMessage.
- */
-function rowToMessage(row: Record<string, unknown>): DatabaseMessage {
+function rowToMessage(row: Message): DatabaseMessage {
 	return {
-		id: row.id as string,
-		convId: row.conv_id as string,
+		id: row.id,
+		convId: row.convId,
 		type: row.type as DatabaseMessage['type'],
-		timestamp: row.timestamp as number,
+		timestamp: row.timestamp,
 		role: row.role as DatabaseMessage['role'],
-		content: row.content as string,
-		parent: row.parent_id as string | null,
-		reasoningContent: row.reasoning_content as string | undefined,
-		toolCalls: row.tool_calls as string | undefined,
-		toolCallId: row.tool_call_id as string | undefined,
-		extra: row.extra ? JSON.parse(row.extra as string) : undefined,
-		timings: row.timings ? JSON.parse(row.timings as string) : undefined,
-		model: row.model as string | undefined,
-		children: [] // Will be populated by buildMessageTree
+		content: row.content,
+		parent: row.parentId ?? null,
+		reasoningContent: row.reasoningContent ?? undefined,
+		toolCalls: row.toolCalls ?? undefined,
+		toolCallId: row.toolCallId ?? undefined,
+		extra: row.extra ? JSON.parse(row.extra) : undefined,
+		timings: row.timings ? JSON.parse(row.timings) : undefined,
+		model: row.model ?? undefined,
+		children: []
 	};
 }

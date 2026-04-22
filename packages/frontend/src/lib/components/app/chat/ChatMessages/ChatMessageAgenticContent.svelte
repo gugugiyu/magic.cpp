@@ -252,10 +252,7 @@
 		);
 	}
 
-	function toggleToolGroup(
-		firstIndex: number,
-		cluster: { sections: typeof sectionsParsed }
-	): void {
+	function toggleToolGroup(firstIndex: number, cluster: { sections: typeof sectionsParsed }): void {
 		toolGroupExpanded[firstIndex] = !isToolGroupOpen(firstIndex, cluster);
 	}
 
@@ -456,8 +453,7 @@
 	{@const MAX_SHOWN = 3}
 	{@const shownNames = toolNames.slice(0, MAX_SHOWN)}
 	{@const extraCount = toolNames.length - MAX_SHOWN}
-	{@const labelNames =
-		shownNames.join(', ') + (extraCount > 0 ? ` +${extraCount} more` : '')}
+	{@const labelNames = shownNames.join(', ') + (extraCount > 0 ? ` +${extraCount} more` : '')}
 	{@const firstIndex = cluster.indices[0]}
 	{@const isOpen = isToolGroupOpen(firstIndex, cluster)}
 	<div class="agentic-inline-block">
@@ -689,7 +685,11 @@
 							{parseReadSkillName(section)}
 						{/if}
 					{:else if isFileTool}
-						{isPending ? fileToolLabel.pending : hasError ? fileToolLabel.error : fileToolLabel.done}
+						{isPending
+							? fileToolLabel.pending
+							: hasError
+								? fileToolLabel.error
+								: fileToolLabel.done}
 					{:else}
 						{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}
 						<span class="agentic-name">{section.toolName || 'tool'}</span>{isPending ? '…' : ''}

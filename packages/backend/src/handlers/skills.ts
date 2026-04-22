@@ -9,7 +9,7 @@
  *   DELETE /api/skills/:name    — Delete a skill
  */
 
-import type { Database } from 'better-sqlite3';
+import type { DrizzleDB } from '../database/index.ts';
 import { sanitizeSkillName, SKILL_MAX_CONTENT_BYTES } from '#shared/constants/skills';
 import {
 	listAllSkills,
@@ -19,7 +19,7 @@ import {
 	deleteSkill
 } from '../services/skill-io.ts';
 
-export async function handleListSkills(_db: Database): Promise<Response> {
+export async function handleListSkills(_db: DrizzleDB): Promise<Response> {
 	try {
 		const skills = await listAllSkills();
 		return Response.json(skills, {
@@ -33,7 +33,7 @@ export async function handleListSkills(_db: Database): Promise<Response> {
 	}
 }
 
-export async function handleCreateSkill(req: Request, _db: Database): Promise<Response> {
+export async function handleCreateSkill(req: Request, _db: DrizzleDB): Promise<Response> {
 	try {
 		const body = await req.json();
 		const { name, content } = body as { name?: string; content?: string };
@@ -81,7 +81,7 @@ export async function handleCreateSkill(req: Request, _db: Database): Promise<Re
 	}
 }
 
-export async function handleReadSkill(_db: Database, name: string): Promise<Response> {
+export async function handleReadSkill(_db: DrizzleDB, name: string): Promise<Response> {
 	try {
 		const skill = await readSkill(name);
 		if (!skill) {
@@ -101,7 +101,7 @@ export async function handleReadSkill(_db: Database, name: string): Promise<Resp
 	}
 }
 
-export async function handleUpdateSkill(req: Request, _db: Database, name: string): Promise<Response> {
+export async function handleUpdateSkill(req: Request, _db: DrizzleDB, name: string): Promise<Response> {
 	try {
 		const body = await req.json();
 		const { content } = body as { content?: string };
@@ -141,7 +141,7 @@ export async function handleUpdateSkill(req: Request, _db: Database, name: strin
 	}
 }
 
-export async function handleDeleteSkill(_db: Database, name: string): Promise<Response> {
+export async function handleDeleteSkill(_db: DrizzleDB, name: string): Promise<Response> {
 	try {
 		const deleted = await deleteSkill(name);
 		if (!deleted) {

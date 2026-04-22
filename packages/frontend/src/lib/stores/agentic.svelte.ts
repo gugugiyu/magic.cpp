@@ -27,7 +27,11 @@ import { mcpStore } from '$lib/stores/mcp.svelte';
 import { modelsStore } from '$lib/stores/models.svelte';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
-import { getActiveBuiltinTools, getBuiltinToolNames, BUILTIN_TOOL_EXECUTION_TARGET } from '$lib/enums/builtin-tools';
+import {
+	getActiveBuiltinTools,
+	getBuiltinToolNames,
+	BUILTIN_TOOL_EXECUTION_TARGET
+} from '$lib/enums/builtin-tools';
 import { isAbortError, safeNumber, createLinkedController } from '$lib/utils';
 import { sequentialThinkingStore, type ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
 import {
@@ -955,7 +959,7 @@ class AgenticStore {
 		}
 
 		if (BUILTIN_TOOL_EXECUTION_TARGET[name] === 'backend') {
-			const endpoint = serverEndpointStore.getBaseUrl()
+			const endpoint = serverEndpointStore.getBaseUrl();
 			try {
 				const resp = await fetch(`${endpoint}/api/tools/execute`, {
 					method: 'POST',

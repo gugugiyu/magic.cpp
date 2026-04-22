@@ -3,12 +3,12 @@
  * All handlers return JSON responses with standard HTTP status codes.
  */
 
-import { Database } from 'bun:sqlite';
+import type { DrizzleDB } from '../database/index.ts';
 import {
+	getConversationMessages,
 	getMessageById,
 	updateMessage,
 	deleteMessage,
-	getDescendantMessageIds,
 	reparentMessageChildren,
 	buildMessageTree
 } from '../database/queries/messages.ts';
@@ -16,9 +16,8 @@ import type { DatabaseMessage } from '../types/database';
 
 /**
  * GET /api/messages/:id
- * Get a single message by ID.
  */
-export function handleGetMessage(db: Database, id: string): Response {
+export function handleGetMessage(db: DrizzleDB, id: string): Response {
 	try {
 		const message = getMessageById(db, id);
 		if (!message) {
@@ -28,26 +27,7 @@ export function handleGetMessage(db: Database, id: string): Response {
 			);
 		}
 
-		// Build children array for compatibility
-		const allMessagesRows = db
-			.query('SELECT * FROM messages WHERE conv_id = $convId')
-			.all({ $convId: message.convId }) as Record<string, unknown>[];
-		const allMessages = allMessagesRows.map(row => ({
-			id: row.id as string,
-			convId: row.conv_id as string,
-			type: row.type as string,
-			timestamp: row.timestamp as number,
-			role: row.role as string,
-			content: row.content as string,
-			parent: row.parent_id as string | null,
-			reasoningContent: row.reasoning_content as string | undefined,
-			toolCalls: row.tool_calls as string | undefined,
-			toolCallId: row.tool_call_id as string | undefined,
-			extra: row.extra ? JSON.parse(row.extra as string) : undefined,
-			timings: row.timings ? JSON.parse(row.timings as string) : undefined,
-			model: row.model as string | undefined,
-			children: []
-		}));
+		const allMessages = getConversationMessages(db, message.convId);
 		const messagesWithTree = buildMessageTree(allMessages);
 		const fullMessage = messagesWithTree.find((m) => m.id === id);
 
@@ -63,10 +43,9 @@ export function handleGetMessage(db: Database, id: string): Response {
 
 /**
  * PUT /api/messages/:id
- * Update a message.
  * Body: Partial<DatabaseMessage>
  */
-export async function handleUpdateMessage(req: Request, db: Database, id: string): Promise<Response> {
+export async function handleUpdateMessage(req: Request, db: DrizzleDB, id: string): Promise<Response> {
 	try {
 		const existing = getMessageById(db, id);
 		if (!existing) {
@@ -107,10 +86,9 @@ export async function handleUpdateMessage(req: Request, db: Database, id: string
 
 /**
  * DELETE /api/messages/:id
- * Delete a message, optionally reparenting children.
  * Query params: newParentId (optional)
  */
-export function handleDeleteMessage(db: Database, id: string, url: URL): Response {
+export function handleDeleteMessage(db: DrizzleDB, id: string, url: URL): Response {
 	try {
 		const message = getMessageById(db, id);
 		if (!message) {
@@ -122,24 +100,21 @@ export function handleDeleteMessage(db: Database, id: string, url: URL): Respons
 
 		const newParentId = url.searchParams.get('newParentId') || undefined;
 
-		db.transaction(() => {
-			// Reparent children if newParentId is provided
+		db.transaction((tx) => {
 			if (newParentId && message.children.length > 0) {
-				reparentMessageChildren(db, message.children, newParentId);
+				reparentMessageChildren(tx, message.children, newParentId);
 			}
 
-			// Remove this message from its parent's children array
 			if (message.parent) {
-				const parent = getMessageById(db, message.parent);
+				const parent = getMessageById(tx, message.parent);
 				if (parent) {
 					const updatedChildren = parent.children.filter((childId: string) => childId !== id);
-					updateMessage(db, message.parent, { children: updatedChildren });
+					updateMessage(tx, message.parent, { children: updatedChildren });
 				}
 			}
 
-			// Delete the message
-			deleteMessage(db, id);
-		})();
+			deleteMessage(tx, id);
+		});
 
 		return new Response(null, { status: 204 });
 	} catch (error) {
@@ -153,12 +128,11 @@ export function handleDeleteMessage(db: Database, id: string, url: URL): Respons
 
 /**
  * POST /api/messages/:id/delete-cascading
- * Delete a message and all its descendants (cascading deletion).
  * Body: { conversationId: string }
  */
 export async function handleDeleteMessageCascading(
 	req: Request,
-	db: Database,
+	db: DrizzleDB,
 	id: string
 ): Promise<Response> {
 	try {
@@ -180,53 +154,27 @@ export async function handleDeleteMessageCascading(
 			);
 		}
 
-		const allToDelete = db.transaction(() => {
-			// Get all messages in the conversation to find descendants
-			const allMessagesRows = db
-				.query('SELECT * FROM messages WHERE conv_id = $convId')
-				.all({ $convId: conversationId }) as Record<string, unknown>[];
-
-			// We need to build children arrays first since they're not stored
-			const messagesWithTree = buildMessageTree(
-				allMessagesRows.map((row) => ({
-					id: row.id as string,
-					convId: row.conv_id as string,
-					type: row.type as string,
-					timestamp: row.timestamp as number,
-					role: row.role as string,
-					content: row.content as string,
-					parent: row.parent_id as string | null,
-					reasoningContent: row.reasoning_content as string | undefined,
-					toolCalls: row.tool_calls as string | undefined,
-					toolCallId: row.tool_call_id as string | undefined,
-					extra: row.extra ? JSON.parse(row.extra as string) : undefined,
-					timings: row.timings ? JSON.parse(row.timings as string) : undefined,
-					model: row.model as string | undefined,
-					children: []
-				}))
-			);
-
-			// Find descendants using the tree structure
+		const allToDelete = db.transaction((tx) => {
+			const allMessages = getConversationMessages(tx, conversationId);
+			const messagesWithTree = buildMessageTree(allMessages);
 			const descendants = findDescendantMessageIds(messagesWithTree, id);
 			return [id, ...descendants];
-		})();
+		});
 
-		db.transaction(() => {
-			// Get the message to delete for parent cleanup
-			const msg = getMessageById(db, id);
+		db.transaction((tx) => {
+			const msg = getMessageById(tx, id);
 			if (msg && msg.parent) {
-				const parent = getMessageById(db, msg.parent);
+				const parent = getMessageById(tx, msg.parent);
 				if (parent) {
 					const updatedChildren = parent.children.filter((childId: string) => childId !== id);
-					updateMessage(db, msg.parent, { children: updatedChildren });
+					updateMessage(tx, msg.parent, { children: updatedChildren });
 				}
 			}
 
-			// Delete all messages in the branch
 			for (const msgId of allToDelete) {
-				deleteMessage(db, msgId);
+				deleteMessage(tx, msgId);
 			}
-		})();
+		});
 
 		return Response.json(allToDelete);
 	} catch (error) {
@@ -238,9 +186,6 @@ export async function handleDeleteMessageCascading(
 	}
 }
 
-/**
- * Helper: Find all descendant message IDs from a tree structure.
- */
 function findDescendantMessageIds(messages: DatabaseMessage[], messageId: string): string[] {
 	const nodeMap = new Map<string, DatabaseMessage>();
 	for (const msg of messages) {

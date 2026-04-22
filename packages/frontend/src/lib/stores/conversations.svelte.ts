@@ -1020,6 +1020,33 @@ class ConversationsStore {
 		await this.loadConversations();
 		return result;
 	}
+
+	/**
+	 * Toggles the pinned status of a conversation.
+	 * @param convId - The conversation ID to toggle
+	 * @returns The new pinned status
+	 */
+	async toggleConversationPin(convId: string): Promise<boolean> {
+		try {
+			const newPinnedState = await DatabaseService.toggleConversationPin(convId);
+
+			const convIndex = this.conversations.findIndex((c) => c.id === convId);
+
+			if (convIndex !== -1) {
+				this.conversations[convIndex].pinned = newPinnedState;
+				this.conversations = [...this.conversations];
+			}
+
+			if (this.activeConversation?.id === convId) {
+				this.activeConversation = { ...this.activeConversation, pinned: newPinnedState };
+			}
+
+			return newPinnedState;
+		} catch (error) {
+			console.error('Failed to toggle conversation pin:', error);
+			return false;
+		}
+	}
 }
 
 export const conversationsStore = new ConversationsStore();
@@ -1043,6 +1070,13 @@ export function buildConversationTree(convs: DatabaseConversation[]): Conversati
 	const childrenByParent = new SvelteMap<string, DatabaseConversation[]>();
 	const forkIds = new SvelteSet<string>();
 
+	// Pinned conversations first, then by lastModified descending
+	const comparePinnedThenRecent = (a: DatabaseConversation, b: DatabaseConversation) => {
+		if (a.pinned && !b.pinned) return -1;
+		if (!a.pinned && b.pinned) return 1;
+		return b.lastModified - a.lastModified;
+	};
+
 	for (const conv of convs) {
 		if (conv.forkedFromConversationId) {
 			forkIds.add(conv.id);
@@ -1063,7 +1097,7 @@ export function buildConversationTree(convs: DatabaseConversation[]): Conversati
 
 		const children = childrenByParent.get(conv.id);
 		if (children) {
-			children.sort((a, b) => b.lastModified - a.lastModified);
+			children.sort(comparePinnedThenRecent);
 
 			for (const child of children) {
 				walk(child, depth + 1);
@@ -1071,7 +1105,8 @@ export function buildConversationTree(convs: DatabaseConversation[]): Conversati
 		}
 	}
 
-	const roots = convs.filter((c) => !forkIds.has(c.id));
+	const roots = convs.filter((c) => !forkIds.has(c.id)).sort(comparePinnedThenRecent);
+
 	for (const root of roots) {
 		walk(root, 0);
 	}

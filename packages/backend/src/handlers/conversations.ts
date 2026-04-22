@@ -3,14 +3,17 @@
  * All handlers return JSON responses with standard HTTP status codes.
  */
 
-import { Database } from 'bun:sqlite';
+import type { DrizzleDB } from '../database/index.ts';
 import {
 	getAllConversations,
 	getConversation,
 	createConversation,
 	updateConversation,
 	deleteConversation,
-	getDescendantConversationIds
+	getDescendantConversationIds,
+	getChildrenConversations,
+	getRootConversationIds,
+	clearForkParentForAll
 } from '../database/queries/conversations.ts';
 import {
 	getConversationMessages,
@@ -20,8 +23,7 @@ import {
 	createSystemMessage,
 	buildMessageTree,
 	deleteMessages,
-	updateMessage,
-	reparentMessageChildren
+	updateMessage
 } from '../database/queries/messages.ts';
 import {
 	filterByLeafNodeId
@@ -32,18 +34,14 @@ import type {
 	McpServerOverride
 } from '../types/database';
 
-/**
- * Generate a UUID v4 using crypto.randomUUID().
- */
 function uuid(): string {
 	return crypto.randomUUID();
 }
 
 /**
  * GET /api/conversations
- * List all conversations sorted by lastModified DESC.
  */
-export function handleGetConversations(db: Database): Response {
+export function handleGetConversations(db: DrizzleDB): Response {
 	try {
 		const conversations = getAllConversations(db);
 		return Response.json(conversations);
@@ -58,9 +56,8 @@ export function handleGetConversations(db: Database): Response {
 
 /**
  * GET /api/conversations/:id
- * Get a single conversation by ID.
  */
-export function handleGetConversation(db: Database, id: string): Response {
+export function handleGetConversation(db: DrizzleDB, id: string): Response {
 	try {
 		const conversation = getConversation(db, id);
 		if (!conversation) {
@@ -81,10 +78,9 @@ export function handleGetConversation(db: Database, id: string): Response {
 
 /**
  * POST /api/conversations
- * Create a new conversation.
  * Body: { name: string, mcpServerOverrides?: McpServerOverride[] }
  */
-export async function handleCreateConversation(req: Request, db: Database): Promise<Response> {
+export async function handleCreateConversation(req: Request, db: DrizzleDB): Promise<Response> {
 	try {
 		const body = await req.json();
 		if (!body.name || typeof body.name !== 'string') {
@@ -119,10 +115,9 @@ export async function handleCreateConversation(req: Request, db: Database): Prom
 
 /**
  * PUT /api/conversations/:id
- * Update a conversation.
  * Body: Partial<DatabaseConversation>
  */
-export async function handleUpdateConversation(req: Request, db: Database, id: string): Promise<Response> {
+export async function handleUpdateConversation(req: Request, db: DrizzleDB, id: string): Promise<Response> {
 	try {
 		const existing = getConversation(db, id);
 		if (!existing) {
@@ -140,6 +135,7 @@ export async function handleUpdateConversation(req: Request, db: Database, id: s
 		if (body.mcpServerOverrides !== undefined) updates.mcpServerOverrides = body.mcpServerOverrides;
 		if (body.forkedFromConversationId !== undefined) updates.forkedFromConversationId = body.forkedFromConversationId;
 		if (body.lastModified !== undefined) updates.lastModified = body.lastModified;
+		if (body.pinned !== undefined) updates.pinned = body.pinned;
 
 		updateConversation(db, id, updates);
 
@@ -156,10 +152,9 @@ export async function handleUpdateConversation(req: Request, db: Database, id: s
 
 /**
  * DELETE /api/conversations/:id
- * Delete a conversation and all its messages.
  * Query params: deleteWithForks (boolean)
  */
-export function handleDeleteConversation(db: Database, id: string, url: URL): Response {
+export function handleDeleteConversation(db: DrizzleDB, id: string, url: URL): Response {
 	try {
 		const existing = getConversation(db, id);
 		if (!existing) {
@@ -171,29 +166,21 @@ export function handleDeleteConversation(db: Database, id: string, url: URL): Re
 
 		const deleteWithForks = url.searchParams.get('deleteWithForks') === 'true';
 
-		db.transaction(() => {
+		db.transaction((tx) => {
 			if (deleteWithForks) {
-				// Recursively delete all descendant conversations
-				const descendantIds = getDescendantConversationIds(db, id);
+				const descendantIds = getDescendantConversationIds(tx, id);
 				for (const descId of descendantIds) {
-					deleteConversation(db, descId);
+					deleteConversation(tx, descId);
 				}
 			} else {
-				// Reparent direct children to deleted conv's parent
 				const newParent = existing.forkedFromConversationId;
-				const directChildren = db
-					.query('SELECT id FROM conversations WHERE forked_from_conversation_id = $parentId')
-					.all({ $parentId: id }) as Array<{ id: string }>;
-
-				for (const row of directChildren) {
-					updateConversation(db, row.id, {
-						forkedFromConversationId: newParent
-					});
+				const directChildren = getChildrenConversations(tx, id);
+				for (const child of directChildren) {
+					updateConversation(tx, child.id, { forkedFromConversationId: newParent });
 				}
 			}
-
-			deleteConversation(db, id);
-		})();
+			deleteConversation(tx, id);
+		});
 
 		return new Response(null, { status: 204 });
 	} catch (error) {
@@ -207,9 +194,8 @@ export function handleDeleteConversation(db: Database, id: string, url: URL): Re
 
 /**
  * GET /api/conversations/:id/messages
- * Get all messages for a conversation with tree structure.
  */
-export function handleGetConversationMessages(db: Database, convId: string): Response {
+export function handleGetConversationMessages(db: DrizzleDB, convId: string): Response {
 	try {
 		const conversation = getConversation(db, convId);
 		if (!conversation) {
@@ -234,13 +220,12 @@ export function handleGetConversationMessages(db: Database, convId: string): Res
 
 /**
  * POST /api/conversations/:id/messages
- * Create a new message in a conversation.
  * Query params: parentId (optional), type (optional: 'root', 'system', or default)
  * Body: { content, role, reasoningContent, toolCalls, toolCallId, extra, timings, model, timestamp }
  */
 export async function handleCreateMessage(
 	req: Request,
-	db: Database,
+	db: DrizzleDB,
 	convId: string,
 	url: URL
 ): Promise<Response> {
@@ -257,23 +242,20 @@ export async function handleCreateMessage(
 		const parentId = url.searchParams.get('parentId');
 		const messageType = url.searchParams.get('type');
 
-		return db.transaction(() => {
+		return db.transaction((tx) => {
 			let newMessage: DatabaseMessage;
 
 			if (messageType === 'root') {
-				// Create root message
-				newMessage = createRootMessage(db, convId);
+				newMessage = createRootMessage(tx, convId);
 			} else if (messageType === 'system' && parentId) {
-				// Create system message
 				if (!body.content || typeof body.content !== 'string' || !body.content.trim()) {
 					return Response.json(
 						{ error: 'System message content cannot be empty' },
 						{ status: 400 }
 					);
 				}
-				newMessage = createSystemMessage(db, convId, body.content.trim(), parentId);
+				newMessage = createSystemMessage(tx, convId, body.content.trim(), parentId);
 			} else {
-				// Create regular message
 				if (body.role === undefined || body.role === null || body.role === '') {
 					return Response.json(
 						{ error: 'Missing "role" field' },
@@ -288,7 +270,7 @@ export async function handleCreateMessage(
 				}
 
 				if (parentId !== null) {
-					const parentMessage = getMessageById(db, parentId);
+					const parentMessage = getMessageById(tx, parentId);
 					if (!parentMessage) {
 						return Response.json(
 							{ error: `Parent message ${parentId} not found` },
@@ -314,31 +296,28 @@ export async function handleCreateMessage(
 					children: []
 				};
 
-				createMessage(db, newMessage);
+				createMessage(tx, newMessage);
 
-				// Update parent's children array if parent exists
 				if (parentId) {
-					const parentMessage = getMessageById(db, parentId);
+					const parentMessage = getMessageById(tx, parentId);
 					if (parentMessage) {
 						const updatedChildren = [...parentMessage.children, newMessage.id];
-						updateMessage(db, parentId, { children: updatedChildren });
+						updateMessage(tx, parentId, { children: updatedChildren });
 					}
 				}
 			}
 
-			// Update conversation's currNode to point to the new message
-			updateConversation(db, convId, {
+			updateConversation(tx, convId, {
 				currNode: newMessage.id,
 				lastModified: Date.now()
 			});
 
-			// Fetch the message with tree context
-			const allMessages = getConversationMessages(db, convId);
+			const allMessages = getConversationMessages(tx, convId);
 			const messagesWithTree = buildMessageTree(allMessages);
 			const fullMessage = messagesWithTree.find((m) => m.id === newMessage.id)!;
 
 			return Response.json(fullMessage, { status: 201 });
-		})();
+		});
 	} catch (error) {
 		console.error('[api] failed to create message:', error);
 		return Response.json(
@@ -350,10 +329,9 @@ export async function handleCreateMessage(
 
 /**
  * POST /api/conversations/:id/fork
- * Fork a conversation at a specific message.
  * Body: { messageId: string, name: string, includeAttachments: boolean }
  */
-export async function handleForkConversation(db: Database, convId: string, req: Request): Promise<Response> {
+export async function handleForkConversation(db: DrizzleDB, convId: string, req: Request): Promise<Response> {
 	try {
 		const sourceConv = getConversation(db, convId);
 		if (!sourceConv) {
@@ -372,11 +350,9 @@ export async function handleForkConversation(db: Database, convId: string, req: 
 			);
 		}
 
-		return db.transaction(() => {
-			// Get all messages from source conversation
-			const allMessages = getConversationMessages(db, convId);
-			
-			// Find the path to the target message
+		return db.transaction((tx) => {
+			const allMessages = getConversationMessages(tx, convId);
+
 			const pathMessages = filterByLeafNodeId(allMessages, body.messageId, true) as DatabaseMessage[];
 			if (pathMessages.length === 0) {
 				return Response.json(
@@ -385,13 +361,11 @@ export async function handleForkConversation(db: Database, convId: string, req: 
 				);
 			}
 
-			// Create ID mapping for new messages
 			const idMap = new Map<string, string>();
 			for (const msg of pathMessages) {
 				idMap.set(msg.id, uuid());
 			}
 
-			// Create new conversation
 			const newConvId = uuid();
 			const now = Date.now();
 
@@ -409,9 +383,8 @@ export async function handleForkConversation(db: Database, convId: string, req: 
 					: undefined
 			};
 
-			createConversation(db, newConv);
+			createConversation(tx, newConv);
 
-			// Clone messages with new IDs
 			const clonedMessages: DatabaseMessage[] = pathMessages.map((msg) => {
 				const newId = idMap.get(msg.id)!;
 				const newParent = msg.parent ? (idMap.get(msg.parent) ?? null) : null;
@@ -429,21 +402,19 @@ export async function handleForkConversation(db: Database, convId: string, req: 
 				};
 			});
 
-			// Insert cloned messages
 			for (const msg of clonedMessages) {
-				createMessage(db, msg);
+				createMessage(tx, msg);
 			}
 
-			// Update currNode to the last cloned message
 			const lastClonedMessage = clonedMessages[clonedMessages.length - 1];
-			updateConversation(db, newConvId, {
+			updateConversation(tx, newConvId, {
 				currNode: lastClonedMessage.id,
 				lastModified: now
 			});
 
-			const createdConv = getConversation(db, newConvId);
+			const createdConv = getConversation(tx, newConvId);
 			return Response.json(createdConv, { status: 201 });
-		})();
+		});
 	} catch (error) {
 		console.error('[api] failed to fork conversation:', error);
 		return Response.json(
@@ -455,10 +426,9 @@ export async function handleForkConversation(db: Database, convId: string, req: 
 
 /**
  * POST /api/conversations/import
- * Import conversations from exported data.
  * Body: Array of { conv, messages } or single object
  */
-export async function handleImportConversations(req: Request, db: Database): Promise<Response> {
+export async function handleImportConversations(req: Request, db: DrizzleDB): Promise<Response> {
 	try {
 		const body = await req.json();
 		const data = Array.isArray(body) ? body : [body];
@@ -473,14 +443,14 @@ export async function handleImportConversations(req: Request, db: Database): Pro
 		let importedCount = 0;
 		let skippedCount = 0;
 
-		db.transaction(() => {
+		db.transaction((tx) => {
 			const sortedItems = topologicalSort(data);
 			const importableIds = new Set(sortedItems.map((item) => item.conv.id));
 
 			for (const item of sortedItems) {
 				const { conv, messages } = item;
 
-				const existing = getConversation(db, conv.id);
+				const existing = getConversation(tx, conv.id);
 				if (existing) {
 					console.warn(`Conversation "${conv.name}" already exists, skipping...`);
 					skippedCount++;
@@ -495,14 +465,14 @@ export async function handleImportConversations(req: Request, db: Database): Pro
 					conversationToInsert.forkedFromConversationId = undefined;
 				}
 
-				createConversation(db, conversationToInsert);
+				createConversation(tx, conversationToInsert);
 				for (const msg of messages) {
-					createMessage(db, msg);
+					createMessage(tx, msg);
 				}
 
 				importedCount++;
 			}
-		})();
+		});
 
 		return Response.json({ imported: importedCount, skipped: skippedCount });
 	} catch (error) {
@@ -514,9 +484,6 @@ export async function handleImportConversations(req: Request, db: Database): Pro
 	}
 }
 
-/**
- * Topologically sort conversations so parents are imported before their forks.
- */
 function topologicalSort(
 	items: { conv: DatabaseConversation; messages: DatabaseMessage[] }[]
 ): { conv: DatabaseConversation; messages: DatabaseMessage[] }[] {
@@ -567,35 +534,26 @@ function topologicalSort(
 
 /**
  * DELETE /api/conversations
- * Delete all conversations (bulk delete).
- * Query params: deleteWithForks (boolean) - if true, recursively delete all forks
+ * Query params: deleteWithForks (boolean)
  */
-export function handleDeleteAllConversations(db: Database, url: URL): Response {
+export function handleDeleteAllConversations(db: DrizzleDB, url: URL): Response {
 	try {
 		const deleteWithForks = url.searchParams.get('deleteWithForks') === 'true';
 
-		db.transaction(() => {
+		db.transaction((tx) => {
 			if (deleteWithForks) {
-				// Recursively delete all conversations including forks
-				const allConversations = getAllConversations(db);
+				const allConversations = getAllConversations(tx);
 				for (const conv of allConversations) {
-					deleteConversation(db, conv.id);
+					deleteConversation(tx, conv.id);
 				}
 			} else {
-				// Only delete root conversations (those without forkedFromConversationId)
-				// Forked conversations are reparented to have no parent
-				const rootConversations = db
-					.query('SELECT id FROM conversations WHERE forked_from_conversation_id IS NULL')
-					.all() as Array<{ id: string }>;
-
-				for (const row of rootConversations) {
-					deleteConversation(db, row.id);
+				const rootIds = getRootConversationIds(tx);
+				for (const id of rootIds) {
+					deleteConversation(tx, id);
 				}
-
-				// Clear forkedFromConversationId for remaining conversations
-				db.query('UPDATE conversations SET forked_from_conversation_id = NULL').run();
+				clearForkParentForAll(tx);
 			}
-		})();
+		});
 
 		return new Response(null, { status: 204 });
 	} catch (error) {
@@ -609,20 +567,17 @@ export function handleDeleteAllConversations(db: Database, url: URL): Response {
 
 /**
  * GET /api/conversations/export
- * Export all conversations with their messages.
- * Query params: limit (number, optional) - maximum number of conversations to export
+ * Query params: limit (number, optional)
  */
-export function handleExportConversations(db: Database, url: URL): Response {
+export function handleExportConversations(db: DrizzleDB, url: URL): Response {
 	try {
 		const limitParam = url.searchParams.get('limit');
 		const limit = limitParam ? parseInt(limitParam, 10) : -1;
 
 		let conversations = getAllConversations(db);
 
-		// Sort by lastModified DESC (most recent first)
 		conversations.sort((a, b) => b.lastModified - a.lastModified);
 
-		// Apply limit if specified
 		if (limit > 0) {
 			conversations = conversations.slice(0, limit);
 		}
@@ -644,10 +599,9 @@ export function handleExportConversations(db: Database, url: URL): Response {
 
 /**
  * POST /api/conversations/:id/compact
- * Compact a conversation by replacing old messages with a summary.
  * Body: { summaryMessage, messagesToCompact: [], anchorMessageId }
  */
-export async function handleCompactConversation(db: Database, convId: string, req: Request): Promise<Response> {
+export async function handleCompactConversation(db: DrizzleDB, _convId: string, req: Request): Promise<Response> {
 	try {
 		const body = await req.json() as {
 			summaryMessage: DatabaseMessage;
@@ -664,10 +618,9 @@ export async function handleCompactConversation(db: Database, convId: string, re
 			);
 		}
 
-		return db.transaction(() => {
+		return db.transaction((tx) => {
 			const compactedIds = new Set(messagesToCompact.map((m) => m.id));
 
-			// Collect all messages we need to read
 			const idsToFetch = new Set<string>();
 			for (const msg of messagesToCompact) {
 				idsToFetch.add(msg.id);
@@ -677,10 +630,9 @@ export async function handleCompactConversation(db: Database, convId: string, re
 			idsToFetch.add(anchorMessageId);
 			if (summaryMessage.parent) idsToFetch.add(summaryMessage.parent);
 
-			// Fetch all messages
 			const allMessages: DatabaseMessage[] = [];
 			for (const id of idsToFetch) {
-				const msg = getMessageById(db, id);
+				const msg = getMessageById(tx, id);
 				if (msg) allMessages.push(msg);
 			}
 
@@ -691,7 +643,6 @@ export async function handleCompactConversation(db: Database, convId: string, re
 
 			const messagesToPut: DatabaseMessage[] = [];
 
-			// 1. Reparent children of compacted messages to the summary
 			const orphanedChildIds = new Set<string>();
 			for (const msg of messagesToCompact) {
 				const message = messageMap.get(msg.id);
@@ -709,7 +660,6 @@ export async function handleCompactConversation(db: Database, convId: string, re
 				}
 			}
 
-			// 2. Remove compacted messages from their parents' children arrays
 			const parentIdsToUpdate = new Set<string>();
 			for (const msg of messagesToCompact) {
 				if (msg.parent) parentIdsToUpdate.add(msg.parent);
@@ -722,14 +672,12 @@ export async function handleCompactConversation(db: Database, convId: string, re
 				}
 			}
 
-			// 3. Update anchor message: set its parent to the summary message
 			const anchorMessage = messageMap.get(anchorMessageId);
 			if (anchorMessage) {
 				anchorMessage.parent = summaryMessage.id;
 				messagesToPut.push(anchorMessage);
 			}
 
-			// 4. Update the summary's parent's children array
 			if (summaryMessage.parent) {
 				const summaryParent = messageMap.get(summaryMessage.parent);
 				if (summaryParent) {
@@ -741,29 +689,25 @@ export async function handleCompactConversation(db: Database, convId: string, re
 				}
 			}
 
-			// Execute updates
 			for (const msg of messagesToPut) {
-				updateMessage(db, msg.id, {
+				updateMessage(tx, msg.id, {
 					parent: msg.parent,
 					children: msg.children
 				});
 			}
 
-			// Delete compacted messages
-			deleteMessages(db, [...compactedIds]);
+			deleteMessages(tx, [...compactedIds]);
 
-			// Clean up orphaned child references from summary
 			if (orphanedChildIds.size > 0) {
 				summaryMessage.children = summaryMessage.children.filter(
 					(cid: string) => !orphanedChildIds.has(cid)
 				);
 			}
 
-			// Insert summary message
-			createMessage(db, summaryMessage);
+			createMessage(tx, summaryMessage);
 
 			return Response.json({ success: true });
-		})();
+		});
 	} catch (error) {
 		console.error('[api] failed to compact conversation:', error);
 		return Response.json(

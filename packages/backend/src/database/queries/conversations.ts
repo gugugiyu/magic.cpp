@@ -1,124 +1,82 @@
 /**
- * Conversation database queries.
- * All operations related to conversations in SQLite using bun:sqlite.
+ * Conversation database queries using Drizzle ORM.
  */
 
-import { Database } from 'bun:sqlite';
-import type { DatabaseConversation, McpServerOverride } from '../../types/database';
+import { eq, desc, isNull } from 'drizzle-orm';
+import { conversations as conversationsTable } from '../schema-drizzle.ts';
+import type { Conversation } from '../schema-drizzle.ts';
+import type { DrizzleDB } from '../index.ts';
+import type { DatabaseConversation } from '../../types/database';
 
-/**
- * Create a new conversation.
- */
-export function createConversation(
-	db: Database,
-	conversation: DatabaseConversation
-): void {
-	const stmt = db.prepare(
-		`INSERT INTO conversations (id, name, last_modified, curr_node, mcp_server_overrides, forked_from_conversation_id, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`
-	);
-	stmt.run(
-		conversation.id,
-		conversation.name,
-		conversation.lastModified,
-		conversation.currNode || null,
-		conversation.mcpServerOverrides ? JSON.stringify(conversation.mcpServerOverrides) : null,
-		conversation.forkedFromConversationId || null,
-		Date.now()
-	);
+export function createConversation(db: DrizzleDB, conversation: DatabaseConversation): void {
+	db.insert(conversationsTable).values({
+		id: conversation.id,
+		name: conversation.name,
+		lastModified: conversation.lastModified,
+		currNode: conversation.currNode ?? null,
+		mcpServerOverrides: conversation.mcpServerOverrides
+			? JSON.stringify(conversation.mcpServerOverrides)
+			: null,
+		forkedFromConversationId: conversation.forkedFromConversationId ?? null,
+		pinned: conversation.pinned ?? null
+	}).run();
 }
 
-/**
- * Get a conversation by ID.
- */
-export function getConversation(db: Database, id: string): DatabaseConversation | undefined {
-	const row = db
-		.query('SELECT * FROM conversations WHERE id = ?')
-		.get(id) as Record<string, unknown> | undefined;
-
+export function getConversation(db: DrizzleDB, id: string): DatabaseConversation | undefined {
+	const row = db.select().from(conversationsTable).where(eq(conversationsTable.id, id)).get();
 	if (!row) return undefined;
 	return rowToConversation(row);
 }
 
-/**
- * Get all conversations sorted by last_modified DESC.
- */
-export function getAllConversations(db: Database): DatabaseConversation[] {
+export function getAllConversations(db: DrizzleDB): DatabaseConversation[] {
 	const rows = db
-		.query('SELECT * FROM conversations ORDER BY last_modified DESC')
-		.all() as Record<string, unknown>[];
-
+		.select()
+		.from(conversationsTable)
+		.orderBy(desc(conversationsTable.lastModified))
+		.all();
 	return rows.map(rowToConversation);
 }
 
-/**
- * Update a conversation. Only provided fields are updated.
- * Always updates last_modified timestamp.
- */
 export function updateConversation(
-	db: Database,
+	db: DrizzleDB,
 	id: string,
 	updates: Partial<Omit<DatabaseConversation, 'id'>>
 ): void {
-	const sets: string[] = [];
-	const values: unknown[] = [];
+	const set: Partial<typeof conversationsTable.$inferInsert> = {
+		lastModified: updates.lastModified ?? Date.now()
+	};
 
-	if (updates.name !== undefined) {
-		sets.push('name = ?');
-		values.push(updates.name);
-	}
-	if (updates.lastModified !== undefined) {
-		sets.push('last_modified = ?');
-		values.push(updates.lastModified);
-	} else {
-		sets.push('last_modified = ?');
-		values.push(Date.now());
-	}
-	if (updates.currNode !== undefined) {
-		sets.push('curr_node = ?');
-		values.push(updates.currNode);
-	}
+	if (updates.name !== undefined) set.name = updates.name;
+	if (updates.currNode !== undefined) set.currNode = updates.currNode ?? null;
 	if (updates.mcpServerOverrides !== undefined) {
-		sets.push('mcp_server_overrides = ?');
-		values.push(updates.mcpServerOverrides ? JSON.stringify(updates.mcpServerOverrides) : null);
+		set.mcpServerOverrides = updates.mcpServerOverrides
+			? JSON.stringify(updates.mcpServerOverrides)
+			: null;
 	}
 	if (updates.forkedFromConversationId !== undefined) {
-		sets.push('forked_from_conversation_id = ?');
-		values.push(updates.forkedFromConversationId || null);
+		set.forkedFromConversationId = updates.forkedFromConversationId ?? null;
+	}
+	if (updates.pinned !== undefined) {
+		set.pinned = updates.pinned ?? null;
 	}
 
-	if (sets.length === 0) return;
-
-	values.push(id);
-	const sql = `UPDATE conversations SET ${sets.join(', ')} WHERE id = ?`;
-	const stmt = db.prepare(sql);
-	stmt.run(values as any);
+	db.update(conversationsTable).set(set).where(eq(conversationsTable.id, id)).run();
 }
 
-/**
- * Delete a conversation by ID.
- * Messages are deleted via ON DELETE CASCADE.
- */
-export function deleteConversation(db: Database, id: string): void {
-	const stmt = db.prepare('DELETE FROM conversations WHERE id = ?');
-	stmt.run([id] as any);
+export function deleteConversation(db: DrizzleDB, id: string): void {
+	db.delete(conversationsTable).where(eq(conversationsTable.id, id)).run();
 }
 
-/**
- * Get direct children conversations (forks) of a conversation.
- */
-export function getChildrenConversations(db: Database, parentId: string): DatabaseConversation[] {
+export function getChildrenConversations(db: DrizzleDB, parentId: string): DatabaseConversation[] {
 	const rows = db
-		.query('SELECT * FROM conversations WHERE forked_from_conversation_id = ?')
-		.all(parentId) as Record<string, unknown>[];
-
+		.select()
+		.from(conversationsTable)
+		.where(eq(conversationsTable.forkedFromConversationId, parentId))
+		.all();
 	return rows.map(rowToConversation);
 }
 
-/**
- * Recursively get all descendant conversation IDs (for deleteWithForks).
- */
-export function getDescendantConversationIds(db: Database, parentId: string): string[] {
+export function getDescendantConversationIds(db: DrizzleDB, parentId: string): string[] {
 	const ids: string[] = [];
 	const queue = [parentId];
 
@@ -134,18 +92,29 @@ export function getDescendantConversationIds(db: Database, parentId: string): st
 	return ids;
 }
 
-/**
- * Helper: Convert a database row to DatabaseConversation.
- */
-function rowToConversation(row: Record<string, unknown>): DatabaseConversation {
+export function getRootConversationIds(db: DrizzleDB): string[] {
+	const rows = db
+		.select({ id: conversationsTable.id })
+		.from(conversationsTable)
+		.where(isNull(conversationsTable.forkedFromConversationId))
+		.all();
+	return rows.map((r) => r.id);
+}
+
+export function clearForkParentForAll(db: DrizzleDB): void {
+	db.update(conversationsTable).set({ forkedFromConversationId: null }).run();
+}
+
+function rowToConversation(row: Conversation): DatabaseConversation {
 	return {
-		id: row.id as string,
-		name: row.name as string,
-		lastModified: row.last_modified as number,
-		currNode: row.curr_node as string | null,
-		mcpServerOverrides: row.mcp_server_overrides
-			? JSON.parse(row.mcp_server_overrides as string)
+		id: row.id,
+		name: row.name,
+		lastModified: row.lastModified,
+		currNode: row.currNode ?? null,
+		mcpServerOverrides: row.mcpServerOverrides
+			? JSON.parse(row.mcpServerOverrides)
 			: undefined,
-		forkedFromConversationId: row.forked_from_conversation_id as string | undefined
+		forkedFromConversationId: row.forkedFromConversationId ?? undefined,
+		pinned: row.pinned ?? undefined
 	};
 }

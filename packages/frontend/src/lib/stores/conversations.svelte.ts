@@ -271,6 +271,8 @@ class ConversationsStore {
 		this.conversations = [conversation, ...this.conversations];
 		this.activeConversation = conversation;
 		this.activeMessages = [];
+		this.lastCompactionSummaryId = null;
+		this.lastCompactionTokensSaved = null;
 
 		await goto(`#/chat/${conversation.id}`);
 
@@ -305,6 +307,8 @@ class ConversationsStore {
 				const messages = await DatabaseService.getConversationMessages(convId);
 				this.activeMessages = messages;
 			}
+			this.lastCompactionSummaryId = null;
+			this.lastCompactionTokensSaved = null;
 
 			return true;
 		} catch (error) {
@@ -319,6 +323,8 @@ class ConversationsStore {
 	clearActiveConversation(): void {
 		this.activeConversation = null;
 		this.activeMessages = [];
+		this.lastCompactionSummaryId = null;
+		this.lastCompactionTokensSaved = null;
 		// reload MCP defaults so new chats inherit persisted state
 		this.pendingMcpServerOverrides = ConversationsStore.loadMcpDefaults();
 	}

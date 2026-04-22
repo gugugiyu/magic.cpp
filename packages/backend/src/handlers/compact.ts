@@ -113,13 +113,13 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
     // Use a reasonable max_tokens that fits a concise summary without truncation.
     // 800 tokens ≈ ~600 words, which is ample for a compact summary and avoids
     // the waste of generating 1000+ words only to truncate afterward.
-    const MAX_SUMMARY_TOKENS = 800;
+    const MAX_SUMMARY_TOKENS = 2000;
 
     const requestBody = {
       model: model || upstream.modelList[0] || '',
       messages: [systemMessage, userMessage],
       temperature: 0.3,
-      max_tokens: MAX_SUMMARY_TOKENS,
+      // max_tokens: MAX_SUMMARY_TOKENS,
       stream: false,
     };
 
@@ -157,6 +157,7 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
     }
 
     const data = await response.json();
+    console.log(data.choices?.[0]?.message)
     let summary = data.choices?.[0]?.message?.content || '';
 
     if (!summary) {

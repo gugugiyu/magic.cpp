@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { fadeInView } from '$lib/actions/fade-in-view.svelte';
-	import { ChatMessage, CompactionNote } from '$lib/components/app';
+	import { ChatMessage } from '$lib/components/app';
+	import CompactionSummaryMessage from './CompactionSummaryMessage.svelte';
 	import { setChatActionsContext } from '$lib/contexts';
 	import { MessageRole, AttachmentType } from '$lib/enums';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { conversationsStore, activeConversation } from '$lib/stores/conversations.svelte';
 	import { config } from '$lib/stores/settings.svelte';
-	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { DatabaseMessageExtra } from '$lib/types/database';
 	import {
 		copyToClipboard,
@@ -102,11 +103,12 @@
 		const conversation = activeConversation();
 
 		if (conversation) {
-			conversationsStore.getConversationMessages(conversation.id).then((messages) => {
-				allConversationMessages = messages;
+			return conversationsStore.getConversationMessages(conversation.id).then((msgs) => {
+				allConversationMessages = msgs;
 			});
 		} else {
 			allConversationMessages = [];
+			return Promise.resolve();
 		}
 	}
 
@@ -115,28 +117,18 @@
 		const conversation = activeConversation();
 
 		if (conversation) {
-			refreshAllMessages();
+			refreshAllMessages().catch((err) => console.error('Failed to refresh messages:', err));
 		}
 	});
 
-	// Hide the compaction note 5 s after it appears. Only re-runs when a new
-	// compaction occurs (lastCompactionTokensSaved changes), not on every message
-	// update — otherwise each incoming message would restart the countdown.
-	// REMOVED: The compaction note is now a persistent UI element tied to the
-	// summary message itself. The store fields are cleared only when the
-	// conversation changes or a new compaction supersedes the previous one.
-
 	let displayMessages = $derived.by(() => {
 		if (!messages.length) {
-			return {
-				result: [] as Array<{
-					message: DatabaseMessage;
-					toolMessages: DatabaseMessage[];
-					isLastAssistantMessage: boolean;
-					siblingInfo: ChatMessageSiblingInfo;
-				}>,
-				systemMessageBeforeDisplayIndex: new Map<number, number>()
-			};
+			return [] as Array<{
+				message: DatabaseMessage;
+				toolMessages: DatabaseMessage[];
+				isLastAssistantMessage: boolean;
+				siblingInfo: ChatMessageSiblingInfo;
+			}>;
 		}
 
 		const filteredMessages = currentConfig.showSystemMessage
@@ -157,6 +149,21 @@
 				} else {
 					filteredIdx++;
 				}
+			}
+		}
+
+		// Add boundaries for compaction summary messages (always, regardless of system message visibility)
+		let visibleIdx = 0;
+		for (let i = 0; i < messages.length; i++) {
+			const msg = messages[i];
+			const isCompactionSummary = msg.extra?.some(
+				(e: DatabaseMessageExtra) => e.type === AttachmentType.COMPACTION_SUMMARY
+			);
+			if (isCompactionSummary) {
+				boundaryIndices.add(visibleIdx);
+			}
+			if (currentConfig.showSystemMessage || msg.type !== MessageRole.SYSTEM) {
+				visibleIdx++;
 			}
 		}
 
@@ -235,27 +242,7 @@
 			}
 		}
 
-		// Determine which display entry index comes right before each system message
-		// (by position in the original messages array). This is used for placing the
-		// CompactionNote after the correct message when system messages are hidden.
-		// Only build this map when compaction has occurred to avoid unnecessary work.
-		const systemMessageBeforeDisplayIndex = new SvelteMap<number, number>();
-		if (!currentConfig.showSystemMessage && conversationsStore.lastCompactionTokensSaved !== null) {
-			let displayIdx = 0;
-			for (let i = 0; i < messages.length; i++) {
-				if (messages[i].type === MessageRole.SYSTEM) {
-					// Store the display index of the first visible message that follows
-					// this system message. The CompactionNote is rendered *before* that
-					// message, which correctly places it at the compaction boundary even
-					// when the summary is the very first entry (displayIdx === 0).
-					systemMessageBeforeDisplayIndex.set(i, displayIdx);
-				} else {
-					displayIdx++;
-				}
-			}
-		}
-
-		return { result, systemMessageBeforeDisplayIndex };
+		return result;
 	});
 
 	/**
@@ -275,22 +262,24 @@
 	class="flex h-full flex-col space-y-10 pt-24 {className}"
 	style="height: auto; min-height: calc(100dvh - 14rem);"
 >
-	{#each displayMessages.result as { message, toolMessages, isLastAssistantMessage, siblingInfo } (message.id)}
+	{#each displayMessages as { message, toolMessages, isLastAssistantMessage, siblingInfo } (message.id)}
 		{@const compactionTokens = getCompactionTokensSaved(message)}
-		{@const showCompactionAfterThis = compactionTokens !== null && compactionTokens > 0}
+		{@const isCompactionSummary = compactionTokens !== null && compactionTokens > 0}
 
-		<div use:fadeInView>
-			<ChatMessage
-				class="mx-auto w-full max-w-[48rem]"
-				{message}
-				{toolMessages}
-				{isLastAssistantMessage}
-				{siblingInfo}
-			/>
-		</div>
-
-		{#if showCompactionAfterThis}
-			<CompactionNote tokensSaved={compactionTokens} />
+		{#if isCompactionSummary}
+			<div use:fadeInView>
+				<CompactionSummaryMessage content={message.content} tokensSaved={compactionTokens} />
+			</div>
+		{:else}
+			<div use:fadeInView>
+				<ChatMessage
+					class="mx-auto w-full max-w-[48rem]"
+					{message}
+					{toolMessages}
+					{isLastAssistantMessage}
+					{siblingInfo}
+				/>
+			</div>
 		{/if}
 	{/each}
 </div>

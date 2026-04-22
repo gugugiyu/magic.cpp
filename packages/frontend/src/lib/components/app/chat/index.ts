@@ -397,17 +397,6 @@ export { default as ChatFormSkillPicker } from './ChatForm/ChatFormSkillPicker/C
 export { default as ChatMessages } from './ChatMessages/ChatMessages.svelte';
 
 /**
- * **CompactionNote** - Inline compaction summary indicator
- *
- * Displays a subtle divider line with text showing tokens saved from
- * session compaction. Non-interactive, styled as a helper note.
- *
- * @example
- * <CompactionNote tokensSaved={1234} />
- */
-export { default as CompactionNote } from './ChatMessages/CompactionNote.svelte';
-
-/**
  * **ChatMessage** - Single message display with actions
  *
  * Renders a single chat message with role-specific styling and full action

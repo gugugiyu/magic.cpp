@@ -31,7 +31,7 @@
 		onEdit?: () => void;
 		onRegenerate?: () => void;
 		onContinue?: () => void;
-		onCompactConversation?: () => void;
+		allowCompact?: boolean;
 		onForkConversation?: (options: { name: string; includeAttachments: boolean }) => void;
 		onDelete: () => void;
 		onConfirmDelete: () => void;
@@ -51,7 +51,7 @@
 		onConfirmDelete,
 		onContinue,
 		onDelete,
-		onCompactConversation,
+		allowCompact,
 		onForkConversation,
 		onNavigateToSibling,
 		onShowDeleteDialogChange,
@@ -67,6 +67,7 @@
 	let showForkDialog = $state(false);
 	let forkName = $state('');
 	let forkIncludeAttachments = $state(true);
+	let showCompactDialog = $state(false);
 
 	function handleConfirmDelete() {
 		onConfirmDelete();
@@ -81,7 +82,7 @@
 		showForkDialog = true;
 	}
 
-	async function handleCompactSession() {
+	function handleCompactSession() {
 		if (agenticIsAnyRunning()) {
 			toast.error('Cannot compact while the agentic loop is running');
 			return;
@@ -93,6 +94,11 @@
 			return;
 		}
 
+		showCompactDialog = true;
+	}
+
+	async function handleConfirmCompact() {
+		showCompactDialog = false;
 		await chatStore.compactSession();
 	}
 
@@ -134,7 +140,7 @@
 				<ActionIcon icon={GitBranch} tooltip="Fork conversation" onclick={handleOpenForkDialog} />
 			{/if}
 
-			{#if onCompactConversation}
+			{#if allowCompact}
 				<ActionIcon icon={Package} tooltip="Compact session" onclick={handleCompactSession} />
 			{/if}
 
@@ -167,6 +173,18 @@
 	icon={Trash2}
 	onConfirm={handleConfirmDelete}
 	onCancel={() => onShowDeleteDialogChange(false)}
+/>
+
+<DialogConfirmation
+	bind:open={showCompactDialog}
+	title="Compact Session"
+	description="Compacting will permanently replace the current conversation history with a summary. This action cannot be undone."
+	confirmText="Compact"
+	cancelText="Cancel"
+	variant="destructive"
+	icon={Package}
+	onConfirm={handleConfirmCompact}
+	onCancel={() => (showCompactDialog = false)}
 />
 
 <DialogConfirmation

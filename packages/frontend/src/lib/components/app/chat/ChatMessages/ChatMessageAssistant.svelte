@@ -349,7 +349,7 @@
 			{onRegenerate}
 			onContinue={currentConfig.enableContinueGeneration && !hasReasoning ? onContinue : undefined}
 			{onForkConversation}
-			onCompactConversation={isLastAssistantMessage ? () => {} : undefined}
+			allowCompact={isLastAssistantMessage}
 			{onDelete}
 			{onConfirmDelete}
 			{onNavigateToSibling}

@@ -46,7 +46,10 @@ import type {
 	ErrorDialogState
 } from '$lib/types/chat';
 import type { ApiProcessingState, DatabaseMessage, DatabaseMessageExtra } from '$lib/types';
+import type { CompactSessionResponse } from '$lib/types/compact';
 import { ErrorDialogType, MessageRole, MessageType, AttachmentType } from '$lib/enums';
+import { sequentialThinkingStore } from '$lib/stores/sequential-thinking.svelte';
+import { serverEndpointStore } from './server-endpoint.svelte';
 
 interface ConversationStateEntry {
 	lastAccessed: number;
@@ -243,7 +246,7 @@ class ChatStore {
 	}
 
 	private isChatLoadingInternal(convId: string): boolean {
-		return this.chatStreamingStates.has(convId);
+		return this.chatLoadingStates.get(convId) || false;
 	}
 
 	private touchConversationState(convId: string): void {
@@ -1676,145 +1679,103 @@ class ChatStore {
 
 		try {
 			const convId = activeConv.id;
-			const abortController = this.getOrCreateAbortController(convId);
+			const abortController = new AbortController();
+			this.abortControllers.set(convId, abortController);
 
-			const allMessages = await conversationsStore.getConversationMessages(convId);
-			const rootMessage = allMessages.find((m) => m.type === 'root' && m.parent === null);
-			if (!rootMessage) {
-				throw new Error('Root message not found');
+			try {
+				const allMessages = await conversationsStore.getConversationMessages(convId);
+				const rootMessage = allMessages.find((m) => m.type === 'root' && m.parent === null);
+				if (!rootMessage) {
+					throw new Error('Root message not found');
+				}
+
+				const messagesToCompact = messages.filter((m) => m.id !== rootMessage.id);
+
+				const previousSummary = this.findPreviousCompactionSummary(allMessages);
+
+				const compactRequest = {
+					messages: messagesToCompact.map((m) => ({
+						role: m.role,
+						content: m.content || ''
+					})),
+					model: selectedModelName() || undefined,
+					previousSummary: previousSummary || undefined
+				};
+
+				const url = serverEndpointStore.getBaseUrl() || '';
+				if (!url) {
+					throw new Error('Server endpoint is not configured');
+				}
+
+				const response = await fetch(`${url}/compact`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(compactRequest),
+					signal: abortController.signal
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `Compact request failed: ${response.status}`);
+				}
+
+				const compactResult = (await response.json()) as CompactSessionResponse;
+
+				if (
+					typeof compactResult.summary !== 'string' ||
+					typeof compactResult.tokensSaved !== 'number'
+				) {
+					throw new Error('Invalid compact response from server');
+				}
+
+				const deletedMessageIds = new Set(messagesToCompact.map((m) => m.id));
+
+				// Persist the summary BEFORE deleting the old branch so we can recover on failure
+				const summaryMessage = await DatabaseService.createMessageBranch(
+					{
+						convId,
+						type: MessageType.TEXT,
+						role: MessageRole.ASSISTANT,
+						content: compactResult.summary,
+						timestamp: Date.now(),
+						toolCalls: '',
+						children: [],
+						model: selectedModelName() || null,
+						extra: [
+							{
+								type: AttachmentType.COMPACTION_SUMMARY,
+								name: 'compaction_summary',
+								tokensSaved: compactResult.tokensSaved
+							}
+						]
+					},
+					rootMessage.id
+				);
+
+				const firstChildOfRoot = messagesToCompact.find(
+					(m) => m.parent === rootMessage.id
+				);
+
+				if (firstChildOfRoot) {
+					await DatabaseService.deleteMessageCascading(convId, firstChildOfRoot.id);
+				}
+
+				sequentialThinkingStore.clearMessages(convId, deletedMessageIds);
+
+				conversationsStore.addMessageToActive(summaryMessage);
+
+				await conversationsStore.refreshActiveMessages();
+				await conversationsStore.updateCurrentNode(summaryMessage.id);
+
+				conversationsStore.lastCompactionSummaryId = summaryMessage.id;
+				conversationsStore.lastCompactionTokensSaved = compactResult.tokensSaved;
+
+				this.setChatLoading(convId, false);
+				this.clearChatStreaming(convId);
+				this.setProcessingState(convId, null);
+			} finally {
+				this.abortControllers.delete(convId);
 			}
-
-			const compactSystemContent = `You are an expert conversation summarizer. Create a concise but comprehensive summary of the following conversation history that preserves all key points, decisions, and important information. The summary should allow the conversation to continue naturally.`;
-
-			const apiMessages: { role: string; content: string }[] = [
-				{ role: 'system', content: compactSystemContent },
-				...messages.map((m) => ({ role: m.role, content: m.content || '' }))
-			];
-
-			const summaryMessage = await DatabaseService.createMessageBranch(
-				{
-					convId,
-					type: MessageType.TEXT,
-					role: MessageRole.ASSISTANT,
-					content: '',
-					timestamp: Date.now(),
-					toolCalls: '',
-					children: [],
-					model: null,
-					extra: [
-						{
-							type: AttachmentType.COMPACTION_SUMMARY,
-							name: 'compaction_summary',
-							tokensSaved: 0
-						}
-					]
-				},
-				rootMessage.id
-			);
-
-			conversationsStore.addMessageToActive(summaryMessage);
-
-			let streamedContent = '';
-			let resolvedModel: string | null = null;
-
-			const updateStreamingUI = () => {
-				this.setChatStreaming(convId, streamedContent, summaryMessage.id);
-				const idx = conversationsStore.findMessageIndex(summaryMessage.id);
-				conversationsStore.updateMessageAtIndex(idx, { content: streamedContent });
-			};
-
-			await ChatService.sendMessage(
-				apiMessages as DatabaseMessage[],
-				{
-					...this.getApiOptions(),
-					stream: true,
-					onChunk: (chunk: string) => {
-						streamedContent += chunk;
-						updateStreamingUI();
-					},
-					onModel: (modelName: string) => {
-						resolvedModel = modelName;
-					},
-					onComplete: async () => {
-						if (resolvedModel) {
-							await DatabaseService.updateMessage(summaryMessage.id, { model: resolvedModel });
-							const idx = conversationsStore.findMessageIndex(summaryMessage.id);
-							conversationsStore.updateMessageAtIndex(idx, { model: resolvedModel });
-						}
-
-						const contentTokens = streamedContent.length / 4;
-						const totalOriginalTokens = messages.reduce(
-							(sum, m) => sum + (m.content?.length || 0) / 4,
-							0
-						);
-						const tokensSaved = Math.max(0, Math.round(totalOriginalTokens - contentTokens));
-
-						await DatabaseService.updateMessage(summaryMessage.id, {
-							extra: [
-								{
-									type: AttachmentType.COMPACTION_SUMMARY,
-									name: 'compaction_summary',
-									tokensSaved
-								}
-							]
-						});
-
-						const idx = conversationsStore.findMessageIndex(summaryMessage.id);
-						conversationsStore.updateMessageAtIndex(idx, {
-							extra: [
-								{
-									type: AttachmentType.COMPACTION_SUMMARY,
-									name: 'compaction_summary',
-									tokensSaved
-								}
-							]
-						});
-
-						const messagesToDelete = messages.filter(
-							(m) => m.id !== summaryMessage.id && m.id !== rootMessage.id
-						);
-						for (const msg of messagesToDelete) {
-							await DatabaseService.deleteMessage(msg.id);
-						}
-
-						await conversationsStore.refreshActiveMessages();
-						await conversationsStore.updateCurrentNode(summaryMessage.id);
-
-						conversationsStore.lastCompactionSummaryId = summaryMessage.id;
-						conversationsStore.lastCompactionTokensSaved = tokensSaved;
-
-						this.setChatLoading(convId, false);
-						this.clearChatStreaming(convId);
-						this.setProcessingState(convId, null);
-					},
-					onError: async (error: Error) => {
-						if (isAbortError(error)) {
-							this.setChatLoading(convId, false);
-							this.clearChatStreaming(convId);
-							this.setProcessingState(convId, null);
-							return;
-						}
-
-						console.error('Compaction error:', error);
-						const idx = conversationsStore.findMessageIndex(summaryMessage.id);
-						if (idx !== -1) {
-							conversationsStore.removeMessageAtIndex(idx);
-						}
-						await DatabaseService.deleteMessage(summaryMessage.id).catch(() => {});
-
-						this.setChatLoading(convId, false);
-						this.clearChatStreaming(convId);
-						this.setProcessingState(convId, null);
-						this.showErrorDialog({
-							type:
-								error.name === 'TimeoutError' ? ErrorDialogType.TIMEOUT : ErrorDialogType.SERVER,
-							message: error.message
-						});
-					}
-				},
-				convId,
-				abortController.signal
-			);
 		} catch (error) {
 			if (isAbortError(error)) {
 				this.setChatLoading(activeConv.id, false);
@@ -1827,6 +1788,16 @@ class ChatStore {
 				message: error instanceof Error ? error.message : 'Unknown error'
 			});
 		}
+	}
+
+	private findPreviousCompactionSummary(allMessages: DatabaseMessage[]): string | null {
+		const summaryMessage = [...allMessages].reverse().find((m) =>
+			m.extra?.some((e) => e.type === AttachmentType.COMPACTION_SUMMARY)
+		);
+		if (summaryMessage) {
+			return summaryMessage.content || null;
+		}
+		return null;
 	}
 
 	private getApiOptions(): Record<string, unknown> {

@@ -58,12 +58,14 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 	const baseHeaders = getJsonHeaders();
 	const headers = { ...baseHeaders, ...customHeaders };
 
+	const normalizedPath = path.startsWith('./') ? `/${path.slice(2)}` : path;
+
 	const url =
-		path.startsWith(UrlProtocol.HTTP) || path.startsWith(UrlProtocol.HTTPS)
-			? path
+		normalizedPath.startsWith(UrlProtocol.HTTP) || normalizedPath.startsWith(UrlProtocol.HTTPS)
+			? normalizedPath
 			: serverEndpointStore.isDefault()
-				? `${base}${path}`
-				: `${serverEndpointStore.getBaseUrl()}${path}`;
+				? `${base}${normalizedPath}`
+				: `${serverEndpointStore.getBaseUrl()}${normalizedPath}`;
 
 	// Create abort controller for timeout if no signal provided
 	const controller = signal ? null : new AbortController();
@@ -130,10 +132,11 @@ export async function apiFetchWithParams<T>(
 	params: Record<string, string>,
 	options: ApiFetchOptions = {}
 ): Promise<T> {
+	const normalizedPath = basePath.startsWith('./') ? `/${basePath.slice(2)}` : basePath;
 	const baseUrl = serverEndpointStore.isDefault()
-		? window.location.href
+		? window.location.origin
 		: serverEndpointStore.getBaseUrl();
-	const url = new URL(basePath, baseUrl);
+	const url = new URL(normalizedPath, baseUrl);
 
 	for (const [key, value] of Object.entries(params)) {
 		if (value !== undefined && value !== null) {

@@ -19,14 +19,15 @@
 		ChatSettingsConnectionTab,
 		ChatSettingsFields,
 		McpLogo,
-		McpServersSettings
+		McpServersSettings,
+		BuiltinToolsSection
 	} from '$lib/components/app';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { config, settingsStore } from '$lib/stores/settings.svelte';
 	import { skillsStore } from '$lib/stores/skills.svelte';
-	import { getSkillDialogContext } from '$lib/contexts/skill-dialog.context';
 	import {
 		SETTINGS_SECTION_TITLES,
+		SETTINGS_SECTION_TITLE_TO_SLUG,
 		type SettingsSectionTitle,
 		NUMERIC_FIELDS,
 		POSITIVE_INTEGER_FIELDS,
@@ -37,14 +38,15 @@
 	import { ColorMode } from '$lib/enums/ui';
 	import { SettingsFieldType } from '$lib/enums/settings';
 	import type { Component } from 'svelte';
-	import { builtinToolFields } from '$lib/enums/builtin-tools';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { useUnsavedChanges } from '$lib/hooks/use-unsaved-changes.svelte';
+	import { useScrollController } from '$lib/hooks/use-scroll-controller.svelte';
+	import { slide } from 'svelte/transition';
+	import { toast } from 'svelte-sonner';
 
-	interface Props {
-		onSave?: () => void;
-		initialSection?: SettingsSectionTitle;
-	}
-
-	let { onSave, initialSection }: Props = $props();
+	const SCROLL_CENTER_DELAY_MS = 50;
+	const SCROLL_UPDATE_DELAY_MS = 100;
 
 	const settingSections: Array<{
 		fields: SettingsFieldConfig[];
@@ -382,22 +384,45 @@
 		// }
 	];
 
-	let activeSection = $derived<SettingsSectionTitle>(
-		initialSection ?? SETTINGS_SECTION_TITLES.GENERAL
-	);
+	let activeSection = $derived.by<SettingsSectionTitle>(() => {
+		const sectionParam = page.params.section;
+		return (
+			Object.values(SETTINGS_SECTION_TITLES).find(
+				(s) => s.toLowerCase().replace(/\//g, '-') === sectionParam
+			) ?? SETTINGS_SECTION_TITLES.GENERAL
+		);
+	});
 	let currentSection = $derived(
 		settingSections.find((section) => section.title === activeSection) || settingSections[0]
 	);
 	let localConfig: SettingsConfigType = $state({ ...config() });
 
-	let canScrollLeft = $state(false);
-	let canScrollRight = $state(false);
-	let scrollContainer: HTMLDivElement | undefined = $state();
+	const unsaved = useUnsavedChanges(
+		() => localConfig,
+		() => config()
+	);
+	const scroll = useScrollController();
 
+	function navigateToSection(section: SettingsSectionTitle) {
+		const slug = SETTINGS_SECTION_TITLE_TO_SLUG[section];
+		goto(`#/settings/${slug}`);
+	}
+
+	// Scroll mobile menu to active section on route change
 	$effect(() => {
-		if (initialSection) {
-			activeSection = initialSection;
-		}
+		const section = activeSection;
+		const container = scroll.container;
+		if (!container) return;
+		setTimeout(() => {
+			const buttons = container.querySelectorAll('button');
+			for (const btn of buttons) {
+				const span = btn.querySelector('span');
+				if (span && span.textContent?.trim() === section) {
+					scroll.scrollToCenter(btn as HTMLElement);
+					break;
+				}
+			}
+		}, SCROLL_CENTER_DELAY_MS);
 	});
 
 	function handleThemeChange(newTheme: string) {
@@ -426,7 +451,7 @@
 			try {
 				JSON.parse(localConfig.custom);
 			} catch (error) {
-				alert('Invalid JSON in custom parameters. Please check the format and try again.');
+				toast.error('Invalid JSON in custom parameters. Please check the format and try again.');
 				console.error(error);
 				return;
 			}
@@ -445,67 +470,24 @@
 						processedConfig[field] = numValue;
 					}
 				} else {
-					alert(`Invalid numeric value for ${field}. Please enter a valid number.`);
+					toast.error(`Invalid numeric value for ${field}. Please enter a valid number.`);
 					return;
 				}
 			}
 		}
 
 		settingsStore.updateMultipleConfig(processedConfig);
-		onSave?.();
-	}
-
-	function scrollToCenter(element: HTMLElement) {
-		if (!scrollContainer) return;
-
-		const containerRect = scrollContainer.getBoundingClientRect();
-		const elementRect = element.getBoundingClientRect();
-
-		const elementCenter = elementRect.left + elementRect.width / 2;
-		const containerCenter = containerRect.left + containerRect.width / 2;
-		const scrollOffset = elementCenter - containerCenter;
-
-		scrollContainer.scrollBy({ left: scrollOffset, behavior: 'smooth' });
-	}
-
-	function scrollLeft() {
-		if (!scrollContainer) return;
-
-		scrollContainer.scrollBy({ left: -250, behavior: 'smooth' });
-	}
-
-	function scrollRight() {
-		if (!scrollContainer) return;
-
-		scrollContainer.scrollBy({ left: 250, behavior: 'smooth' });
-	}
-
-	function updateScrollButtons() {
-		if (!scrollContainer) return;
-
-		const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
-		canScrollLeft = scrollLeft > 0;
-		canScrollRight = scrollLeft < scrollWidth - clientWidth - 1; // -1 for rounding
 	}
 
 	export function reset() {
 		localConfig = { ...config() };
 
-		setTimeout(updateScrollButtons, 100);
+		setTimeout(scroll.update, SCROLL_UPDATE_DELAY_MS);
 	}
 
-	// Get skill dialog context for the "Manage Skills" button
-	const skillDialog = getSkillDialogContext();
-
-	function handleOpenSkillDialog() {
-		skillDialog?.open();
+	function handleOpenSkillsPage() {
+		goto('#/skills');
 	}
-
-	$effect(() => {
-		if (scrollContainer) {
-			updateScrollButtons();
-		}
-	});
 </script>
 
 <div class="flex h-full flex-col overflow-hidden md:flex-row">
@@ -518,7 +500,7 @@
 					section.title
 						? 'bg-accent text-accent-foreground'
 						: 'text-muted-foreground'}"
-					onclick={() => (activeSection = section.title)}
+					onclick={() => navigateToSection(section.title)}
 				>
 					<section.icon class="h-4 w-4" />
 
@@ -534,10 +516,10 @@
 			<!-- Horizontal Scrollable Category Menu with Navigation -->
 			<div class="relative flex items-center" style="scroll-padding: 1rem;">
 				<button
-					class="absolute left-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm transition-opacity hover:bg-accent {canScrollLeft
+					class="absolute left-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm transition-opacity hover:bg-accent {scroll.canScrollLeft
 						? 'opacity-100'
 						: 'pointer-events-none opacity-0'}"
-					onclick={scrollLeft}
+					onclick={scroll.scrollLeft}
 					aria-label="Scroll left"
 				>
 					<ChevronLeft class="h-4 w-4" />
@@ -545,8 +527,8 @@
 
 				<div
 					class="scrollbar-hide overflow-x-auto py-2"
-					bind:this={scrollContainer}
-					onscroll={updateScrollButtons}
+					bind:this={scroll.container}
+					onscroll={scroll.update}
 				>
 					<div class="flex min-w-max gap-2">
 						{#each settingSections as section (section.title)}
@@ -556,8 +538,8 @@
 									? 'bg-accent text-accent-foreground'
 									: 'text-muted-foreground'}"
 								onclick={(e: MouseEvent) => {
-									activeSection = section.title;
-									scrollToCenter(e.currentTarget as HTMLElement);
+									navigateToSection(section.title);
+									scroll.scrollToCenter(e.currentTarget as HTMLElement);
 								}}
 							>
 								<section.icon class="h-4 w-4 flex-shrink-0" />
@@ -568,10 +550,10 @@
 				</div>
 
 				<button
-					class="absolute right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm transition-opacity hover:bg-accent {canScrollRight
+					class="absolute right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm transition-opacity hover:bg-accent {scroll.canScrollRight
 						? 'opacity-100'
 						: 'pointer-events-none opacity-0'}"
-					onclick={scrollRight}
+					onclick={scroll.scrollRight}
 					aria-label="Scroll right"
 				>
 					<ChevronRight class="h-4 w-4" />
@@ -580,125 +562,109 @@
 		</div>
 	</div>
 
-	<ScrollArea class="max-h-[calc(100dvh-13.5rem)] flex-1 md:max-h-[calc(100vh-13.5rem)]">
-		<div class="space-y-6 p-4 md:p-6">
-			<div class="grid">
-				<div class="mb-6 flex hidden items-center gap-2 border-b border-border/30 pb-6 md:flex">
+	<ScrollArea class="flex-1">
+		{#key activeSection}
+			<div class="flex h-full flex-col p-4 md:p-6" in:slide={{ duration: 150 }}>
+				<div
+					class="sticky top-0 z-10 -mx-4 -mt-4 mb-6 hidden items-center gap-2 border-b border-border/30 bg-background px-4 pt-4 pb-6 md:-mx-6 md:-mt-6 md:flex md:px-6 md:pt-6"
+				>
 					<currentSection.icon class="h-5 w-5" />
 
 					<h3 class="text-lg font-semibold">{currentSection.title}</h3>
 				</div>
 
-				{#if currentSection.title === SETTINGS_SECTION_TITLES.IMPORT_EXPORT}
-					<ChatSettingsImportExportTab />
-				{:else if currentSection.title === SETTINGS_SECTION_TITLES.CONNECTION}
-					<ChatSettingsConnectionTab />
-				{:else if currentSection.title === SETTINGS_SECTION_TITLES.MCP}
-					<div class="space-y-6">
-						<ChatSettingsFields
-							fields={currentSection.fields}
-							{localConfig}
-							onConfigChange={handleConfigChange}
-							onThemeChange={handleThemeChange}
-						/>
+				<div class="min-h-0 flex-1">
+					{#if currentSection.title === SETTINGS_SECTION_TITLES.IMPORT_EXPORT}
+						<ChatSettingsImportExportTab />
+					{:else if currentSection.title === SETTINGS_SECTION_TITLES.CONNECTION}
+						<ChatSettingsConnectionTab />
+					{:else if currentSection.title === SETTINGS_SECTION_TITLES.MCP}
+						<div class="space-y-6">
+							<ChatSettingsFields
+								fields={currentSection.fields}
+								{localConfig}
+								onConfigChange={handleConfigChange}
+								onThemeChange={handleThemeChange}
+							/>
 
-						{#if localConfig.mcpSummarizeOutputs}
-							<div class="ml-1 space-y-4 border-l-2 border-border/40 pl-4">
-								<ChatSettingsFields
-									fields={[
-										{
-											key: SETTINGS_KEYS.MCP_SUMMARIZE_LINE_THRESHOLD,
-											label: 'Soft line threshold',
-											type: SettingsFieldType.INPUT
-										},
-										{
-											key: SETTINGS_KEYS.MCP_SUMMARIZE_HARD_CAP,
-											label: 'Hard line cap (-1 to disable)',
-											type: SettingsFieldType.INPUT
-										},
-										{
-											key: SETTINGS_KEYS.MCP_SUMMARIZE_ALL_TOOLS,
-											label: 'Apply to all tools (including built-in)',
-											type: SettingsFieldType.CHECKBOX
-										},
-										{
-											key: SETTINGS_KEYS.MCP_SUMMARIZE_AUTO_TIMEOUT,
-											label: 'Auto-keep-raw timeout (s, 0 = off)',
-											type: SettingsFieldType.INPUT
-										}
-									]}
-									{localConfig}
-									onConfigChange={handleConfigChange}
-									onThemeChange={handleThemeChange}
-								/>
+							{#if localConfig.mcpSummarizeOutputs}
+								<div class="ml-1 space-y-4 border-l-2 border-border/40 pl-4">
+									<ChatSettingsFields
+										fields={[
+											{
+												key: SETTINGS_KEYS.MCP_SUMMARIZE_LINE_THRESHOLD,
+												label: 'Soft line threshold',
+												type: SettingsFieldType.INPUT
+											},
+											{
+												key: SETTINGS_KEYS.MCP_SUMMARIZE_HARD_CAP,
+												label: 'Hard line cap (-1 to disable)',
+												type: SettingsFieldType.INPUT
+											},
+											{
+												key: SETTINGS_KEYS.MCP_SUMMARIZE_ALL_TOOLS,
+												label: 'Apply to all tools (including built-in)',
+												type: SettingsFieldType.CHECKBOX
+											},
+											{
+												key: SETTINGS_KEYS.MCP_SUMMARIZE_AUTO_TIMEOUT,
+												label: 'Auto-keep-raw timeout (s, 0 = off)',
+												type: SettingsFieldType.INPUT
+											}
+										]}
+										{localConfig}
+										onConfigChange={handleConfigChange}
+										onThemeChange={handleThemeChange}
+									/>
+								</div>
+							{/if}
+
+							<div class="border-t border-border/30 pt-6">
+								<McpServersSettings />
 							</div>
-						{/if}
 
-						<div class="border-t border-border/30 pt-6">
-							<McpServersSettings />
-						</div>
-
-						<div class="border-t border-border/30 pt-6">
-							<h4 class="mb-4 text-sm font-semibold">Built-in Tools</h4>
-							<div class="space-y-4">
-								{#each builtinToolFields as tool (tool.key)}
-									<div class="flex flex-col gap-1">
-										<div class="flex items-center gap-2">
-											<input
-												type="checkbox"
-												id={tool.key}
-												checked={!!localConfig[tool.key]}
-												onchange={(e) =>
-													handleConfigChange(tool.key, (e.target as HTMLInputElement).checked)}
-												class="h-4 w-4 rounded border-border"
-											/>
-											<label for={tool.key} class="cursor-pointer text-sm leading-none font-medium">
-												{tool.label}
-											</label>
-										</div>
-										<p class="ml-6 text-xs text-muted-foreground">{tool.description}</p>
-									</div>
-								{/each}
+							<div class="border-t border-border/30 pt-6">
+								<BuiltinToolsSection {localConfig} onConfigChange={handleConfigChange} />
 							</div>
-						</div>
 
-						<!-- Skills Section -->
-						<div class="border-t border-border/30 pt-6">
-							<h4 class="mb-2 text-sm font-semibold">Skills</h4>
-							<p class="mb-3 text-xs text-muted-foreground">
-								Enabled skills are available for model discovery via <code
-									class="rounded bg-muted px-1 py-0.5 text-[10px]">list_skill()</code
-								>.
-							</p>
-							<div class="flex items-center gap-2">
-								<Button size="sm" variant="outline" onclick={handleOpenSkillDialog}>
-									<Wrench class="mr-1.5 h-3.5 w-3.5" />
-									Manage Skills
-								</Button>
-								<span class="text-xs text-muted-foreground">
-									{skillsStore.skills.length} skill{skillsStore.skills.length !== 1 ? 's' : ''} available,
-									{skillsStore.enabledSkills.length} enabled
-								</span>
+							<!-- Skills Section -->
+							<div class="border-t border-border/30 pt-6">
+								<h4 class="mb-2 text-sm font-semibold">Skills</h4>
+								<p class="mb-3 text-xs text-muted-foreground">
+									Enabled skills are available for model discovery via <code
+										class="rounded bg-muted px-1 py-0.5 text-[10px]">list_skill()</code
+									>.
+								</p>
+								<div class="flex items-center gap-2">
+									<Button size="sm" variant="outline" onclick={handleOpenSkillsPage}>
+										<Wrench class="mr-1.5 h-3.5 w-3.5" />
+										Manage Skills
+									</Button>
+									<span class="text-xs text-muted-foreground">
+										{skillsStore.skills.length} skill{skillsStore.skills.length !== 1 ? 's' : ''} available,
+										{skillsStore.enabledSkills.length} enabled
+									</span>
+								</div>
 							</div>
 						</div>
-					</div>
-				{:else}
-					<div class="space-y-6">
-						<ChatSettingsFields
-							fields={currentSection.fields}
-							{localConfig}
-							onConfigChange={handleConfigChange}
-							onThemeChange={handleThemeChange}
-						/>
-					</div>
-				{/if}
+					{:else}
+						<div class="space-y-6">
+							<ChatSettingsFields
+								fields={currentSection.fields}
+								{localConfig}
+								onConfigChange={handleConfigChange}
+								onThemeChange={handleThemeChange}
+							/>
+						</div>
+					{/if}
+				</div>
+
+				<div class="mt-8 border-t pt-6">
+					<p class="text-xs text-muted-foreground">Settings are saved in browser's localStorage</p>
+				</div>
 			</div>
-
-			<div class="mt-8 border-t pt-6">
-				<p class="text-xs text-muted-foreground">Settings are saved in browser's localStorage</p>
-			</div>
-		</div>
+		{/key}
 	</ScrollArea>
 </div>
 
-<ChatSettingsFooter onReset={handleReset} onSave={handleSave} />
+<ChatSettingsFooter onReset={handleReset} onSave={handleSave} isDirty={unsaved.isDirty} />

@@ -19,3 +19,21 @@ export const SETTINGS_SECTION_TITLES = {
 /** Type for settings section titles */
 export type SettingsSectionTitle =
 	(typeof SETTINGS_SECTION_TITLES)[keyof typeof SETTINGS_SECTION_TITLES];
+
+/** URL slug → section title mapping for routing */
+export const SETTINGS_SECTION_SLUGS: Record<string, SettingsSectionTitle> = {
+	general: SETTINGS_SECTION_TITLES.GENERAL,
+	display: SETTINGS_SECTION_TITLES.DISPLAY,
+	sampling: SETTINGS_SECTION_TITLES.SAMPLING,
+	penalties: SETTINGS_SECTION_TITLES.PENALTIES,
+	'import-export': SETTINGS_SECTION_TITLES.IMPORT_EXPORT,
+	connection: SETTINGS_SECTION_TITLES.CONNECTION,
+	mcp: SETTINGS_SECTION_TITLES.MCP,
+	filter: SETTINGS_SECTION_TITLES.FILTER,
+	developer: SETTINGS_SECTION_TITLES.DEVELOPER
+};
+
+/** Section title → URL slug mapping for routing */
+export const SETTINGS_SECTION_TITLE_TO_SLUG = Object.fromEntries(
+	Object.entries(SETTINGS_SECTION_SLUGS).map(([slug, title]) => [title, slug])
+) as Record<SettingsSectionTitle, string>;

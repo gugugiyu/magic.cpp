@@ -7,11 +7,17 @@
 		summarizeToolOutput,
 		type PendingSummarizeRequest
 	} from '$lib/services/mcp-summarize-harness';
-	import { FileText, Sparkles, ChevronDown, ChevronUp, AlertTriangle } from '@lucide/svelte';
+	import {
+		FileText,
+		Sparkles,
+		ChevronDown,
+		ChevronUp,
+		AlertTriangle,
+		Loader2
+	} from '@lucide/svelte';
 	import { config } from '$lib/stores/settings.svelte';
 	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
-	import { getChatSettingsDialogContext } from '$lib/contexts/chat-settings-dialog.context';
-	import { SETTINGS_SECTION_TITLES } from '$lib/constants';
+	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
 
 	let pendingRequests = $state<PendingSummarizeRequest[]>([]);
@@ -28,13 +34,6 @@
 		((n) => (Number.isNaN(n) ? 0 : Math.max(0, n)))(Number(settings.mcpSummarizeAutoTimeout))
 	);
 	let isSubagentConfigured = $derived(subagentConfigStore.isConfigured);
-
-	let chatSettingsDialog = $state<ReturnType<typeof getChatSettingsDialogContext> | null>(null);
-	try {
-		chatSettingsDialog = getChatSettingsDialogContext();
-	} catch {
-		// context not available outside chat route
-	}
 
 	let currentRequest = $derived(pendingRequests[0] ?? null);
 	let pendingCount = $derived(pendingRequests.length);
@@ -115,10 +114,10 @@
 	}
 
 	function openSubagentSettings() {
-		chatSettingsDialog?.open(SETTINGS_SECTION_TITLES.CONNECTION);
+		goto('#/settings/connection');
 	}
 
-	function wordCountLabel(count: number): string {
+	function lineCountLabel(count: number): string {
 		return `${count.toLocaleString()} lines`;
 	}
 
@@ -151,7 +150,7 @@
 					<span class="font-mono text-xs font-medium text-foreground"
 						>{currentRequest.toolName || 'unknown tool'}</span
 					>
-					returned {wordCountLabel(currentRequest.lineCount)} (soft threshold: {threshold} lines, hard
+					returned {lineCountLabel(currentRequest.lineCount)} (soft threshold: {threshold} lines, hard
 					cap: {currentRequest.hardCap >= 0 ? currentRequest.hardCap : 'disabled'} lines).
 					{#if hasMorePending}
 						<span class="ml-1 text-amber-600 dark:text-amber-400">
@@ -194,15 +193,13 @@
 					<AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0" />
 					<span>
 						Subagent endpoint not configured — auto-summarize will not work.
-						{#if chatSettingsDialog}
-							<button
-								type="button"
-								class="underline underline-offset-2 hover:no-underline"
-								onclick={openSubagentSettings}
-							>
-								Configure it in Connection settings.
-							</button>
-						{/if}
+						<button
+							type="button"
+							class="underline underline-offset-2 hover:no-underline"
+							onclick={openSubagentSettings}
+						>
+							Configure it in Connection settings.
+						</button>
 					</span>
 				</div>
 			{/if}
@@ -228,26 +225,7 @@
 					disabled={isSummarizing}
 				>
 					{#if isSummarizing}
-						<svg
-							class="h-4 w-4 animate-spin"
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							></circle>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-							></path>
-						</svg>
+						<Loader2 class="h-4 w-4 animate-spin" />
 						Summarizing…
 					{:else}
 						<Sparkles class="h-4 w-4" />

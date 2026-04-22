@@ -2,12 +2,11 @@
 	import { Settings, Brain } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { useSidebar } from '$lib/components/ui/sidebar';
-	import { getChatSettingsDialogContext } from '$lib/contexts';
+	import { goto } from '$app/navigation';
 	import { config } from '$lib/stores/settings.svelte';
 	import ChatThinkingDrawer from '$lib/components/app/chat/ChatThinkingDrawer.svelte';
 
 	const sidebar = useSidebar();
-	const chatSettingsDialog = getChatSettingsDialogContext();
 
 	let isThinkingDrawerOpen = $state(false);
 	let isSequentialThinkingEnabled = $derived(config().builtinToolSequentialThinking);
@@ -34,7 +33,7 @@
 		<Button
 			variant="ghost"
 			size="icon-lg"
-			onclick={() => chatSettingsDialog.open()}
+			onclick={() => goto('#/settings/general')}
 			class="rounded-full backdrop-blur-lg"
 		>
 			<Settings class="h-4 w-4" />

@@ -19,24 +19,6 @@
  */
 
 /**
- * **DialogChatSettings** - Settings dialog wrapper
- *
- * Modal dialog containing ChatSettings component with proper
- * open/close state management and automatic form reset on open.
- *
- * **Architecture:**
- * - Wraps ChatSettings component in ShadCN Dialog
- * - Manages open/close state via bindable `open` prop
- * - Resets form state when dialog opens to discard unsaved changes
- *
- * @example
- * ```svelte
- * <DialogChatSettings bind:open={showSettings} />
- * ```
- */
-export { default as DialogChatSettings } from './DialogChatSettings.svelte';
-
-/**
  *
  * CONFIRMATION DIALOGS
  *
@@ -487,16 +469,3 @@ export { default as DialogMcpResourcePreview } from './DialogMcpResourcePreview.
  * ```
  */
 export { default as DialogMcpSummarize } from './DialogMcpSummarize.svelte';
-
-/**
- * **DialogSkillManager** - Dialog for managing skills (import, create, edit, delete)
- *
- * Provides a card-based UI for managing skill markdown files that extend
- * model capabilities. Supports import from Claude Marketplace format.
- *
- * @example
- * ```svelte
- * <DialogSkillManager bind:open={isSkillsOpen} />
- * ```
- */
-export { default as DialogSkillManager } from './DialogSkillManager.svelte';

@@ -10,9 +10,8 @@
 		ModelsSelector,
 		ModelsSelectorSheet
 	} from '$lib/components/app';
-	import { SETTINGS_SECTION_TITLES } from '$lib/constants';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
-	import { getChatSettingsDialogContext } from '$lib/contexts';
+	import { goto } from '$app/navigation';
 	import { FileTypeCategory } from '$lib/enums';
 	import { getFileTypeCategory } from '$lib/utils';
 	import { config } from '$lib/stores/settings.svelte';
@@ -176,8 +175,6 @@
 		selectorModelRef?.open();
 	}
 
-	const chatSettingsDialog = getChatSettingsDialogContext();
-
 	let hasMcpPromptsSupport = $derived.by(() => {
 		const perChatOverrides = conversationsStore.getAllMcpServerOverrides();
 
@@ -204,7 +201,7 @@
 				{onSystemPromptClick}
 				{onMcpPromptClick}
 				{onMcpResourcesClick}
-				onMcpSettingsClick={() => chatSettingsDialog.open(SETTINGS_SECTION_TITLES.MCP)}
+				onMcpSettingsClick={() => goto('#/settings/mcp')}
 			/>
 		{:else}
 			<ChatFormActionAttachmentsDropdown
@@ -217,14 +214,11 @@
 				{onSystemPromptClick}
 				{onMcpPromptClick}
 				{onMcpResourcesClick}
-				onMcpSettingsClick={() => chatSettingsDialog.open(SETTINGS_SECTION_TITLES.MCP)}
+				onMcpSettingsClick={() => goto('#/settings/mcp')}
 			/>
 		{/if}
 
-		<McpServersSelector
-			{disabled}
-			onSettingsClick={() => chatSettingsDialog.open(SETTINGS_SECTION_TITLES.MCP)}
-		/>
+		<McpServersSelector {disabled} onSettingsClick={() => goto('#/settings/mcp')} />
 	</div>
 
 	<div class="ml-auto flex items-center gap-1.5">

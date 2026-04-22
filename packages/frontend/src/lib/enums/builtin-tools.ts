@@ -126,6 +126,18 @@ export const BUILTIN_TOOL_EXECUTION_TARGET: Record<string, 'frontend' | 'backend
 	move_file: 'backend'
 };
 
+/** Maps settings keys to execution target (derived from the tools each key enables). */
+export const BUILTIN_TOOL_SETTING_KEY_TARGET: Record<string, 'frontend' | 'backend'> = {
+	[SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR]: 'frontend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_TIME]: 'frontend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_LOCATION]: 'frontend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING]: 'frontend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: 'frontend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_SKILLS]: 'frontend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS]: 'backend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_MUTATING_FILE_TOOLS]: 'backend'
+};
+
 export function getActiveBuiltinTools(settings: SettingsConfigType): OpenAIToolDefinition[] {
 	const tools: OpenAIToolDefinition[] = [];
 

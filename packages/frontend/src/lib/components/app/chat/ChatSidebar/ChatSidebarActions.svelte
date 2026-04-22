@@ -4,9 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { McpLogo } from '$lib/components/app';
-	import { SETTINGS_SECTION_TITLES } from '$lib/constants';
-	import { getChatSettingsDialogContext } from '$lib/contexts';
-	import { getSkillDialogContext } from '$lib/contexts/skill-dialog.context';
+	import { goto } from '$app/navigation';
 
 	interface Props {
 		handleMobileSidebarItemClick: () => void;
@@ -21,9 +19,6 @@
 	}: Props = $props();
 
 	let searchInput: HTMLInputElement | null = $state(null);
-
-	const chatSettingsDialog = getChatSettingsDialogContext();
-	const skillDialog = getSkillDialogContext();
 
 	function handleSearchModeDeactivate() {
 		isSearchModeActive = false;
@@ -89,9 +84,7 @@
 
 		<Button
 			class="w-full justify-between backdrop-blur-none! hover:[&>kbd]:opacity-100"
-			onclick={() => {
-				chatSettingsDialog.open(SETTINGS_SECTION_TITLES.MCP);
-			}}
+			onclick={() => goto('#/settings/mcp')}
 			variant="ghost"
 		>
 			<div class="flex items-center gap-2">
@@ -103,9 +96,7 @@
 
 		<Button
 			class="w-full justify-between backdrop-blur-none! hover:[&>kbd]:opacity-100"
-			onclick={() => {
-				chatSettingsDialog.open(SETTINGS_SECTION_TITLES.CONNECTION);
-			}}
+			onclick={() => goto('#/settings/connection')}
 			variant="ghost"
 		>
 			<div class="flex items-center gap-2">
@@ -117,9 +108,7 @@
 
 		<Button
 			class="w-full justify-between backdrop-blur-none! hover:[&>kbd]:opacity-100"
-			onclick={() => {
-				skillDialog.open();
-			}}
+			onclick={() => goto('#/skills')}
 			variant="ghost"
 		>
 			<div class="flex items-center gap-2">

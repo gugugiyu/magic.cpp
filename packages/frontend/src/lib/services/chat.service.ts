@@ -246,7 +246,7 @@ export class ChatService {
 		try {
 			if (stream) {
 				const baseUrl = serverEndpointStore.isDefault() ? '' : serverEndpointStore.getBaseUrl();
-				const url = baseUrl ? `${baseUrl}/v1/chat/completions` : './v1/chat/completions';
+				const url = baseUrl ? `${baseUrl}/v1/chat/completions` : '/v1/chat/completions';
 
 				const response = await fetch(url, {
 					method: 'POST',
@@ -281,7 +281,7 @@ export class ChatService {
 				return;
 			} else {
 				const response = await apiPost<ApiChatCompletionResponse>(
-					'./v1/chat/completions',
+					'/v1/chat/completions',
 					requestBody,
 					{ signal }
 				);

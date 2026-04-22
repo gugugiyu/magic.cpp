@@ -1752,9 +1752,7 @@ class ChatStore {
 					rootMessage.id
 				);
 
-				const firstChildOfRoot = messagesToCompact.find(
-					(m) => m.parent === rootMessage.id
-				);
+				const firstChildOfRoot = messagesToCompact.find((m) => m.parent === rootMessage.id);
 
 				if (firstChildOfRoot) {
 					await DatabaseService.deleteMessageCascading(convId, firstChildOfRoot.id);
@@ -1791,9 +1789,9 @@ class ChatStore {
 	}
 
 	private findPreviousCompactionSummary(allMessages: DatabaseMessage[]): string | null {
-		const summaryMessage = [...allMessages].reverse().find((m) =>
-			m.extra?.some((e) => e.type === AttachmentType.COMPACTION_SUMMARY)
-		);
+		const summaryMessage = [...allMessages]
+			.reverse()
+			.find((m) => m.extra?.some((e) => e.type === AttachmentType.COMPACTION_SUMMARY));
 		if (summaryMessage) {
 			return summaryMessage.content || null;
 		}

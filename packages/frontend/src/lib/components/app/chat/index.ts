@@ -681,7 +681,7 @@ export { default as ChatScreenProcessingInfo } from './ChatScreen/ChatScreenProc
  * - **Sampling**: Temperature, top_p, top_k, min_p, repeat_penalty, etc.
  * - **Penalties**: Frequency penalty, presence penalty, repeat last N
  * - **Import/Export**: Conversation backup and restore
- * - **MCP**: MCP server management (opens DialogChatSettings with MCP tab)
+ * - **MCP**: MCP server management (navigates to /settings/mcp)
  * - **Developer**: Debug options, disable auto-scroll
  *
  * **Parameter Sync:**
@@ -748,6 +748,12 @@ export { default as ChatSettingsConnectionTab } from './ChatSettings/ChatSetting
 export { default as ChatSettingsParameterSourceIndicator } from './ChatSettings/ChatSettingsParameterSourceIndicator.svelte';
 
 /**
+ * Renders built-in tool checkboxes with consistent styling matching
+ * ChatSettingsFields. Handles checkbox state and change callbacks.
+ */
+export { default as BuiltinToolsSection } from './ChatSettings/BuiltinToolsSection.svelte';
+
+/**
  *
  * SIDEBAR
  *
@@ -788,7 +794,7 @@ export { default as ChatSettingsParameterSourceIndicator } from './ChatSettings/
  * - Active conversation highlighting
  * - Mobile-responsive collapse/expand via ShadCN sidebar
  * - New chat button in header
- * - Settings button opens DialogChatSettings
+ * - Settings button navigates to /settings/general
  *
  * **Exported API:**
  * - `handleMobileSidebarItemClick()` - Close sidebar on mobile after item selection

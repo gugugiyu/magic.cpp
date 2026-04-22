@@ -4,13 +4,7 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
-	import {
-		ChatSidebar,
-		DialogConversationTitleUpdate,
-		DialogChatSettings,
-		DialogSkillManager
-	} from '$lib/components/app';
-	import { setSkillDialogContext } from '$lib/contexts/skill-dialog.context';
+	import { ChatSidebar, DialogConversationTitleUpdate } from '$lib/components/app';
 	import { isLoading } from '$lib/stores/chat.svelte';
 	import { conversationsStore, activeMessages } from '$lib/stores/conversations.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -23,15 +17,15 @@
 	import { modelsStore } from '$lib/stores/models.svelte';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
 	import { TOOLTIP_DELAY_DURATION } from '$lib/constants';
-	import type { SettingsSectionTitle } from '$lib/constants';
 	import { KeyboardKey } from '$lib/enums';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte';
-	import { setChatSettingsDialogContext } from '$lib/contexts';
 
 	let { children } = $props();
 
 	let isChatRoute = $derived(page.route.id === '/chat/[id]');
 	let isHomeRoute = $derived(page.route.id === '/');
+	let isSettingsRoute = $derived(page.route.id?.startsWith('/settings/[section]') ?? false);
+	let isSkillsRoute = $derived(page.route.id === '/skills');
 	let isNewChatMode = $derived(page.url.searchParams.get('new_chat') === 'true');
 	let showSidebarByDefault = $derived(activeMessages().length > 0 || isLoading());
 	let alwaysShowSidebarOnDesktop = $derived(config().alwaysShowSidebarOnDesktop);
@@ -49,25 +43,6 @@
 	let titleUpdateCurrentTitle = $state('');
 	let titleUpdateNewTitle = $state('');
 	let titleUpdateResolve: ((value: boolean) => void) | null = null;
-
-	let chatSettingsDialogOpen = $state(false);
-	let chatSettingsDialogInitialSection = $state<SettingsSectionTitle | undefined>(undefined);
-
-	// Skill dialog state
-	let skillDialogOpen = $state(false);
-
-	setChatSettingsDialogContext({
-		open: (initialSection?: SettingsSectionTitle) => {
-			chatSettingsDialogInitialSection = initialSection;
-			chatSettingsDialogOpen = true;
-		}
-	});
-
-	setSkillDialogContext({
-		open: () => {
-			skillDialogOpen = true;
-		}
-	});
 
 	// Global keyboard shortcuts
 	function handleKeydown(event: KeyboardEvent) {
@@ -113,6 +88,12 @@
 
 	$effect(() => {
 		if (alwaysShowSidebarOnDesktop && isDesktop) {
+			sidebarOpen = true;
+			return;
+		}
+
+		if (isSettingsRoute || isSkillsRoute) {
+			// Always keep sidebar visible on settings and skills routes
 			sidebarOpen = true;
 			return;
 		}
@@ -267,14 +248,6 @@
 	<ModeWatcher />
 
 	<Toaster richColors />
-
-	<DialogChatSettings
-		open={chatSettingsDialogOpen}
-		onOpenChange={(open) => (chatSettingsDialogOpen = open)}
-		initialSection={chatSettingsDialogInitialSection}
-	/>
-
-	<DialogSkillManager open={skillDialogOpen} onOpenChange={(open) => (skillDialogOpen = open)} />
 
 	<DialogConversationTitleUpdate
 		bind:open={titleUpdateDialogOpen}

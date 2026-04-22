@@ -17,12 +17,6 @@ export interface ForkConversationParams {
 	includeAttachments: boolean;
 }
 
-export interface CompactConversationParams {
-	summaryMessage: DatabaseMessage;
-	messagesToCompact: DatabaseMessage[];
-	anchorMessageId: string;
-}
-
 /**
  * Create a new conversation.
  */
@@ -125,17 +119,4 @@ export async function deleteAllConversations(deleteWithForks: boolean = false): 
 	await apiFetch(`/api/conversations${params}`, {
 		method: 'DELETE'
 	});
-}
-
-/**
- * Compact a conversation by replacing old messages with a summary.
- */
-export async function compactConversation(
-	convId: string,
-	params: CompactConversationParams
-): Promise<{ success: boolean }> {
-	return apiPost<{ success: boolean }, CompactConversationParams>(
-		`/api/conversations/${convId}/compact`,
-		params
-	);
 }

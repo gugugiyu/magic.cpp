@@ -626,6 +626,20 @@ export class ChatService {
 	}
 
 	/**
+	 * Repairs malformed tool call arguments that may have been truncated during streaming.
+	 * If arguments don't parse as valid JSON, returns '{}' as a safe fallback.
+	 */
+	private static repairToolArguments(args: string | undefined): string {
+		if (!args || args.trim() === '') return '{}';
+		try {
+			JSON.parse(args);
+			return args;
+		} catch {
+			return '{}';
+		}
+	}
+
+	/**
 	 * Merges tool call deltas into an existing array of tool calls.
 	 * Handles both existing and new tool calls, updating existing ones and adding new ones.
 	 *
@@ -718,7 +732,13 @@ export class ChatService {
 		let toolCalls: ApiChatCompletionToolCall[] | undefined;
 		if (message.toolCalls) {
 			try {
-				toolCalls = JSON.parse(message.toolCalls);
+				toolCalls = JSON.parse(message.toolCalls) as ApiChatCompletionToolCall[];
+				// Repair any malformed arguments from truncated streaming
+				for (const tc of toolCalls) {
+					if (tc.function) {
+						tc.function.arguments = ChatService.repairToolArguments(tc.function.arguments);
+					}
+				}
 			} catch {
 				// Ignore parse errors for malformed tool calls
 			}

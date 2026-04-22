@@ -8,7 +8,6 @@ interface CompactRequest {
     content: string;
     [key: string]: unknown;
   }>;
-  anchorMessagesCount: number;
   model?: string;
   previousSummary?: string;
 }
@@ -21,18 +20,17 @@ interface CompactResponse {
 }
 
 /**
- * POST /compact — Summarize conversation history while preserving recent context.
+ * POST /compact — Summarize conversation history.
  *
- * Compacts all messages except the last N anchor messages by:
- * 1. Extracting messages to compact
- * 2. Building a summarization prompt
- * 3. Calling upstream LLM to generate summary
- * 4. Returning summary with token statistics
+ * Compacts all messages by:
+ * 1. Building a summarization prompt from all messages
+ * 2. Calling upstream LLM to generate summary
+ * 3. Returning summary with token statistics
  */
 export async function handleCompact(req: Request, pool: ModelPool): Promise<Response> {
   try {
     const body = await req.json() as CompactRequest;
-    const { messages, anchorMessagesCount, model, previousSummary } = body;
+    const { messages, model, previousSummary } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return Response.json(
@@ -41,32 +39,15 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       );
     }
 
-    if (!anchorMessagesCount || anchorMessagesCount < 0) {
-      return Response.json(
-        { error: 'Invalid request: anchorMessagesCount must be a non-negative integer' },
-        { status: 400 }
-      );
-    }
-
-    if (anchorMessagesCount >= messages.length) {
-      return Response.json(
-        { error: 'Cannot compact: anchor count exceeds or equals total messages' },
-        { status: 400 }
-      );
-    }
-
-    // Split messages into compacted and anchor
-    const messagesToCompact = messages.slice(0, messages.length - anchorMessagesCount);
-
-    if (messagesToCompact.length === 0) {
+    if (messages.length === 0) {
       return Response.json(
         { error: 'No messages to compact' },
         { status: 400 }
       );
     }
 
-    // Build the compacted content with role prefixes (this is what gets sent to the LLM)
-    const compactedContent = messagesToCompact
+    // Build the compacted content with role prefixes
+    const compactedContent = messages
       .map(msg => `[${msg.role.toUpperCase()}]: ${msg.content}`)
       .join('\n\n');
 

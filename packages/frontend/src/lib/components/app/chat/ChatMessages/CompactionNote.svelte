@@ -18,7 +18,7 @@
 		<!-- Center note -->
 		<div class="mx-3 flex items-center gap-1.5 text-xs text-muted-foreground/60">
 			<Package class="h-3 w-3" />
-			<span>Session compacted, ~{tokensSaved.toLocaleString()} estimated tokens saved</span>
+			<span>Compacted session, ~{tokensSaved.toLocaleString()} estimated tokens saved</span>
 		</div>
 
 		<!-- Right divider -->

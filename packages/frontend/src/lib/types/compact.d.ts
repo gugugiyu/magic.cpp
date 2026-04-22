@@ -9,8 +9,6 @@ export interface CompactSessionRequest {
 		content: string;
 		[key: string]: unknown;
 	}>;
-	/** Number of recent messages to keep as anchor */
-	anchorMessagesCount: number;
 	/** Optional model ID to use for summarization */
 	model?: string;
 	/** Summary from a previous compaction, to preserve chained context */

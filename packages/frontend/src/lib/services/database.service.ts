@@ -174,23 +174,6 @@ export class DatabaseService {
 	}
 
 	/**
-	 * Compaction
-	 */
-
-	static async compactMessageTree(
-		convId: string,
-		summaryMessage: DatabaseMessage,
-		messagesToCompact: DatabaseMessage[],
-		anchorMessageId: string
-	): Promise<void> {
-		await conversationsAPI.compactConversation(convId, {
-			summaryMessage,
-			messagesToCompact,
-			anchorMessageId
-		});
-	}
-
-	/**
 	 * Toggles the pinned status of a conversation.
 	 *
 	 * @param id - Conversation ID

@@ -193,7 +193,6 @@ All routes accept and return JSON unless otherwise noted. CORS preflight (`OPTIO
 | `PUT` | `/api/conversations/:id` | Update a conversation |
 | `DELETE` | `/api/conversations/:id` | Delete a conversation (cascades to messages) |
 | `POST` | `/api/conversations/:id/fork` | Fork a conversation |
-| `POST` | `/api/conversations/:id/compact` | Compact a conversation |
 | `GET` | `/api/conversations/:id/messages` | Get messages for a conversation |
 | `POST` | `/api/conversations/:id/messages` | Create a message |
 | `GET` | `/api/messages/:id` | Get a message by ID |

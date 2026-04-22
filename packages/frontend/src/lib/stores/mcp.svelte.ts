@@ -1217,6 +1217,7 @@ class MCPStore {
 	async executeTool(toolCall: MCPToolCall, signal?: AbortSignal): Promise<ToolExecutionResult> {
 		const toolName = toolCall.function.name;
 
+		console.log(this.toolsIndex);
 		const serverName = this.toolsIndex.get(toolName);
 		if (!serverName) throw new Error(`Unknown tool: ${toolName}`);
 

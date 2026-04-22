@@ -1224,7 +1224,14 @@ class AgenticStore {
 							// Execute each tool call
 							for (const tc of toolCalls ?? []) {
 								const tcName = tc.function?.name ?? '';
-								const tcArgs = tc.function?.arguments ?? '{}';
+								let tcArgs = tc.function?.arguments ?? '{}';
+								if (tcArgs && tcArgs.trim() !== '') {
+									try {
+										JSON.parse(tcArgs);
+									} catch {
+										tcArgs = '{}';
+									}
+								}
 								const tcId = tc.id ?? `call_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
 								this.addSubagentStep(conversationId, { toolName: tcName, status: 'calling' });
@@ -1373,14 +1380,24 @@ class AgenticStore {
 	private normalizeToolCalls(toolCalls: ApiChatCompletionToolCall[]): AgenticToolCallList {
 		if (!toolCalls) return [];
 		return toolCalls
-			.map((call, index) => ({
-				id: call?.id ?? `tool_${index}`,
-				type: (call?.type as ToolCallType.FUNCTION) ?? ToolCallType.FUNCTION,
-				function: {
-					name: call?.function?.name ?? '',
-					arguments: call?.function?.arguments ?? ''
+			.map((call, index) => {
+				let args = call?.function?.arguments ?? '';
+				if (args && args.trim() !== '') {
+					try {
+						JSON.parse(args);
+					} catch {
+						args = '{}';
+					}
 				}
-			}))
+				return {
+					id: call?.id ?? `tool_${index}`,
+					type: (call?.type as ToolCallType.FUNCTION) ?? ToolCallType.FUNCTION,
+					function: {
+						name: call?.function?.name ?? '',
+						arguments: args
+					}
+				};
+			})
 			.filter((call) => call.function.name.trim() !== '');
 	}
 

@@ -46,7 +46,7 @@ import type {
 	ErrorDialogState
 } from '$lib/types/chat';
 import type { ApiProcessingState, DatabaseMessage, DatabaseMessageExtra } from '$lib/types';
-import { ErrorDialogType, MessageRole, MessageType } from '$lib/enums';
+import { ErrorDialogType, MessageRole, MessageType, AttachmentType } from '$lib/enums';
 
 interface ConversationStateEntry {
 	lastAccessed: number;
@@ -1660,6 +1660,173 @@ class ChatStore {
 			if (message.role === MessageRole.ASSISTANT && message.model) return message.model;
 		}
 		return null;
+	}
+
+	async compactSession(): Promise<void> {
+		const activeConv = conversationsStore.activeConversation;
+		if (!activeConv) return;
+		if (this.isChatLoadingInternal(activeConv.id)) return;
+
+		const messages = conversationsStore.activeMessages;
+		if (messages.length < 2) return;
+
+		this.showErrorDialog(null);
+		this.setChatLoading(activeConv.id, true);
+		this.clearChatStreaming(activeConv.id);
+
+		try {
+			const convId = activeConv.id;
+			const abortController = this.getOrCreateAbortController(convId);
+
+			const allMessages = await conversationsStore.getConversationMessages(convId);
+			const rootMessage = allMessages.find((m) => m.type === 'root' && m.parent === null);
+			if (!rootMessage) {
+				throw new Error('Root message not found');
+			}
+
+			const compactSystemContent = `You are an expert conversation summarizer. Create a concise but comprehensive summary of the following conversation history that preserves all key points, decisions, and important information. The summary should allow the conversation to continue naturally.`;
+
+			const apiMessages: { role: string; content: string }[] = [
+				{ role: 'system', content: compactSystemContent },
+				...messages.map((m) => ({ role: m.role, content: m.content || '' }))
+			];
+
+			const summaryMessage = await DatabaseService.createMessageBranch(
+				{
+					convId,
+					type: MessageType.TEXT,
+					role: MessageRole.ASSISTANT,
+					content: '',
+					timestamp: Date.now(),
+					toolCalls: '',
+					children: [],
+					model: null,
+					extra: [
+						{
+							type: AttachmentType.COMPACTION_SUMMARY,
+							name: 'compaction_summary',
+							tokensSaved: 0
+						}
+					]
+				},
+				rootMessage.id
+			);
+
+			conversationsStore.addMessageToActive(summaryMessage);
+
+			let streamedContent = '';
+			let resolvedModel: string | null = null;
+
+			const updateStreamingUI = () => {
+				this.setChatStreaming(convId, streamedContent, summaryMessage.id);
+				const idx = conversationsStore.findMessageIndex(summaryMessage.id);
+				conversationsStore.updateMessageAtIndex(idx, { content: streamedContent });
+			};
+
+			await ChatService.sendMessage(
+				apiMessages as DatabaseMessage[],
+				{
+					...this.getApiOptions(),
+					stream: true,
+					onChunk: (chunk: string) => {
+						streamedContent += chunk;
+						updateStreamingUI();
+					},
+					onModel: (modelName: string) => {
+						resolvedModel = modelName;
+					},
+					onComplete: async () => {
+						if (resolvedModel) {
+							await DatabaseService.updateMessage(summaryMessage.id, { model: resolvedModel });
+							const idx = conversationsStore.findMessageIndex(summaryMessage.id);
+							conversationsStore.updateMessageAtIndex(idx, { model: resolvedModel });
+						}
+
+						const contentTokens = streamedContent.length / 4;
+						const totalOriginalTokens = messages.reduce(
+							(sum, m) => sum + (m.content?.length || 0) / 4,
+							0
+						);
+						const tokensSaved = Math.max(0, Math.round(totalOriginalTokens - contentTokens));
+
+						await DatabaseService.updateMessage(summaryMessage.id, {
+							extra: [
+								{
+									type: AttachmentType.COMPACTION_SUMMARY,
+									name: 'compaction_summary',
+									tokensSaved
+								}
+							]
+						});
+
+						const idx = conversationsStore.findMessageIndex(summaryMessage.id);
+						conversationsStore.updateMessageAtIndex(idx, {
+							extra: [
+								{
+									type: AttachmentType.COMPACTION_SUMMARY,
+									name: 'compaction_summary',
+									tokensSaved
+								}
+							]
+						});
+
+						const messagesToDelete = messages.filter(
+							(m) => m.id !== summaryMessage.id && m.id !== rootMessage.id
+						);
+						for (const msg of messagesToDelete) {
+							await DatabaseService.deleteMessage(msg.id);
+						}
+
+						await conversationsStore.refreshActiveMessages();
+						await conversationsStore.updateCurrentNode(summaryMessage.id);
+
+						conversationsStore.lastCompactionSummaryId = summaryMessage.id;
+						conversationsStore.lastCompactionTokensSaved = tokensSaved;
+
+						this.setChatLoading(convId, false);
+						this.clearChatStreaming(convId);
+						this.setProcessingState(convId, null);
+					},
+					onError: async (error: Error) => {
+						if (isAbortError(error)) {
+							this.setChatLoading(convId, false);
+							this.clearChatStreaming(convId);
+							this.setProcessingState(convId, null);
+							return;
+						}
+
+						console.error('Compaction error:', error);
+						const idx = conversationsStore.findMessageIndex(summaryMessage.id);
+						if (idx !== -1) {
+							conversationsStore.removeMessageAtIndex(idx);
+						}
+						await DatabaseService.deleteMessage(summaryMessage.id).catch(() => {});
+
+						this.setChatLoading(convId, false);
+						this.clearChatStreaming(convId);
+						this.setProcessingState(convId, null);
+						this.showErrorDialog({
+							type:
+								error.name === 'TimeoutError' ? ErrorDialogType.TIMEOUT : ErrorDialogType.SERVER,
+							message: error.message
+						});
+					}
+				},
+				convId,
+				abortController.signal
+			);
+		} catch (error) {
+			if (isAbortError(error)) {
+				this.setChatLoading(activeConv.id, false);
+				return;
+			}
+			console.error('Failed to compact session:', error);
+			this.setChatLoading(activeConv.id, false);
+			this.showErrorDialog({
+				type: ErrorDialogType.SERVER,
+				message: error instanceof Error ? error.message : 'Unknown error'
+			});
+		}
 	}
 
 	private getApiOptions(): Record<string, unknown> {

@@ -18,7 +18,6 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	askForTitleConfirmation: false,
 	titleGenerationUseFirstLine: false,
 	pasteLongTextToFileLen: 2500,
-	anchorMessagesCount: 3,
 	copyTextAttachmentsAsPlainText: false,
 	pdfAsImage: false,
 	disableAutoScroll: false,
@@ -94,9 +93,7 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 	theme:
 		'Choose the color theme for the interface. You can choose between System (follows your device settings), Light, or Dark.',
 	pasteLongTextToFileLen:
-		'On pasting long text, it will be converted to a file. You can control the file length by setting the value of this parameter. Value 0 means disable.',
-	anchorMessagesCount:
-		'Number of recent messages to keep when compacting a session. Older messages will be summarized into a single context message.',
+		'On pasting long text to file, it will be converted to a file. You can control the file length by setting the value of this parameter. Value 0 means disable.',
 	copyTextAttachmentsAsPlainText:
 		'When copying a message with text attachments, combine them into a single plain text string instead of a special format that can be pasted back as attachments.',
 	samplers:

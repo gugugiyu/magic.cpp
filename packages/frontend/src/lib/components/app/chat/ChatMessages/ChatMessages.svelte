@@ -258,46 +258,6 @@
 		return { result, systemMessageBeforeDisplayIndex };
 	});
 
-	// Find the display index where the CompactionNote should appear.
-	// Uses the persistent COMPACTION_SUMMARY extra on the summary message,
-	// falling back to the transient store value for recent compactions before
-	// the page reloads.
-	let compactionNoteDisplayIndex = $derived.by(() => {
-		if (currentConfig.showSystemMessage) return -1;
-
-		// First, try to find a compaction summary message in the original messages array
-		for (let i = 0; i < messages.length; i++) {
-			if (messages[i].type === MessageRole.SYSTEM) {
-				const extra = messages[i].extra?.find(
-					(e: DatabaseMessageExtra) =>
-						e.type === AttachmentType.COMPACTION_SUMMARY && 'tokensSaved' in e
-				);
-				if (extra) {
-					// This is the most recent (and only) compaction summary.
-					// Compute its display index: count non-system messages before it.
-					let displayIdx = 0;
-					for (let j = 0; j < i; j++) {
-						if (messages[j].type !== MessageRole.SYSTEM) {
-							displayIdx++;
-						}
-					}
-					return displayIdx;
-				}
-			}
-		}
-
-		// Fallback: use the transient store value for very recent compactions
-		if (conversationsStore.lastCompactionTokensSaved === null) return -1;
-		const sysInfo = displayMessages.systemMessageBeforeDisplayIndex;
-		if (sysInfo.size === 0) return -1;
-		for (let i = messages.length - 1; i >= 0; i--) {
-			if (messages[i].type === MessageRole.SYSTEM) {
-				return sysInfo.get(i) ?? -1;
-			}
-		}
-		return -1;
-	});
-
 	/**
 	 * Extract tokensSaved from a compaction summary message's extras.
 	 * Returns null if the message is not a compaction summary.
@@ -309,36 +269,15 @@
 		);
 		return extra ? (extra as { tokensSaved: number }).tokensSaved : null;
 	}
-
-	/**
-	 * Resolve the tokensSaved value for the CompactionNote — prefers the
-	 * persistent message extra, falls back to the transient store value.
-	 */
-	let resolvedCompactionTokens = $derived.by(() => {
-		// Try persistent source first
-		for (const msg of messages) {
-			if (msg.type === MessageRole.SYSTEM) {
-				const t = getCompactionTokensSaved(msg);
-				if (t !== null) return t;
-			}
-		}
-		return conversationsStore.lastCompactionTokensSaved ?? 0;
-	});
 </script>
 
 <div
 	class="flex h-full flex-col space-y-10 pt-24 {className}"
 	style="height: auto; min-height: calc(100dvh - 14rem);"
 >
-	{#each displayMessages.result as { message, toolMessages, isLastAssistantMessage, siblingInfo }, index (message.id)}
-		{@const showCompactionAfterThis =
-			currentConfig.showSystemMessage &&
-			message.type === MessageRole.SYSTEM &&
-			getCompactionTokensSaved(message) !== null}
-
-		{#if showCompactionAfterThis}
-			<CompactionNote tokensSaved={getCompactionTokensSaved(message)!} />
-		{/if}
+	{#each displayMessages.result as { message, toolMessages, isLastAssistantMessage, siblingInfo } (message.id)}
+		{@const compactionTokens = getCompactionTokensSaved(message)}
+		{@const showCompactionAfterThis = compactionTokens !== null && compactionTokens > 0}
 
 		<div use:fadeInView>
 			<ChatMessage
@@ -350,9 +289,8 @@
 			/>
 		</div>
 
-		{#if !currentConfig.showSystemMessage && compactionNoteDisplayIndex >= 0 && index === compactionNoteDisplayIndex}
-			<!-- When system messages are hidden, show the note at the compaction boundary -->
-			<CompactionNote tokensSaved={resolvedCompactionTokens} />
+		{#if showCompactionAfterThis}
+			<CompactionNote tokensSaved={compactionTokens} />
 		{/if}
 	{/each}
 </div>

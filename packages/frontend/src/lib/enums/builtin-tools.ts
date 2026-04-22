@@ -7,7 +7,9 @@ import {
 	TOOL_LIST_DIRECTORY,
 	TOOL_SEARCH_FILES,
 	TOOL_DELETE_FILE,
-	TOOL_MOVE_FILE
+	TOOL_MOVE_FILE,
+	TOOL_LIST_SKILL,
+	TOOL_READ_SKILL
 } from '@shared/constants/prompts-and-tools';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import type { SettingsConfigType } from '$lib/types';
@@ -87,12 +89,12 @@ const SETTING_KEY_TO_TOOL: Record<string, OpenAIToolDefinition> = {
 	[SETTINGS_KEYS.BUILTIN_TOOL_TIME]: BUILTIN_TOOLS[1],
 	[SETTINGS_KEYS.BUILTIN_TOOL_LOCATION]: BUILTIN_TOOLS[2],
 	[SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING]: BUILTIN_TOOLS[3],
-	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: BUILTIN_TOOLS[4],
-	[SETTINGS_KEYS.BUILTIN_TOOL_SKILLS]: BUILTIN_TOOLS[5]
+	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: BUILTIN_TOOLS[4]
 };
 
 /** Maps a group setting key → the list of tool definitions it enables. */
 const SETTING_KEY_TO_TOOL_GROUP: Record<string, OpenAIToolDefinition[]> = {
+	[SETTINGS_KEYS.BUILTIN_TOOL_SKILLS]: [TOOL_LIST_SKILL, TOOL_READ_SKILL],
 	[SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS]: [
 		TOOL_READ_FILE,
 		TOOL_LIST_DIRECTORY,

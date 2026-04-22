@@ -73,11 +73,6 @@
 					type: SettingsFieldType.INPUT
 				},
 				{
-					key: SETTINGS_KEYS.ANCHOR_MESSAGES_COUNT,
-					label: 'Anchor messages count',
-					type: SettingsFieldType.INPUT
-				},
-				{
 					key: SETTINGS_KEYS.COPY_TEXT_ATTACHMENTS_AS_PLAIN_TEXT,
 					label: 'Copy text attachments as plain text',
 					type: SettingsFieldType.CHECKBOX

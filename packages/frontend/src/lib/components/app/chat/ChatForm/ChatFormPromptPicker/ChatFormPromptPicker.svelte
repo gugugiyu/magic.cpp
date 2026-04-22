@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { conversationsStore } from '$lib/stores/conversations.svelte';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
-	import { debounce, uuid } from '$lib/utils';
+	import { debounce, logger, uuid } from '$lib/utils';
 	import { KeyboardKey } from '$lib/enums';
 	import type { MCPPromptInfo, GetPromptResult, MCPServerSettingsEntry } from '$lib/types';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -162,14 +162,12 @@
 			return;
 		}
 
-		if (import.meta.env.DEV) {
-			console.log('[ChatFormPromptPicker] Fetching completions for:', {
-				serverName: selectedPrompt.serverName,
-				promptName: selectedPrompt.name,
-				argName,
-				value
-			});
-		}
+		logger.info('[ChatFormPromptPicker] Fetching completions for:', {
+			serverName: selectedPrompt.serverName,
+			promptName: selectedPrompt.name,
+			argName,
+			value
+		});
 
 		loadingSuggestions[argName] = true;
 

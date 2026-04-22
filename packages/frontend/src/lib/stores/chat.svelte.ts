@@ -50,6 +50,9 @@ import type { CompactSessionResponse } from '$lib/types/compact';
 import { ErrorDialogType, MessageRole, MessageType, AttachmentType } from '$lib/enums';
 import { sequentialThinkingStore } from '$lib/stores/sequential-thinking.svelte';
 import { serverEndpointStore } from './server-endpoint.svelte';
+import { createModuleLogger } from '$lib/utils/logger';
+
+const logger = createModuleLogger('chatStore');
 
 interface ConversationStateEntry {
 	lastAccessed: number;
@@ -411,7 +414,7 @@ class ChatStore {
 			this.pendingEditMessageId = systemMessage.id;
 			conversationsStore.updateConversationTimestamp();
 		} catch (error) {
-			console.error('Failed to add system prompt:', error);
+			logger.error('Failed to add system prompt:', error);
 		}
 	}
 
@@ -450,7 +453,7 @@ class ChatStore {
 			conversationsStore.updateConversationTimestamp();
 			return false;
 		} catch (error) {
-			console.error('Failed to remove system prompt placeholder:', error);
+			logger.error('Failed to remove system prompt placeholder:', error);
 			return false;
 		}
 	}
@@ -531,7 +534,7 @@ class ChatStore {
 				this.setChatLoading(currentConv.id, false);
 				return;
 			}
-			console.error('Failed to send message:', error);
+			logger.error('Failed to send message:', error);
 			this.setChatLoading(currentConv.id, false);
 			const dialogType =
 				error instanceof Error && error.name === 'TimeoutError'
@@ -640,7 +643,7 @@ class ChatStore {
 				conversationsStore.updateMessageAtIndex(idx, { extra: updatedExtras });
 				DatabaseService.updateMessage(messageId, {
 					extra: updatedExtras
-				}).catch(console.error);
+				}).catch((err) => logger.error('Failed to update message extras:', err));
 			},
 			onModel: (modelName: string) => recordModel(modelName),
 			onTurnComplete: (intermediateTimings: ChatMessageTimings) => {
@@ -651,21 +654,7 @@ class ChatStore {
 				});
 			},
 			onTimings: (timings?: ChatMessageTimings, promptProgress?: ChatMessagePromptProgress) => {
-				const tokensPerSecond =
-					timings?.predicted_ms && timings?.predicted_n
-						? (timings.predicted_n / timings.predicted_ms) * 1000
-						: 0;
-				this.updateProcessingStateFromTimings(
-					{
-						prompt_n: timings?.prompt_n || 0,
-						prompt_ms: timings?.prompt_ms,
-						predicted_n: timings?.predicted_n || 0,
-						predicted_per_second: tokensPerSecond,
-						cache_n: timings?.cache_n || 0,
-						prompt_progress: promptProgress
-					},
-					convId
-				);
+				this.pushProcessingStateFromTimings(timings, promptProgress, convId);
 			},
 			onAssistantTurnComplete: async (
 				content: string,
@@ -673,23 +662,15 @@ class ChatStore {
 				timings: ChatMessageTimings | undefined,
 				toolCalls: import('$lib/types/api').ApiChatCompletionToolCall[] | undefined
 			): Promise<string> => {
-				const updateData: Record<string, unknown> = {
+				await this.persistAssistantUpdate(
+					currentMessageId,
 					content,
-					reasoningContent: reasoningContent || undefined,
-					toolCalls: toolCalls ? JSON.stringify(toolCalls) : '',
-					timings
-				};
-				if (resolvedModel && !modelPersisted) updateData.model = resolvedModel;
-				await DatabaseService.updateMessage(currentMessageId, updateData);
-				const idx = conversationsStore.findMessageIndex(currentMessageId);
-				const uiUpdate: Partial<DatabaseMessage> = {
-					content,
-					reasoningContent: reasoningContent || undefined,
-					toolCalls: toolCalls ? JSON.stringify(toolCalls) : ''
-				};
-				if (timings) uiUpdate.timings = timings;
-				if (resolvedModel) uiUpdate.model = resolvedModel;
-				conversationsStore.updateMessageAtIndex(idx, uiUpdate);
+					reasoningContent,
+					toolCalls ? JSON.stringify(toolCalls) : '',
+					timings,
+					resolvedModel,
+					modelPersisted
+				);
 				await conversationsStore.updateCurrentNode(currentMessageId);
 				return currentMessageId;
 			},
@@ -749,13 +730,16 @@ class ChatStore {
 					});
 					DatabaseService.updateMessage(assistantMessage.id, {
 						timings: finalTimings
-					}).catch(console.error);
+					}).catch((err) => logger.error('Failed to update assistant message timings:', err));
 				}
 
 				cleanupStreamingState();
 
 				if (onComplete) onComplete(streamedContent);
-				if (isRouterMode()) modelsStore.fetchRouterModels().catch(console.error);
+				if (isRouterMode())
+					modelsStore
+						.fetchRouterModels()
+						.catch((err) => logger.error('Failed to fetch router models:', err));
 			},
 			onError: (error: Error) => {
 				this.setStreamingActive(false);
@@ -763,12 +747,15 @@ class ChatStore {
 					cleanupStreamingState();
 					return;
 				}
-				console.error('Streaming error:', error);
+				logger.error('Streaming error:', error);
 				cleanupStreamingState();
 				const idx = conversationsStore.findMessageIndex(assistantMessage.id);
 				if (idx !== -1) {
 					const failedMessage = conversationsStore.removeMessageAtIndex(idx);
-					if (failedMessage) DatabaseService.deleteMessage(failedMessage.id).catch(console.error);
+					if (failedMessage)
+						DatabaseService.deleteMessage(failedMessage.id).catch((err) =>
+							logger.error('Failed to delete failed message:', err)
+						);
 				}
 				const contextInfo = (
 					error as Error & {
@@ -847,27 +834,22 @@ class ChatStore {
 				) => {
 					const content = streamedContent || finalContent || '';
 					const reasoning = streamedReasoningContent || reasoningContent;
-					const updateData: Record<string, unknown> = {
+					await this.persistAssistantUpdate(
+						currentMessageId,
 						content,
-						reasoningContent: reasoning || undefined,
-						toolCalls: toolCalls || '',
-						timings
-					};
-					if (resolvedModel && !modelPersisted) updateData.model = resolvedModel;
-					await DatabaseService.updateMessage(currentMessageId, updateData);
-					const idx = conversationsStore.findMessageIndex(currentMessageId);
-					const uiUpdate: Partial<DatabaseMessage> = {
-						content,
-						reasoningContent: reasoning || undefined,
-						toolCalls: toolCalls || ''
-					};
-					if (timings) uiUpdate.timings = timings;
-					if (resolvedModel) uiUpdate.model = resolvedModel;
-					conversationsStore.updateMessageAtIndex(idx, uiUpdate);
+						reasoning,
+						toolCalls || '',
+						timings,
+						resolvedModel,
+						modelPersisted
+					);
 					await conversationsStore.updateCurrentNode(currentMessageId);
 					cleanupStreamingState();
 					if (onComplete) await onComplete(content);
-					if (isRouterMode()) modelsStore.fetchRouterModels().catch(console.error);
+					if (isRouterMode())
+						modelsStore
+							.fetchRouterModels()
+							.catch((err) => logger.error('Failed to fetch router models:', err));
 				},
 				onError: streamCallbacks.onError
 			},
@@ -923,7 +905,7 @@ class ChatStore {
 				if (updateData.timings) lastMessage.timings = updateData.timings;
 			} catch (error) {
 				lastMessage.content = streamingState.response;
-				console.error('Failed to save partial response:', error);
+				logger.error('Failed to save partial response:', error);
 			}
 		}
 	}
@@ -969,7 +951,7 @@ class ChatStore {
 				}
 			);
 		} catch (error) {
-			if (!isAbortError(error)) console.error('Failed to update message:', error);
+			if (!isAbortError(error)) logger.error('Failed to update message:', error);
 		}
 	}
 
@@ -997,7 +979,7 @@ class ChatStore {
 				assistantMessage
 			);
 		} catch (error) {
-			if (!isAbortError(error)) console.error('Failed to regenerate message:', error);
+			if (!isAbortError(error)) logger.error('Failed to regenerate message:', error);
 			this.setChatLoading(activeConv?.id || '', false);
 		}
 	}
@@ -1006,35 +988,13 @@ class ChatStore {
 		const activeConv = conversationsStore.activeConversation;
 		if (!activeConv || this.isChatLoadingInternal(activeConv.id)) return;
 		try {
-			console.log('[DEBUG Regenerate] Starting regeneration for message:', messageId);
 			const idx = conversationsStore.findMessageIndex(messageId);
-			if (idx === -1) {
-				console.error('[DEBUG Regenerate] Message not found at index');
-				return;
-			}
+			if (idx === -1) return;
 			const msg = conversationsStore.activeMessages[idx];
-			console.log('[DEBUG Regenerate] Found message:', {
-				id: msg.id,
-				role: msg.role,
-				parent: msg.parent,
-				content: msg.content?.substring(0, 50)
-			});
-			if (msg.role !== MessageRole.ASSISTANT) {
-				console.error('[DEBUG Regenerate] Message is not an assistant message, role:', msg.role);
-				return;
-			}
+			if (msg.role !== MessageRole.ASSISTANT) return;
 			const allMessages = await conversationsStore.getConversationMessages(activeConv.id);
-			console.log('[DEBUG Regenerate] All messages count:', allMessages.length);
 			const parentMessage = findMessageById(allMessages, msg.parent);
-			if (!parentMessage) {
-				console.error('[DEBUG Regenerate] Parent message not found:', msg.parent);
-				return;
-			}
-			console.log('[DEBUG Regenerate] Parent message:', {
-				id: parentMessage.id,
-				role: parentMessage.role,
-				content: parentMessage.content?.substring(0, 50)
-			});
+			if (!parentMessage) return;
 
 			this.setChatLoading(activeConv.id, true);
 			this.clearChatStreaming(activeConv.id);
@@ -1052,7 +1012,6 @@ class ChatStore {
 				},
 				parentMessage.id
 			);
-			console.log('[DEBUG Regenerate] Created new branch:', newAssistantMessage.id);
 
 			await conversationsStore.updateCurrentNode(newAssistantMessage.id);
 			conversationsStore.updateConversationTimestamp();
@@ -1063,19 +1022,8 @@ class ChatStore {
 				parentMessage.id,
 				false
 			) as DatabaseMessage[];
-			console.log('[DEBUG Regenerate] Conversation path length:', conversationPath.length);
-			console.log(
-				'[DEBUG Regenerate] Conversation path roles:',
-				conversationPath.map((m) => m.role)
-			);
-			console.log(
-				'[DEBUG Regenerate] Last message in path:',
-				conversationPath[conversationPath.length - 1]?.content?.substring(0, 50)
-			);
 
 			const modelToUse = modelOverride || selectedModelName() || msg.model || undefined;
-			console.log('[DEBUG Regenerate] Model to use:', modelToUse);
-			console.log('[DEBUG Regenerate] Starting stream chat completion...');
 
 			await this.streamChatCompletion(
 				conversationPath,
@@ -1084,10 +1032,8 @@ class ChatStore {
 				undefined,
 				modelToUse
 			);
-			console.log('[DEBUG Regenerate] Stream completed successfully');
 		} catch (error) {
-			if (!isAbortError(error))
-				console.error('[DEBUG Regenerate] Failed to regenerate message with branching:', error);
+			if (!isAbortError(error)) logger.error('Failed to regenerate message with branching:', error);
 			this.setChatLoading(activeConv?.id || '', false);
 		}
 	}
@@ -1189,7 +1135,7 @@ class ChatStore {
 
 			conversationsStore.updateConversationTimestamp();
 		} catch (error) {
-			console.error('Failed to delete message:', error);
+			logger.error('Failed to delete message:', error);
 		}
 	}
 
@@ -1251,21 +1197,7 @@ class ChatStore {
 						});
 					},
 					onTimings: (timings?: ChatMessageTimings, promptProgress?: ChatMessagePromptProgress) => {
-						const tokensPerSecond =
-							timings?.predicted_ms && timings?.predicted_n
-								? (timings.predicted_n / timings.predicted_ms) * 1000
-								: 0;
-						this.updateProcessingStateFromTimings(
-							{
-								prompt_n: timings?.prompt_n || 0,
-								prompt_ms: timings?.prompt_ms,
-								predicted_n: timings?.predicted_n || 0,
-								predicted_per_second: tokensPerSecond,
-								cache_n: timings?.cache_n || 0,
-								prompt_progress: promptProgress
-							},
-							msg.convId
-						);
+						this.pushProcessingStateFromTimings(timings, promptProgress, msg.convId);
 					},
 					onComplete: async (
 						finalContent?: string,
@@ -1322,7 +1254,7 @@ class ChatStore {
 							return;
 						}
 
-						console.error('Continue generation error:', error);
+						logger.error('Continue generation error:', error);
 						conversationsStore.updateMessageAtIndex(idx, {
 							content: originalContent
 						});
@@ -1346,7 +1278,7 @@ class ChatStore {
 				abortController.signal
 			);
 		} catch (error) {
-			if (!isAbortError(error)) console.error('Failed to continue message:', error);
+			if (!isAbortError(error)) logger.error('Failed to continue message:', error);
 			if (activeConv) this.setChatLoading(activeConv.id, false);
 		}
 	}
@@ -1390,7 +1322,7 @@ class ChatStore {
 
 			await conversationsStore.refreshActiveMessages();
 		} catch (error) {
-			console.error('Failed to edit assistant message:', error);
+			logger.error('Failed to edit assistant message:', error);
 		}
 	}
 
@@ -1427,7 +1359,7 @@ class ChatStore {
 
 			conversationsStore.updateConversationTimestamp();
 		} catch (error) {
-			console.error('Failed to edit user message:', error);
+			logger.error('Failed to edit user message:', error);
 		}
 	}
 
@@ -1501,7 +1433,7 @@ class ChatStore {
 			if (msg.role === MessageRole.USER)
 				await this.generateResponseForMessage(messageIdForResponse);
 		} catch (error) {
-			console.error('Failed to edit message with branching:', error);
+			logger.error('Failed to edit message with branching:', error);
 		}
 	}
 
@@ -1538,7 +1470,7 @@ class ChatStore {
 
 			await this.streamChatCompletion(conversationPath, assistantMessage);
 		} catch (error) {
-			console.error('Failed to generate response:', error);
+			logger.error('Failed to generate response:', error);
 			this.setChatLoading(activeConv.id, false);
 		}
 	}
@@ -1581,7 +1513,7 @@ class ChatStore {
 		const processingState = this.parseTimingData(timingData);
 
 		if (processingState === null) {
-			console.warn('Failed to parse timing data - skipping update');
+			logger.warn('Failed to parse timing data - skipping update');
 			return;
 		}
 
@@ -1779,7 +1711,7 @@ class ChatStore {
 				this.setChatLoading(activeConv.id, false);
 				return;
 			}
-			console.error('Failed to compact session:', error);
+			logger.error('Failed to compact session:', error);
 			this.setChatLoading(activeConv.id, false);
 			this.showErrorDialog({
 				type: ErrorDialogType.SERVER,
@@ -1798,6 +1730,58 @@ class ChatStore {
 		return null;
 	}
 
+	private async persistAssistantUpdate(
+		messageId: string,
+		content: string,
+		reasoning: string | undefined,
+		toolCalls: string,
+		timings: ChatMessageTimings | undefined,
+		model: string | null,
+		modelPersisted: boolean
+	): Promise<void> {
+		const updateData: Record<string, unknown> = {
+			content,
+			reasoningContent: reasoning || undefined,
+			toolCalls,
+			timings
+		};
+		if (model && !modelPersisted) updateData.model = model;
+
+		await DatabaseService.updateMessage(messageId, updateData);
+
+		const idx = conversationsStore.findMessageIndex(messageId);
+		const uiUpdate: Partial<DatabaseMessage> = {
+			content,
+			reasoningContent: reasoning || undefined,
+			toolCalls
+		};
+		if (timings) uiUpdate.timings = timings;
+		if (model) uiUpdate.model = model;
+		conversationsStore.updateMessageAtIndex(idx, uiUpdate);
+	}
+
+	private pushProcessingStateFromTimings(
+		timings: ChatMessageTimings | undefined,
+		promptProgress: ChatMessagePromptProgress | undefined,
+		conversationId: string
+	): void {
+		const tokensPerSecond =
+			timings?.predicted_ms && timings?.predicted_n
+				? (timings.predicted_n / timings.predicted_ms) * 1000
+				: 0;
+		this.updateProcessingStateFromTimings(
+			{
+				prompt_n: timings?.prompt_n || 0,
+				prompt_ms: timings?.prompt_ms,
+				predicted_n: timings?.predicted_n || 0,
+				predicted_per_second: tokensPerSecond,
+				cache_n: timings?.cache_n || 0,
+				prompt_progress: promptProgress
+			},
+			conversationId
+		);
+	}
+
 	private getApiOptions(): Record<string, unknown> {
 		const currentConfig = config();
 		const hasValue = (value: unknown): boolean =>
@@ -1811,65 +1795,40 @@ class ChatStore {
 		if (modelName) apiOptions.model = modelName;
 
 		if (currentConfig.systemMessage) apiOptions.systemMessage = currentConfig.systemMessage;
-
 		if (currentConfig.disableReasoningParsing) apiOptions.disableReasoningParsing = true;
-
 		if (currentConfig.excludeReasoningFromContext) apiOptions.excludeReasoningFromContext = true;
 
-		if (hasValue(currentConfig.temperature))
-			apiOptions.temperature = Number(currentConfig.temperature);
+		const numericKeys = [
+			'temperature',
+			'max_tokens',
+			'dynatemp_range',
+			'dynatemp_exponent',
+			'top_k',
+			'top_p',
+			'min_p',
+			'xtc_probability',
+			'xtc_threshold',
+			'typ_p',
+			'repeat_last_n',
+			'repeat_penalty',
+			'presence_penalty',
+			'frequency_penalty',
+			'dry_multiplier',
+			'dry_base',
+			'dry_allowed_length',
+			'dry_penalty_last_n'
+		] as const;
 
-		if (hasValue(currentConfig.max_tokens))
-			apiOptions.max_tokens = Number(currentConfig.max_tokens);
-
-		if (hasValue(currentConfig.dynatemp_range))
-			apiOptions.dynatemp_range = Number(currentConfig.dynatemp_range);
-
-		if (hasValue(currentConfig.dynatemp_exponent))
-			apiOptions.dynatemp_exponent = Number(currentConfig.dynatemp_exponent);
-
-		if (hasValue(currentConfig.top_k)) apiOptions.top_k = Number(currentConfig.top_k);
-
-		if (hasValue(currentConfig.top_p)) apiOptions.top_p = Number(currentConfig.top_p);
-
-		if (hasValue(currentConfig.min_p)) apiOptions.min_p = Number(currentConfig.min_p);
-
-		if (hasValue(currentConfig.xtc_probability))
-			apiOptions.xtc_probability = Number(currentConfig.xtc_probability);
-
-		if (hasValue(currentConfig.xtc_threshold))
-			apiOptions.xtc_threshold = Number(currentConfig.xtc_threshold);
-
-		if (hasValue(currentConfig.typ_p)) apiOptions.typ_p = Number(currentConfig.typ_p);
-
-		if (hasValue(currentConfig.repeat_last_n))
-			apiOptions.repeat_last_n = Number(currentConfig.repeat_last_n);
-
-		if (hasValue(currentConfig.repeat_penalty))
-			apiOptions.repeat_penalty = Number(currentConfig.repeat_penalty);
-
-		if (hasValue(currentConfig.presence_penalty))
-			apiOptions.presence_penalty = Number(currentConfig.presence_penalty);
-
-		if (hasValue(currentConfig.frequency_penalty))
-			apiOptions.frequency_penalty = Number(currentConfig.frequency_penalty);
-
-		if (hasValue(currentConfig.dry_multiplier))
-			apiOptions.dry_multiplier = Number(currentConfig.dry_multiplier);
-
-		if (hasValue(currentConfig.dry_base)) apiOptions.dry_base = Number(currentConfig.dry_base);
-
-		if (hasValue(currentConfig.dry_allowed_length))
-			apiOptions.dry_allowed_length = Number(currentConfig.dry_allowed_length);
-
-		if (hasValue(currentConfig.dry_penalty_last_n))
-			apiOptions.dry_penalty_last_n = Number(currentConfig.dry_penalty_last_n);
+		for (const key of numericKeys) {
+			const value = currentConfig[key];
+			if (hasValue(value)) {
+				apiOptions[key] = Number(value);
+			}
+		}
 
 		if (currentConfig.samplers) apiOptions.samplers = currentConfig.samplers;
-
 		if (currentConfig.backend_sampling)
 			apiOptions.backend_sampling = currentConfig.backend_sampling;
-
 		if (currentConfig.custom) apiOptions.custom = currentConfig.custom;
 
 		return apiOptions;

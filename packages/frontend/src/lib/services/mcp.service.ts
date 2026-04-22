@@ -44,7 +44,8 @@ import {
 	buildProxiedHeaders,
 	throwIfAborted,
 	isAbortError,
-	createBase64DataUrl
+	createBase64DataUrl,
+	createModuleLogger
 } from '$lib/utils';
 
 interface ToolResultContentItem {
@@ -60,6 +61,8 @@ interface ToolCallResult {
 	isError?: boolean;
 	_meta?: Record<string, unknown>;
 }
+
+const logger = createModuleLogger("MCPService")
 
 export class MCPService {
 	/**
@@ -143,10 +146,7 @@ export class MCPService {
 			}
 
 			const url = new URL(config.url);
-
-			if (import.meta.env.DEV) {
-				console.log(`[MCPService] Creating WebSocket transport for ${url.href}`);
-			}
+			logger.info(`[MCPService] Creating WebSocket transport for ${url.href}`);
 
 			return {
 				transport: new WebSocketClientTransport(url),
@@ -156,14 +156,12 @@ export class MCPService {
 
 		const url = useProxy ? buildProxiedUrl(config.url) : new URL(config.url);
 
-		if (useProxy && import.meta.env.DEV) {
-			console.log(`[MCPService] Using CORS proxy for ${config.url} -> ${url.href}`);
+		if (useProxy) {
+			logger.info(`[MCPService] Using CORS proxy for ${config.url} -> ${url.href}`);
 		}
 
 		try {
-			if (import.meta.env.DEV) {
-				console.log(`[MCPService] Creating StreamableHTTP transport for ${url.href}`);
-			}
+			logger.info(`[MCPService] Creating StreamableHTTP transport for ${url.href}`);
 
 			return {
 				transport: new StreamableHTTPClientTransport(url, {
@@ -172,7 +170,7 @@ export class MCPService {
 				type: MCPTransportType.STREAMABLE_HTTP
 			};
 		} catch (httpError) {
-			console.warn(`[MCPService] StreamableHTTP failed, trying SSE transport...`, httpError);
+			logger.warn(`[MCPService] StreamableHTTP failed, trying SSE transport...`, httpError);
 
 			try {
 				return {
@@ -257,16 +255,14 @@ export class MCPService {
 			)
 		);
 
-		if (import.meta.env.DEV) {
-			console.log(`[MCPService][${serverName}] Creating transport...`);
-		}
+		logger.info(`[MCPService][${serverName}] Creating transport...`);
 
 		const { transport, type: transportType } = this.createTransport(serverConfig);
 
 		// Setup WebSocket reconnection handler
 		if (transportType === MCPTransportType.WEBSOCKET) {
 			transport.onclose = () => {
-				console.log(`[MCPService][${serverName}] WebSocket closed, notifying for reconnection`);
+				logger.info(`[MCPService][${serverName}] WebSocket closed, notifying for reconnection`);
 				onPhase?.(
 					MCPConnectionPhase.DISCONNECTED,
 					this.createLog(MCPConnectionPhase.DISCONNECTED, 'WebSocket connection closed')
@@ -298,7 +294,7 @@ export class MCPService {
 			this.createLog(MCPConnectionPhase.INITIALIZING, 'Sending initialize request...')
 		);
 
-		console.log(`[MCPService][${serverName}] Connecting to server...`);
+		logger.info(`[MCPService][${serverName}] Connecting to server...`);
 		await client.connect(transport);
 		throwIfAborted(signal);
 
@@ -333,7 +329,7 @@ export class MCPService {
 			this.createLog(MCPConnectionPhase.LISTING_TOOLS, 'Listing available tools...')
 		);
 
-		console.log(`[MCPService][${serverName}] Connected, listing tools...`);
+		logger.info(`[MCPService][${serverName}] Connected, listing tools...`);
 		const tools = await this.listTools({
 			client,
 			transport,
@@ -355,7 +351,7 @@ export class MCPService {
 			)
 		);
 
-		console.log(
+		logger.info(
 			`[MCPService][${serverName}] Initialization complete with ${tools.length} tools in ${connectionTimeMs}ms`
 		);
 
@@ -381,7 +377,7 @@ export class MCPService {
 	 * @param connection - The active MCP connection to close
 	 */
 	static async disconnect(connection: MCPConnection): Promise<void> {
-		console.log(`[MCPService][${connection.serverName}] Disconnecting...`);
+		logger.info(`[MCPService][${connection.serverName}] Disconnecting...`);
 		try {
 			// Prevent reconnection on voluntary disconnect
 			if (connection.transport.onclose) {
@@ -733,7 +729,7 @@ export class MCPService {
 		try {
 			await connection.client.subscribeResource({ uri });
 
-			console.log(`[MCPService][${connection.serverName}] Subscribed to resource: ${uri}`);
+			logger.info(`[MCPService][${connection.serverName}] Subscribed to resource: ${uri}`);
 		} catch (error) {
 			console.error(
 				`[MCPService][${connection.serverName}] Failed to subscribe to resource:`,
@@ -753,7 +749,7 @@ export class MCPService {
 		try {
 			await connection.client.unsubscribeResource({ uri });
 
-			console.log(`[MCPService][${connection.serverName}] Unsubscribed from resource: ${uri}`);
+			logger.info(`[MCPService][${connection.serverName}] Unsubscribed from resource: ${uri}`);
 		} catch (error) {
 			console.error(
 				`[MCPService][${connection.serverName}] Failed to unsubscribe from resource:`,

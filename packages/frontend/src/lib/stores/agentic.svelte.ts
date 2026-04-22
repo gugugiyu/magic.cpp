@@ -48,6 +48,7 @@ import {
 	countLines,
 	McpSummarizeCancelledError
 } from '$lib/services/mcp-summarize-harness';
+import { createModuleLogger } from '$lib/utils/logger';
 import {
 	IMAGE_MIME_TO_EXTENSION,
 	DATA_URI_BASE64_REGEX,
@@ -95,6 +96,8 @@ import type {
 	DatabaseMessageExtraImageFile
 } from '$lib/types/database';
 import { serverEndpointStore } from './server-endpoint.svelte';
+
+const logger = createModuleLogger('agenticStore');
 
 // ─── Subagent progress types (exported for UI consumption) ───────────────────
 
@@ -358,7 +361,7 @@ class AgenticStore {
 		if (hasMcpServers) {
 			const initialized = await mcpStore.ensureInitialized(perChatOverrides);
 			if (!initialized) {
-				console.log('[AgenticStore] MCP not initialized, continuing with built-in tools only');
+				logger.info('[AgenticStore] MCP not initialized, continuing with built-in tools only');
 			} else {
 				mcpTools = mcpStore.getToolDefinitionsForLLM();
 			}
@@ -366,20 +369,20 @@ class AgenticStore {
 
 		const tools = [...builtinTools, ...mcpTools];
 		if (tools.length === 0) {
-			console.log('[AgenticStore] No tools available, falling back to standard chat');
+			logger.info('[AgenticStore] No tools available, falling back to standard chat');
 			return { handled: false };
 		}
 
 		// Respect per-model tool-calling override set by the user in Settings → Connection.
 		const activeModelId = params.options?.model as string | undefined;
 		if (activeModelId && !modelCapabilityStore.isToolCallingEnabled(activeModelId)) {
-			console.log(
+			logger.info(
 				`[AgenticStore] Tool-calling disabled for model "${activeModelId}", falling back to standard chat`
 			);
 			return { handled: false };
 		}
 
-		console.log(
+		logger.info(
 			`[AgenticStore] Starting agentic flow with ${tools.length} tools (${builtinTools.length} built-in, ${mcpTools.length} MCP)`
 		);
 
@@ -426,7 +429,7 @@ class AgenticStore {
 			});
 			return { handled: true };
 		} catch (error) {
-			const normalizedError = error instanceof Error ? error : new Error(String(error));
+			const normalizedError = this.normalizeError(error);
 			this.updateSession(conversationId, { lastError: normalizedError });
 			callbacks.onError?.(normalizedError);
 			return { handled: true, error: normalizedError };
@@ -436,7 +439,7 @@ class AgenticStore {
 				await mcpStore
 					.releaseConnection()
 					.catch((err: unknown) =>
-						console.warn('[AgenticStore] Failed to release MCP connection:', err)
+						logger.warn('[AgenticStore] Failed to release MCP connection:', err)
 					);
 			}
 		}
@@ -511,7 +514,7 @@ class AgenticStore {
 			agenticTimings.turns = turn + 1;
 
 			if (signal?.aborted) {
-				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 				return;
 			}
 
@@ -552,15 +555,13 @@ class AgenticStore {
 						onToolCallChunk: (serialized: string) => {
 							try {
 								turnToolCalls = JSON.parse(serialized) as ApiChatCompletionToolCall[];
-								if (import.meta.env.DEV) {
-									console.log(
-										'[agentic onToolCallChunk] turn=',
-										turn + 1,
-										'count=',
-										turnToolCalls.length,
-										turnToolCalls.map((c) => c.function?.name).join(', ') || '(empty)'
-									);
-								}
+								this.devLog(
+									'[agentic onToolCallChunk] turn=',
+									turn + 1,
+									'count=',
+									turnToolCalls.length,
+									turnToolCalls.map((c) => c.function?.name).join(', ') || '(empty)'
+								);
 								onToolCallsStreaming?.(turnToolCalls);
 
 								if (turnToolCalls.length > 0 && turnToolCalls[0]?.function) {
@@ -588,14 +589,12 @@ class AgenticStore {
 									}
 								}
 							} catch (e) {
-								if (import.meta.env.DEV) {
-									console.warn(
-										'[agentic onToolCallChunk] JSON parse error:',
-										e,
-										'raw:',
-										serialized.slice(0, 200)
-									);
-								}
+								this.devLog(
+									'[agentic onToolCallChunk] JSON parse error:',
+									e,
+									'raw:',
+									serialized.slice(0, 200)
+								);
 							}
 						},
 						onModel,
@@ -638,10 +637,10 @@ class AgenticStore {
 						this.buildFinalTimings(capturedTimings, agenticTimings),
 						undefined
 					);
-					onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+					this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 					return;
 				}
-				const normalizedError = error instanceof Error ? error : new Error('LLM stream error');
+				const normalizedError = this.normalizeError(error);
 				// Save error as content in the current turn
 				onChunk?.(`${LLM_ERROR_BLOCK_START}${normalizedError.message}${LLM_ERROR_BLOCK_END}`);
 				await onAssistantTurnComplete?.(
@@ -650,27 +649,23 @@ class AgenticStore {
 					this.buildFinalTimings(capturedTimings, agenticTimings),
 					undefined
 				);
-				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 				throw normalizedError;
 			}
 
 			// No tool calls = final turn, save and complete
-			if (import.meta.env.DEV) {
-				console.log(
-					'[agentic turn complete] turn=',
-					turn + 1,
-					'content_len=',
-					turnContent.length,
-					'toolCalls=',
-					turnToolCalls.length,
-					'reasoning_len=',
-					turnReasoningContent.length
-				);
-			}
+			this.devLog(
+				'[agentic turn complete] turn=',
+				turn + 1,
+				'content_len=',
+				turnContent.length,
+				'toolCalls=',
+				turnToolCalls.length,
+				'reasoning_len=',
+				turnReasoningContent.length
+			);
 			if (turnToolCalls.length === 0) {
-				if (import.meta.env.DEV) {
-					console.log('[agentic] FINAL TURN detected (no tool calls)');
-				}
+				this.devLog('[agentic] FINAL TURN detected (no tool calls)');
 				agenticTimings.perTurn!.push(turnStats);
 
 				const finalTimings = this.buildFinalTimings(capturedTimings, agenticTimings);
@@ -698,13 +693,13 @@ class AgenticStore {
 					this.buildFinalTimings(capturedTimings, agenticTimings),
 					undefined
 				);
-				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 				return;
 			}
 
 			normalizedCalls = this.deduplicateToolCalls(normalizedCalls);
 			if (import.meta.env.DEV && normalizedCalls.length < turnToolCalls.length) {
-				console.log(
+				logger.debug(
 					`[agentic] Deduplicated ${turnToolCalls.length - normalizedCalls.length} duplicate calls, remaining: ${normalizedCalls.length}`
 				);
 			}
@@ -712,7 +707,7 @@ class AgenticStore {
 			// Cap tool calls per turn to prevent runaway parallel tool storms
 			const maxToolCallsPerTurn = agenticConfig.maxToolCallsPerTurn;
 			if (normalizedCalls.length > maxToolCallsPerTurn) {
-				console.warn(
+				logger.warn(
 					`[AgenticStore] Capping tool calls from ${normalizedCalls.length} to ${maxToolCallsPerTurn} (maxToolCallsPerTurn)`
 				);
 				normalizedCalls = normalizedCalls.slice(0, maxToolCallsPerTurn);
@@ -754,7 +749,7 @@ class AgenticStore {
 			};
 
 			if (signal?.aborted) {
-				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 				return;
 			}
 
@@ -808,14 +803,14 @@ class AgenticStore {
 				);
 			} catch (error) {
 				if (isAbortError(error)) {
-					onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+					this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 					return;
 				}
 				throw error;
 			}
 
 			if (signal?.aborted) {
-				onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 				return;
 			}
 
@@ -857,7 +852,7 @@ class AgenticStore {
 					));
 				} catch (error) {
 					if (error instanceof McpSummarizeCancelledError) {
-						onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+						this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 						return;
 					}
 					throw error;
@@ -909,7 +904,7 @@ class AgenticStore {
 								}
 							});
 						} else {
-							console.info(
+							logger.info(
 								`[AgenticStore] Skipping image attachment (model "${effectiveModel}" does not support vision)`
 							);
 						}
@@ -939,7 +934,7 @@ class AgenticStore {
 			this.buildFinalTimings(capturedTimings, agenticTimings),
 			undefined
 		);
-		onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+		this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 	}
 
 	private async executeBuiltinTool(
@@ -976,388 +971,409 @@ class AgenticStore {
 		}
 
 		switch (name) {
-			case 'calculator': {
-				const expression = String(parsed.expression ?? '');
-				if (!expression) return 'Error: missing expression';
-				const confirmed = window.confirm(
-					`The AI assistant wants to evaluate this expression:\n\n${expression}\n\nAllow?`
-				);
-				if (!confirmed) return 'User denied calculator execution.';
-				try {
-					const result = new Function(`"use strict"; return (${expression})`)();
-					if (typeof result !== 'number' || !isFinite(result)) {
-						return 'Error: expression did not produce a finite number';
-					}
-					return String(result);
-				} catch (err) {
-					return `Error: ${err instanceof Error ? err.message : String(err)}`;
-				}
-			}
-
-			case 'get_time': {
-				const tz = String(parsed.timezone ?? import.meta.env.TZ ?? 'UTC');
-				const formatter = new Intl.DateTimeFormat('en-CA', {
-					timeZone: tz,
-					year: 'numeric',
-					month: '2-digit',
-					day: '2-digit',
-					hour: '2-digit',
-					minute: '2-digit',
-					second: '2-digit',
-					hour12: false,
-					timeZoneName: 'short'
-				});
-				const parts = formatter.formatToParts(new Date());
-				const get = (unit: string) => parts.find((p) => p.type === unit)?.value ?? '';
-				const dateStr = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
-				const tzAbbr = parts.find((p) => p.type === 'timeZoneName')?.value ?? tz;
-				return JSON.stringify({ iso: `${dateStr}`, timezone: tz, tz_abbr: tzAbbr });
-			}
-
-			case 'get_location': {
-				if (!navigator.geolocation) {
-					return 'Error: Geolocation is not supported by this browser';
-				}
-				return new Promise<string>((resolve) => {
-					navigator.geolocation.getCurrentPosition(
-						(pos) => {
-							resolve(
-								JSON.stringify({
-									latitude: pos.coords.latitude,
-									longitude: pos.coords.longitude,
-									accuracy_meters: pos.coords.accuracy
-								})
-							);
-						},
-						(err) => {
-							resolve(`Error: ${err.message}`);
-						},
-						{ timeout: 10_000 }
-					);
-				});
-			}
-
-			case 'sequential_thinking': {
-				const thought = String(parsed.thought ?? '');
-				const thoughtNumber = Number(parsed.thoughtNumber ?? 1);
-				const totalThoughts = Number(parsed.totalThoughts ?? 1);
-				const nextThoughtNeeded = Boolean(parsed.nextThoughtNeeded ?? false);
-				const done = !nextThoughtNeeded;
-				const completedAt = Date.now();
-
-				// Retrieve the startedAt that was recorded when the tool call chunk arrived
-				const startedAt = toolCallId
-					? this.consumeSequentialThinkingStartedAt(toolCallId)
-					: undefined;
-
-				const entry: ThoughtEntry = {
-					thoughtNumber,
-					totalThoughts,
-					thought,
-					nextThoughtNeeded,
-					done,
-					startedAt: startedAt ?? completedAt,
-					completedAt
-				};
-
-				// Mark the previous thought in this message as completed
-				sequentialThinkingStore.completeLastThought(conversationId, messageId, completedAt);
-
-				sequentialThinkingStore.recordThought({ conversationId, messageId, thought: entry });
-
-				return JSON.stringify({
-					thoughtNumber,
-					totalThoughts,
-					nextThoughtNeeded,
-					comment:
-						'Thought recorded, you should brief the user with a small headup (e.g. Let me continue reasoning.) before registering next thoughts, or proceed with the agentic flow anyways.'
-				});
-			}
-
-			case 'call_subagent': {
-				if (!subagentConfigStore.isConfigured || !subagentConfigStore.isEnabled) {
-					return JSON.stringify({
-						error:
-							'Subagent not configured or not enabled. Please set endpoint, model, and enable the subagent in Settings.'
-					});
-				}
-
-				const subagentModelId = subagentConfigStore.getModel();
-				if (!modelCapabilityStore.isToolCallingEnabled(subagentModelId)) {
-					return JSON.stringify({
-						error:
-							`Subagent model "${subagentModelId}" has tool-calling disabled. ` +
-							'A subagent needs tool-calling capabilities to assist the main model. ' +
-							'Please select another model that supports function calling in Settings → Connection → Subagent.'
-					});
-				}
-
-				const { prompt, system } = parsed as { prompt: string; system?: string };
-				if (!prompt) {
-					return JSON.stringify({ error: 'call_subagent requires a prompt argument' });
-				}
-
-				// Built-in tools the subagent may call (no call_subagent to prevent recursion,
-				// no sequential_thinking since that tool writes to the parent model's reasoning store)
-				const subagentTools = (allTools ?? []).filter((t: OpenAIToolDefinition) => {
-					const tName = t.function?.name;
-					return tName && tName !== 'call_subagent' && tName !== 'sequential_thinking';
-				});
-				const builtinNameSet = getBuiltinToolNames();
-				builtinNameSet.delete('call_subagent');
-
-				const linkedController = createLinkedController(signal);
-				const subagentSignal = linkedController.signal;
-
-				const endpoint = subagentConfigStore.getEndpoint();
-				const apiKey = subagentConfigStore.getApiKey();
-				const url = `${endpoint}/v1/chat/completions`;
-				const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-				if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-				const subagentToolsPayload = subagentTools.length > 0 ? subagentTools : undefined;
-
-				const modelDisplayName = subagentModelId.split('/').pop() ?? subagentModelId;
-				// Associate with the last read skill if called shortly after
-				const originSkill = this._lastReadSkill.get(conversationId) ?? undefined;
-				this.setSubagentProgress(conversationId, {
-					modelName: modelDisplayName,
-					steps: [],
-					originSkill
-				});
-				// Clear after associating
-				this._lastReadSkill.delete(conversationId);
-
-				// Running message history for the subagent loop (OpenAI wire format)
-				const loopMessages: Record<string, unknown>[] = [];
-
-				// Default to summarization persona, most common use case
-				if (system) {
-					loopMessages.push({ role: 'system', content: system });
-				} else {
-					loopMessages.push({
-						role: 'system',
-						content: SUBAGENT_DEFAULT_PROMPT
-					});
-				}
-
-				loopMessages.push({ role: 'user', content: prompt });
-
-				const SUBAGENT_MAX_TURNS = 10;
-
-				// Token and tool-call accumulators for the subagent session
-				let totalTokens = 0;
-				let promptTokens = 0;
-				let completionTokens = 0;
-				let toolCallsCount = 0;
-
-				try {
-					for (let subTurn = 0; subTurn < SUBAGENT_MAX_TURNS; subTurn++) {
-						if (subagentSignal?.aborted) {
-							this.setSubagentProgress(conversationId, null);
-							throw new DOMException('Aborted', 'AbortError');
-						}
-
-						const requestBody: Record<string, unknown> = {
-							model: subagentModelId,
-							messages: loopMessages,
-							stream: false,
-							...(subagentToolsPayload !== undefined ? { tools: subagentToolsPayload } : {})
-						};
-
-						const response = await fetch(url, {
-							method: 'POST',
-							headers,
-							body: JSON.stringify(requestBody),
-							signal: subagentSignal
-						});
-
-						if (!response.ok) {
-							const errorText = await response.text().catch(() => 'Unknown error');
-							this.setSubagentProgress(conversationId, null);
-							return JSON.stringify({
-								error: `Subagent error (${response.status}): ${errorText}`
-							});
-						}
-
-						const data = (await response.json()) as {
-							choices?: {
-								message?: {
-									content?: string | { type: string; text?: string }[] | null;
-									tool_calls?: {
-										id?: string;
-										function?: { name?: string; arguments?: string };
-									}[];
-								};
-								finish_reason?: string;
-							}[];
-							usage?: {
-								prompt_tokens?: number;
-								completion_tokens?: number;
-								total_tokens?: number;
-							};
-						};
-
-						// Accumulate usage stats
-						if (data.usage) {
-							promptTokens += data.usage.prompt_tokens ?? 0;
-							completionTokens += data.usage.completion_tokens ?? 0;
-							totalTokens += data.usage.total_tokens ?? 0;
-						}
-
-						const choice = data.choices?.[0];
-						if (!choice) {
-							this.setSubagentProgress(conversationId, null);
-							return JSON.stringify({ error: 'Invalid subagent response format' });
-						}
-
-						const assistantMsg = choice.message;
-						const toolCalls = assistantMsg?.tool_calls;
-
-						if (toolCalls && toolCalls.length > 0) {
-							// Append assistant message with tool_calls to history
-							loopMessages.push({
-								role: 'assistant',
-								content: assistantMsg?.content ?? null,
-								tool_calls: toolCalls
-							});
-
-							// Execute each tool call
-							for (const tc of toolCalls ?? []) {
-								const tcName = tc.function?.name ?? '';
-								let tcArgs = tc.function?.arguments ?? '{}';
-								if (tcArgs && tcArgs.trim() !== '') {
-									try {
-										JSON.parse(tcArgs);
-									} catch {
-										tcArgs = '{}';
-									}
-								}
-								const tcId = tc.id ?? `call_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-								this.addSubagentStep(conversationId, { toolName: tcName, status: 'calling' });
-
-								// Increment tool-call counter and update running stats
-								toolCallsCount++;
-								const currentProgress = this._subagentProgress[conversationId];
-								if (currentProgress) {
-									this._subagentProgress = {
-										...this._subagentProgress,
-										[conversationId]: {
-											...currentProgress,
-											toolCallsCount,
-											usage: {
-												total: totalTokens,
-												prompt: promptTokens,
-												completion: completionTokens
-											}
-										}
-									};
-								}
-
-								let toolResult: string;
-								try {
-									if (builtinNameSet.has(tcName)) {
-										toolResult = await this.executeBuiltinTool(
-											tcName,
-											tcArgs,
-											conversationId,
-											messageId,
-											allTools,
-											subagentSignal,
-											tcId
-										);
-									} else {
-										const mcpResult = await mcpStore.executeTool(
-											{ id: tcId, function: { name: tcName, arguments: tcArgs } },
-											subagentSignal
-										);
-										toolResult = mcpResult.content;
-									}
-								} catch (err) {
-									if (err instanceof DOMException && err.name === 'AbortError') throw err;
-									toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`;
-								}
-
-								this.markLastSubagentStepDone(conversationId);
-								loopMessages.push({ role: 'tool', tool_call_id: tcId, content: toolResult });
-							}
-							// Continue to next sub-turn
-						} else {
-							// finish_reason === 'stop' — extract final text content
-							const resultContent =
-								typeof assistantMsg?.content === 'string'
-									? assistantMsg.content
-									: (assistantMsg?.content
-											?.map((c) =>
-												typeof c === 'object' && c !== null && 'text' in c
-													? ((c as { text?: string }).text ?? '')
-													: ''
-											)
-											.join('') ?? '');
-
-							this.setSubagentProgress(conversationId, null);
-							// Persist final stats so UI can show them after progress is cleared
-							this._subagentFinalStats = {
-								...this._subagentFinalStats,
-								[conversationId]: { totalTokens, toolCallsCount }
-							};
-							return JSON.stringify({ result: resultContent });
-						}
-					}
-
-					// Max sub-turns exhausted
-					this.setSubagentProgress(conversationId, null);
-					this._subagentFinalStats = {
-						...this._subagentFinalStats,
-						[conversationId]: { totalTokens, toolCallsCount }
-					};
-					return JSON.stringify({
-						error: 'Subagent reached maximum turn limit without producing a final answer'
-					});
-				} catch (error) {
-					this.setSubagentProgress(conversationId, null);
-					this._subagentFinalStats = {
-						...this._subagentFinalStats,
-						[conversationId]: { totalTokens, toolCallsCount }
-					};
-					if (isAbortError(error)) throw error;
-					const message = error instanceof Error ? error.message : String(error);
-					return JSON.stringify({ error: `Subagent request failed: ${message}` });
-				}
-			}
-
-			case 'list_skill': {
-				// Refresh skills from backend only if stale (30s TTL)
-				await skillsStore.loadSkillsIfStale(30_000);
-				const entries = skillsStore.getListSkillEntries();
-				if (entries.length === 0) {
-					return JSON.stringify({
-						skills: [],
-						message: 'No skills are currently enabled.'
-					});
-				}
-				return JSON.stringify({ skills: entries });
-			}
-
-			case 'read_skill': {
-				const name = String(parsed.name ?? '');
-				if (!name) {
-					return JSON.stringify({ error: 'Missing required parameter: name' });
-				}
-				// Refresh skills from backend only if stale (30s TTL)
-				await skillsStore.loadSkillsIfStale(30_000);
-				const content = skillsStore.getReadSkillContent(name);
-				if (content === null) {
-					return JSON.stringify({ error: `Skill "${name}" not found or not enabled.` });
-				}
-				// Track this skill was read, for potential association with next call_subagent
-				this._lastReadSkill.set(conversationId, name);
-				return JSON.stringify({ name, content });
-			}
-
+			case 'calculator':
+				return this._executeCalculatorTool(parsed);
+			case 'get_time':
+				return this._executeGetTimeTool(parsed);
+			case 'get_location':
+				return this._executeGetLocationTool();
+			case 'sequential_thinking':
+				return this._executeSequentialThinkingTool(parsed, conversationId, messageId, toolCallId);
+			case 'call_subagent':
+				return this._executeCallSubagentTool(parsed, conversationId, messageId, allTools, signal);
+			case 'list_skill':
+				return this._executeListSkillTool();
+			case 'read_skill':
+				return this._executeReadSkillTool(parsed, conversationId);
 			default:
 				return `Error: unknown built-in tool "${name}"`;
 		}
+	}
+
+	private _executeCalculatorTool(parsed: Record<string, unknown>): string {
+		const expression = String(parsed.expression ?? '');
+		if (!expression) return 'Error: missing expression';
+		const confirmed = window.confirm(
+			`The AI assistant wants to evaluate this expression:\n\n${expression}\n\nAllow?`
+		);
+		if (!confirmed) return 'User denied calculator execution.';
+		try {
+			const result = new Function(`"use strict"; return (${expression})`)();
+			if (typeof result !== 'number' || !isFinite(result)) {
+				return 'Error: expression did not produce a finite number';
+			}
+			return String(result);
+		} catch (err) {
+			return `Error: ${err instanceof Error ? err.message : String(err)}`;
+		}
+	}
+
+	private _executeGetTimeTool(parsed: Record<string, unknown>): string {
+		const tz = String(parsed.timezone ?? import.meta.env.TZ ?? 'UTC');
+		const formatter = new Intl.DateTimeFormat('en-CA', {
+			timeZone: tz,
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false,
+			timeZoneName: 'short'
+		});
+		const parts = formatter.formatToParts(new Date());
+		const get = (unit: string) => parts.find((p) => p.type === unit)?.value ?? '';
+		const dateStr = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+		const tzAbbr = parts.find((p) => p.type === 'timeZoneName')?.value ?? tz;
+		return JSON.stringify({ iso: `${dateStr}`, timezone: tz, tz_abbr: tzAbbr });
+	}
+
+	private _executeGetLocationTool(): Promise<string> {
+		if (!navigator.geolocation) {
+			return Promise.resolve('Error: Geolocation is not supported by this browser');
+		}
+		return new Promise<string>((resolve) => {
+			navigator.geolocation.getCurrentPosition(
+				(pos) => {
+					resolve(
+						JSON.stringify({
+							latitude: pos.coords.latitude,
+							longitude: pos.coords.longitude,
+							accuracy_meters: pos.coords.accuracy
+						})
+					);
+				},
+				(err) => {
+					resolve(`Error: ${err.message}`);
+				},
+				{ timeout: 10_000 }
+			);
+		});
+	}
+
+	private _executeSequentialThinkingTool(
+		parsed: Record<string, unknown>,
+		conversationId: string,
+		messageId: string,
+		toolCallId?: string
+	): string {
+		const thought = String(parsed.thought ?? '');
+		const thoughtNumber = Number(parsed.thoughtNumber ?? 1);
+		const totalThoughts = Number(parsed.totalThoughts ?? 1);
+		const nextThoughtNeeded = Boolean(parsed.nextThoughtNeeded ?? false);
+		const done = !nextThoughtNeeded;
+		const completedAt = Date.now();
+
+		const startedAt = toolCallId ? this.consumeSequentialThinkingStartedAt(toolCallId) : undefined;
+
+		const entry: ThoughtEntry = {
+			thoughtNumber,
+			totalThoughts,
+			thought,
+			nextThoughtNeeded,
+			done,
+			startedAt: startedAt ?? completedAt,
+			completedAt
+		};
+
+		sequentialThinkingStore.completeLastThought(conversationId, messageId, completedAt);
+		sequentialThinkingStore.recordThought({ conversationId, messageId, thought: entry });
+
+		return JSON.stringify({
+			thoughtNumber,
+			totalThoughts,
+			nextThoughtNeeded,
+			comment:
+				'Thought recorded, you should brief the user with a small headup (e.g. Let me continue reasoning.) before registering next thoughts, or proceed with the agentic flow anyways.'
+		});
+	}
+
+	private async _executeCallSubagentTool(
+		parsed: Record<string, unknown>,
+		conversationId: string,
+		messageId: string,
+		allTools?: OpenAIToolDefinition[],
+		signal?: AbortSignal
+	): Promise<string> {
+		if (!subagentConfigStore.isConfigured || !subagentConfigStore.isEnabled) {
+			return JSON.stringify({
+				error:
+					'Subagent not configured or not enabled. Please set endpoint, model, and enable the subagent in Settings.'
+			});
+		}
+
+		const subagentModelId = subagentConfigStore.getModel();
+		if (!modelCapabilityStore.isToolCallingEnabled(subagentModelId)) {
+			return JSON.stringify({
+				error:
+					`Subagent model "${subagentModelId}" has tool-calling disabled. ` +
+					'A subagent needs tool-calling capabilities to assist the main model. ' +
+					'Please select another model that supports function calling in Settings → Connection → Subagent.'
+			});
+		}
+
+		const { prompt, system } = parsed as { prompt: string; system?: string };
+		if (!prompt) {
+			return JSON.stringify({ error: 'call_subagent requires a prompt argument' });
+		}
+
+		const subagentTools = (allTools ?? []).filter((t: OpenAIToolDefinition) => {
+			const tName = t.function?.name;
+			return tName && tName !== 'call_subagent' && tName !== 'sequential_thinking';
+		});
+		const builtinNameSet = getBuiltinToolNames();
+		builtinNameSet.delete('call_subagent');
+
+		const linkedController = createLinkedController(signal);
+		const subagentSignal = linkedController.signal;
+
+		const endpoint = subagentConfigStore.getEndpoint();
+		const apiKey = subagentConfigStore.getApiKey();
+		const url = `${endpoint}/v1/chat/completions`;
+		const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+		if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+		const subagentToolsPayload = subagentTools.length > 0 ? subagentTools : undefined;
+
+		const modelDisplayName = subagentModelId.split('/').pop() ?? subagentModelId;
+		const originSkill = this._lastReadSkill.get(conversationId) ?? undefined;
+		this.setSubagentProgress(conversationId, {
+			modelName: modelDisplayName,
+			steps: [],
+			originSkill
+		});
+		this._lastReadSkill.delete(conversationId);
+
+		const loopMessages: Record<string, unknown>[] = [];
+		if (system) {
+			loopMessages.push({ role: 'system', content: system });
+		} else {
+			loopMessages.push({
+				role: 'system',
+				content: SUBAGENT_DEFAULT_PROMPT
+			});
+		}
+		loopMessages.push({ role: 'user', content: prompt });
+
+		const SUBAGENT_MAX_TURNS = 10;
+		let totalTokens = 0;
+		let promptTokens = 0;
+		let completionTokens = 0;
+		let toolCallsCount = 0;
+
+		try {
+			for (let subTurn = 0; subTurn < SUBAGENT_MAX_TURNS; subTurn++) {
+				if (subagentSignal?.aborted) {
+					this.setSubagentProgress(conversationId, null);
+					throw new DOMException('Aborted', 'AbortError');
+				}
+
+				const requestBody: Record<string, unknown> = {
+					model: subagentModelId,
+					messages: loopMessages,
+					stream: false,
+					...(subagentToolsPayload !== undefined ? { tools: subagentToolsPayload } : {})
+				};
+
+				const response = await fetch(url, {
+					method: 'POST',
+					headers,
+					body: JSON.stringify(requestBody),
+					signal: subagentSignal
+				});
+
+				if (!response.ok) {
+					const errorText = await response.text().catch(() => 'Unknown error');
+					this.setSubagentProgress(conversationId, null);
+					return JSON.stringify({
+						error: `Subagent error (${response.status}): ${errorText}`
+					});
+				}
+
+				const data = (await response.json()) as {
+					choices?: {
+						message?: {
+							content?: string | { type: string; text?: string }[] | null;
+							tool_calls?: {
+								id?: string;
+								function?: { name?: string; arguments?: string };
+							}[];
+						};
+						finish_reason?: string;
+					}[];
+					usage?: {
+						prompt_tokens?: number;
+						completion_tokens?: number;
+						total_tokens?: number;
+					};
+				};
+
+				if (data.usage) {
+					promptTokens += data.usage.prompt_tokens ?? 0;
+					completionTokens += data.usage.completion_tokens ?? 0;
+					totalTokens += data.usage.total_tokens ?? 0;
+				}
+
+				const choice = data.choices?.[0];
+				if (!choice) {
+					this.setSubagentProgress(conversationId, null);
+					return JSON.stringify({ error: 'Invalid subagent response format' });
+				}
+
+				const assistantMsg = choice.message;
+				const toolCalls = assistantMsg?.tool_calls;
+
+				if (toolCalls && toolCalls.length > 0) {
+					loopMessages.push({
+						role: 'assistant',
+						content: assistantMsg?.content ?? null,
+						tool_calls: toolCalls
+					});
+
+					for (const tc of toolCalls ?? []) {
+						const tcName = tc.function?.name ?? '';
+						const tcArgs = this.sanitizeToolArguments(tc.function?.arguments ?? '{}');
+						const tcId = tc.id ?? `call_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+						this.addSubagentStep(conversationId, { toolName: tcName, status: 'calling' });
+
+						toolCallsCount++;
+						const currentProgress = this._subagentProgress[conversationId];
+						if (currentProgress) {
+							this._subagentProgress = {
+								...this._subagentProgress,
+								[conversationId]: {
+									...currentProgress,
+									toolCallsCount,
+									usage: {
+										total: totalTokens,
+										prompt: promptTokens,
+										completion: completionTokens
+									}
+								}
+							};
+						}
+
+						let toolResult: string;
+						try {
+							if (builtinNameSet.has(tcName)) {
+								toolResult = await this.executeBuiltinTool(
+									tcName,
+									tcArgs,
+									conversationId,
+									messageId,
+									allTools,
+									subagentSignal,
+									tcId
+								);
+							} else {
+								const mcpResult = await mcpStore.executeTool(
+									{ id: tcId, function: { name: tcName, arguments: tcArgs } },
+									subagentSignal
+								);
+								toolResult = mcpResult.content;
+							}
+						} catch (err) {
+							if (err instanceof DOMException && err.name === 'AbortError') throw err;
+							toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`;
+						}
+
+						this.markLastSubagentStepDone(conversationId);
+						loopMessages.push({ role: 'tool', tool_call_id: tcId, content: toolResult });
+					}
+				} else {
+					const resultContent =
+						typeof assistantMsg?.content === 'string'
+							? assistantMsg.content
+							: (assistantMsg?.content
+									?.map((c) =>
+										typeof c === 'object' && c !== null && 'text' in c
+											? ((c as { text?: string }).text ?? '')
+											: ''
+									)
+									.join('') ?? '');
+
+					this.setSubagentProgress(conversationId, null);
+					this.setSubagentFinalStats(conversationId, { totalTokens, toolCallsCount });
+					return JSON.stringify({ result: resultContent });
+				}
+			}
+
+			this.setSubagentProgress(conversationId, null);
+			this.setSubagentFinalStats(conversationId, { totalTokens, toolCallsCount });
+			return JSON.stringify({
+				error: 'Subagent reached maximum turn limit without producing a final answer'
+			});
+		} catch (error) {
+			this.setSubagentProgress(conversationId, null);
+			this.setSubagentFinalStats(conversationId, { totalTokens, toolCallsCount });
+			if (isAbortError(error)) throw error;
+			const message = error instanceof Error ? error.message : String(error);
+			return JSON.stringify({ error: `Subagent request failed: ${message}` });
+		}
+	}
+
+	private async _executeListSkillTool(): Promise<string> {
+		await skillsStore.loadSkillsIfStale(30_000);
+		const entries = skillsStore.getListSkillEntries();
+		if (entries.length === 0) {
+			return JSON.stringify({
+				skills: [],
+				message: 'No skills are currently enabled.'
+			});
+		}
+		return JSON.stringify({ skills: entries });
+	}
+
+	private async _executeReadSkillTool(
+		parsed: Record<string, unknown>,
+		conversationId: string
+	): Promise<string> {
+		const name = String(parsed.name ?? '');
+		if (!name) {
+			return JSON.stringify({ error: 'Missing required parameter: name' });
+		}
+		await skillsStore.loadSkillsIfStale(30_000);
+		const content = skillsStore.getReadSkillContent(name);
+		if (content === null) {
+			return JSON.stringify({ error: `Skill "${name}" not found or not enabled.` });
+		}
+		this._lastReadSkill.set(conversationId, name);
+		return JSON.stringify({ name, content });
+	}
+
+	private normalizeError(error: unknown): Error {
+		return error instanceof Error ? error : new Error(String(error));
+	}
+
+	private completeFlow(
+		capturedTimings: ChatMessageTimings | undefined,
+		agenticTimings: ChatMessageAgenticTimings,
+		onFlowComplete?: (timings?: ChatMessageTimings) => void
+	): void {
+		onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
+	}
+
+	private setSubagentFinalStats(conversationId: string, stats: SubagentFinalStats): void {
+		this._subagentFinalStats = {
+			...this._subagentFinalStats,
+			[conversationId]: stats
+		};
+	}
+
+	private devLog(...args: unknown[]): void {
+		logger.debug(...args);
+	}
+
+	private sanitizeToolArguments(args: string): string {
+		if (args && args.trim() !== '') {
+			try {
+				JSON.parse(args);
+				return args;
+			} catch {
+				return '{}';
+			}
+		}
+		return '{}';
 	}
 
 	private buildFinalTimings(
@@ -1380,24 +1396,14 @@ class AgenticStore {
 	private normalizeToolCalls(toolCalls: ApiChatCompletionToolCall[]): AgenticToolCallList {
 		if (!toolCalls) return [];
 		return toolCalls
-			.map((call, index) => {
-				let args = call?.function?.arguments ?? '';
-				if (args && args.trim() !== '') {
-					try {
-						JSON.parse(args);
-					} catch {
-						args = '{}';
-					}
+			.map((call, index) => ({
+				id: call?.id ?? `tool_${index}`,
+				type: (call?.type as ToolCallType.FUNCTION) ?? ToolCallType.FUNCTION,
+				function: {
+					name: call?.function?.name ?? '',
+					arguments: this.sanitizeToolArguments(call?.function?.arguments ?? '')
 				}
-				return {
-					id: call?.id ?? `tool_${index}`,
-					type: (call?.type as ToolCallType.FUNCTION) ?? ToolCallType.FUNCTION,
-					function: {
-						name: call?.function?.name ?? '',
-						arguments: args
-					}
-				};
-			})
+			}))
 			.filter((call) => call.function.name.trim() !== '');
 	}
 

@@ -27,7 +27,7 @@ import { mcpStore } from '$lib/stores/mcp.svelte';
 import { modelsStore } from '$lib/stores/models.svelte';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
-import { getActiveBuiltinTools, getBuiltinToolNames } from '$lib/enums/builtin-tools';
+import { getActiveBuiltinTools, getBuiltinToolNames, BUILTIN_TOOL_EXECUTION_TARGET } from '$lib/enums/builtin-tools';
 import { isAbortError, safeNumber, createLinkedController } from '$lib/utils';
 import { sequentialThinkingStore, type ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
 import {
@@ -90,6 +90,7 @@ import type {
 	DatabaseMessageExtra,
 	DatabaseMessageExtraImageFile
 } from '$lib/types/database';
+import { serverEndpointStore } from './server-endpoint.svelte';
 
 // ─── Subagent progress types (exported for UI consumption) ───────────────────
 
@@ -951,6 +952,23 @@ class AgenticStore {
 			parsed = JSON.parse(args || '{}');
 		} catch {
 			/* use empty object if args are malformed */
+		}
+
+		if (BUILTIN_TOOL_EXECUTION_TARGET[name] === 'backend') {
+			const endpoint = serverEndpointStore.getBaseUrl()
+			try {
+				const resp = await fetch(`${endpoint}/api/tools/execute`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name, args: parsed }),
+					signal
+				});
+				const data = await resp.json();
+				if (data.error) return `Error: ${data.error}`;
+				return String(data.result ?? '');
+			} catch (err) {
+				return `Error: ${err instanceof Error ? err.message : String(err)}`;
+			}
 		}
 
 		switch (name) {

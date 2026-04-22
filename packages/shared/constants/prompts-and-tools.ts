@@ -288,9 +288,125 @@ Incorrect behavior:
 - Accuracy > speed
 - Dependencies determine execution order
 - When unsure, prefer sequential execution
-Be concise, interactive, and focused on completing real tasks correctly.
+Be concise, anti-sycophant, interactive, and focused on completing real tasks correctly.
 `.trim();
 }
+
+export const TOOL_READ_FILE: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'read_file',
+		description: 'Read the content of a file in the sandbox. Optionally restrict to a line range.',
+		parameters: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Relative path from sandbox root (e.g. "notes/todo.txt").' },
+				start_line: { type: 'integer', description: 'First line to return (1-based, inclusive). Omit for beginning.' },
+				end_line: { type: 'integer', description: 'Last line to return (1-based, inclusive). Omit for end of file.' }
+			},
+			required: ['path']
+		}
+	}
+};
+
+export const TOOL_WRITE_FILE: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'write_file',
+		description: 'Write (create or overwrite) a file in the sandbox with the given content.',
+		parameters: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Relative path from sandbox root.' },
+				content: { type: 'string', description: 'Full text content to write.' }
+			},
+			required: ['path', 'content']
+		}
+	}
+};
+
+export const TOOL_PATCH_FILE: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'patch_file',
+		description: 'Replace a range of lines in an existing file with new content.',
+		parameters: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Relative path from sandbox root.' },
+				start_line: { type: 'integer', description: 'First line to replace (1-based, inclusive).' },
+				end_line: { type: 'integer', description: 'Last line to replace (1-based, inclusive).' },
+				replacement: { type: 'string', description: 'New content for the replaced range. Use empty string to delete lines.' }
+			},
+			required: ['path', 'start_line', 'end_line', 'replacement']
+		}
+	}
+};
+
+export const TOOL_LIST_DIRECTORY: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'list_directory',
+		description: 'List the contents of a directory in the sandbox.',
+		parameters: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Relative path from sandbox root. Use "." for the root.' }
+			},
+			required: ['path']
+		}
+	}
+};
+
+export const TOOL_SEARCH_FILES: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'search_files',
+		description: 'Search for a string or regex pattern across files in the sandbox. Returns matching lines with file and line number.',
+		parameters: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Relative path to search within (file or directory). Use "." for entire sandbox.' },
+				query: { type: 'string', description: 'Search term or regex pattern.' },
+				regex: { type: 'boolean', description: 'Treat query as a regular expression. Default false.' },
+				case_sensitive: { type: 'boolean', description: 'Case-sensitive search. Default false.' },
+				max_results: { type: 'integer', description: 'Maximum number of matching lines to return. Default 50, max 200.' }
+			},
+			required: ['path', 'query']
+		}
+	}
+};
+
+export const TOOL_DELETE_FILE: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'delete_file',
+		description: 'Permanently delete a file from the sandbox.',
+		parameters: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Relative path from sandbox root.' }
+			},
+			required: ['path']
+		}
+	}
+};
+
+export const TOOL_MOVE_FILE: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'move_file',
+		description: 'Move or rename a file within the sandbox.',
+		parameters: {
+			type: 'object',
+			properties: {
+				source: { type: 'string', description: 'Relative source path.' },
+				destination: { type: 'string', description: 'Relative destination path.' }
+			},
+			required: ['source', 'destination']
+		}
+	}
+};
 
 export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_CALCULATOR,
@@ -299,5 +415,12 @@ export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_SEQUENTIAL_THINKING,
 	TOOL_CALL_SUBAGENT,
 	TOOL_LIST_SKILL,
-	TOOL_READ_SKILL
+	TOOL_READ_SKILL,
+	TOOL_READ_FILE,
+	TOOL_WRITE_FILE,
+	TOOL_PATCH_FILE,
+	TOOL_LIST_DIRECTORY,
+	TOOL_SEARCH_FILES,
+	TOOL_DELETE_FILE,
+	TOOL_MOVE_FILE
 ];

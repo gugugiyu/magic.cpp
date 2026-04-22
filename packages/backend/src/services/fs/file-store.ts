@@ -156,6 +156,58 @@ export class FileStore {
 		const entries = await this.list();
 		return entries.map((e) => e.name);
 	}
+
+	/**
+	 * Apply a line-range patch to a file: replace lines [startLine, endLine] (1-based, inclusive)
+	 * with the given replacement text. Reads the current content, splices, and writes back.
+	 */
+	async patchFile(name: string, startLine: number, endLine: number, replacement: string): Promise<void> {
+		const existing = await this.read(name);
+		const lines = (existing ?? '').split('\n');
+		const before = lines.slice(0, startLine - 1);
+		const after = lines.slice(endLine);
+		const replacementLines = replacement === '' ? [] : replacement.split('\n');
+		const patched = [...before, ...replacementLines, ...after].join('\n');
+		await this.write(name, patched);
+	}
+
+	/**
+	 * Search files in this store for a query string (literal or regex).
+	 * Returns formatted match results, capped at maxResults lines.
+	 */
+	async searchFiles(
+		query: string,
+		options: { regex?: boolean; caseSensitive?: boolean; maxResults?: number } = {}
+	): Promise<string> {
+		const { regex = false, caseSensitive = false, maxResults = 50 } = options;
+		await this.ensureDirectory();
+
+		let pattern: RegExp;
+		try {
+			pattern = new RegExp(regex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+		} catch {
+			return `Error: invalid regex pattern: ${query}`;
+		}
+
+		const names = await this.listNames();
+		const results: string[] = [];
+
+		for (const name of names) {
+			const content = await this.read(name);
+			if (!content) continue;
+			const lines = content.split('\n');
+			for (let i = 0; i < lines.length; i++) {
+				pattern.lastIndex = 0;
+				if (pattern.test(lines[i])) {
+					results.push(`${name}${this.extension}:${i + 1}: ${lines[i].trim()}`);
+					if (results.length >= maxResults) break;
+				}
+			}
+			if (results.length >= maxResults) break;
+		}
+
+		return results.length > 0 ? results.join('\n') : 'No matches found.';
+	}
 }
 
 /** Pre-configured file store for skills. */

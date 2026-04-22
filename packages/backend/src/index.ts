@@ -5,6 +5,7 @@ import { createRouter } from './router.ts';
 import { applyCorsHeaders, corsHeaders } from './utils/cors.ts';
 import { initializeDatabase, closeDatabase } from './database/index.ts';
 import { dirname, resolve as resolvePath } from 'path';
+import { mkdir } from 'node:fs/promises';
 import { watchConfig } from './config-watcher.ts';
 
 // Resolve config path explicitly
@@ -53,6 +54,14 @@ try {
 	console.error(`    mkdir -p ${dirname(config.resolvedDatabasePath)}`);
 	console.error('');
 	process.exit(1);
+}
+
+// Ensure filesystem sandbox directory exists
+try {
+	await mkdir(config.resolvedFilesystemRootPath, { recursive: true });
+	console.log(`[filesystem] sandbox ready at ${config.resolvedFilesystemRootPath}`);
+} catch (err) {
+	console.warn(`[filesystem] could not create sandbox directory: ${(err as Error).message}`);
 }
 
 // Core components (mutable so we can update them on config reload)

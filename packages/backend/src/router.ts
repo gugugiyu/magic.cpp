@@ -36,6 +36,7 @@ import {
 	handleUpdateSkill,
 	handleDeleteSkill
 } from './handlers/skills.ts';
+import { handleExecuteTool } from './handlers/tools.ts';
 
 export function createRouter(pool: ModelPool, config: Config) {
 	return async function router(req: Request): Promise<Response> {
@@ -155,6 +156,11 @@ async function dispatchRoute(req: Request, pool: ModelPool, config: Config): Pro
 	if (pathname.match(/^\/api\/messages\/[^/]+\/delete-cascading$/) && method === 'POST') {
 		const msgId = pathname.split('/')[3];
 		return handleDeleteMessageCascading(req, getDatabase(), msgId);
+	}
+
+	// Tool execution
+	if (pathname === '/api/tools/execute' && method === 'POST') {
+		return handleExecuteTool(req, config);
 	}
 
 	// Skill API routes

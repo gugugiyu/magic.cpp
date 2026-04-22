@@ -25,7 +25,8 @@
 		Sparkles,
 		Search,
 		BookOpen,
-		FileText
+		FileText,
+		FolderOpen
 	} from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import {
@@ -61,6 +62,8 @@
 	let { message, toolMessages = [], isStreaming = false, highlightTurns = false }: Props = $props();
 
 	let expandedStates: Record<number, boolean> = $state({});
+	/** Track expanded state for tool call groups (keyed by first flat section index of the group). */
+	let toolGroupExpanded: Record<number, boolean> = $state({});
 	/** Track whether the sequential thinking header is expanded to show individual steps. */
 	let seqThinkingHeaderExpanded = $state(false);
 
@@ -99,6 +102,14 @@
 				? parseToolResultWithImages(section.toolResult, section.toolResultExtras || message?.extra)
 				: ([] as ToolResultLine[])
 		}))
+	);
+
+	// Cluster consecutive tool calls (2+) into collapsible groups
+	const sectionClusters = $derived(
+		computeClusters(
+			sectionsParsed,
+			sectionsParsed.map((_, i) => i)
+		)
 	);
 
 	// Group flat sections into agentic turns
@@ -181,6 +192,71 @@
 		const currentState = isExpanded(index, section);
 
 		expandedStates[index] = !currentState;
+	}
+
+	type SectionCluster =
+		| { type: 'tool-group'; sections: typeof sectionsParsed; indices: number[] }
+		| { type: 'single'; section: (typeof sectionsParsed)[number]; index: number };
+
+	function computeClusters(sections: typeof sectionsParsed, indices: number[]): SectionCluster[] {
+		const clusters: SectionCluster[] = [];
+		let i = 0;
+		while (i < sections.length) {
+			const section = sections[i];
+			const isGroupable =
+				(section.type === AgenticSectionType.TOOL_CALL ||
+					section.type === AgenticSectionType.TOOL_CALL_PENDING ||
+					section.type === AgenticSectionType.TOOL_CALL_STREAMING) &&
+				section.toolName !== 'sequential_thinking';
+
+			if (isGroupable) {
+				const groupSections: typeof sectionsParsed = [];
+				const groupIndices: number[] = [];
+				while (i < sections.length) {
+					const s = sections[i];
+					const isT =
+						(s.type === AgenticSectionType.TOOL_CALL ||
+							s.type === AgenticSectionType.TOOL_CALL_PENDING ||
+							s.type === AgenticSectionType.TOOL_CALL_STREAMING) &&
+						s.toolName !== 'sequential_thinking';
+					if (!isT) break;
+					groupSections.push(s);
+					groupIndices.push(indices[i]);
+					i++;
+				}
+				if (groupSections.length >= 2) {
+					clusters.push({ type: 'tool-group', sections: groupSections, indices: groupIndices });
+				} else {
+					clusters.push({ type: 'single', section: groupSections[0], index: groupIndices[0] });
+				}
+			} else {
+				clusters.push({ type: 'single', section, index: indices[i] });
+				i++;
+			}
+		}
+		return clusters;
+	}
+
+	function isToolGroupOpen(
+		firstIndex: number,
+		cluster: { sections: typeof sectionsParsed }
+	): boolean {
+		if (toolGroupExpanded[firstIndex] !== undefined) return toolGroupExpanded[firstIndex];
+		return (
+			showToolCallInProgress &&
+			cluster.sections.some(
+				(s) =>
+					s.type === AgenticSectionType.TOOL_CALL_PENDING ||
+					s.type === AgenticSectionType.TOOL_CALL_STREAMING
+			)
+		);
+	}
+
+	function toggleToolGroup(
+		firstIndex: number,
+		cluster: { sections: typeof sectionsParsed }
+	): void {
+		toolGroupExpanded[firstIndex] = !isToolGroupOpen(firstIndex, cluster);
 	}
 
 	function autoScrollOnMutation(node: HTMLElement, active: boolean) {
@@ -365,6 +441,55 @@
 	}
 </script>
 
+{#snippet renderToolGroup(cluster: Extract<SectionCluster, { type: 'tool-group' }>)}
+	{@const toolNames = cluster.sections.map((s) => s.toolName || 'tool')}
+	{@const hasAnyPending = cluster.sections.some(
+		(s) =>
+			s.type === AgenticSectionType.TOOL_CALL_PENDING ||
+			s.type === AgenticSectionType.TOOL_CALL_STREAMING
+	)}
+	{@const hasAnyError = cluster.sections.some(
+		(s) =>
+			s.toolResult?.startsWith('Error:') ||
+			(s.toolResult?.startsWith('{') && s.toolResult.includes('"error"'))
+	)}
+	{@const MAX_SHOWN = 3}
+	{@const shownNames = toolNames.slice(0, MAX_SHOWN)}
+	{@const extraCount = toolNames.length - MAX_SHOWN}
+	{@const labelNames =
+		shownNames.join(', ') + (extraCount > 0 ? ` +${extraCount} more` : '')}
+	{@const firstIndex = cluster.indices[0]}
+	{@const isOpen = isToolGroupOpen(firstIndex, cluster)}
+	<div class="agentic-inline-block">
+		<button
+			type="button"
+			class="agentic-inline-trigger"
+			onclick={() => toggleToolGroup(firstIndex, cluster)}
+			aria-expanded={isOpen}
+		>
+			{#if hasAnyPending}
+				<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
+			{:else if hasAnyError}
+				<AlertCircle class="tool-error-icon h-3.5 w-3.5 shrink-0" />
+			{:else}
+				<CheckCircle class="tool-success-icon h-3.5 w-3.5 shrink-0" />
+			{/if}
+			<span class="agentic-label">
+				{hasAnyPending ? 'Calling' : hasAnyError ? 'Error in' : 'Called'}
+				<span class="agentic-name">{labelNames}</span>{hasAnyPending ? '…' : ''}
+			</span>
+			<ChevronRight class={cn('agentic-chevron', isOpen && 'expanded')} />
+		</button>
+		{#if isOpen}
+			<div class="agentic-tool-group-body">
+				{#each cluster.sections as section, sIdx (cluster.indices[sIdx])}
+					{@render renderSection(section, cluster.indices[sIdx])}
+				{/each}
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
 {#snippet renderSection(section: (typeof sectionsParsed)[number], index: number)}
 	{#if section.toolName === 'sequential_thinking'}
 		{@const thought = parseThoughtFromSection(section)}
@@ -518,6 +643,17 @@
 		{@const isListSkill = section.toolName === 'list_skill'}
 		{@const isReadSkill = section.toolName === 'read_skill'}
 		{@const skillIcon = isListSkill ? Search : isReadSkill ? BookOpen : null}
+		{@const FILE_TOOL_LABELS: Record<string, { pending: string; done: string; error: string }> = {
+			read_file: { pending: 'Model is reading file…', done: 'Model read file', error: 'Error reading file' },
+			write_file: { pending: 'Model is writing file…', done: 'Model wrote file', error: 'Error writing file' },
+			patch_file: { pending: 'Model is patching file…', done: 'Model patched file', error: 'Error patching file' },
+			list_directory: { pending: 'Model is listing directory…', done: 'Model listed directory', error: 'Error listing directory' },
+			search_files: { pending: 'Model is searching files…', done: 'Model searched files', error: 'Error searching files' },
+			delete_file: { pending: 'Model is deleting file…', done: 'Model deleted file', error: 'Error deleting file' },
+			move_file: { pending: 'Model is moving file…', done: 'Model moved file', error: 'Error moving file' }
+		}}
+		{@const fileToolLabel = FILE_TOOL_LABELS[section.toolName ?? '']}
+		{@const isFileTool = fileToolLabel !== undefined}
 
 		<div class="agentic-inline-block">
 			<button
@@ -526,13 +662,15 @@
 				onclick={() => toggleExpanded(index, section)}
 				aria-expanded={isExpanded(index, section)}
 			>
-				{#if isPending && !skillIcon}
+				{#if isPending && !skillIcon && !isFileTool}
 					<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
-				{:else if hasError && !skillIcon}
+				{:else if hasError && !skillIcon && !isFileTool}
 					<AlertCircle class="tool-error-icon h-3.5 w-3.5 shrink-0" />
 				{:else if skillIcon}
 					{@const Icon = skillIcon}
 					<Icon class="skill-icon h-3.5 w-3.5 shrink-0" />
+				{:else if isFileTool}
+					<FolderOpen class="file-tool-icon h-3.5 w-3.5 shrink-0" />
 				{:else}
 					<CheckCircle class="tool-success-icon h-3.5 w-3.5 shrink-0" />
 				{/if}
@@ -550,6 +688,8 @@
 							{hasError ? 'Error reading skill' : 'Model read skill'}
 							{parseReadSkillName(section)}
 						{/if}
+					{:else if isFileTool}
+						{isPending ? fileToolLabel.pending : hasError ? fileToolLabel.error : fileToolLabel.done}
 					{:else}
 						{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}
 						<span class="agentic-name">{section.toolName || 'tool'}</span>{isPending ? '…' : ''}
@@ -722,10 +862,15 @@
 	{#if highlightTurns && turnGroups.length > 1}
 		{#each turnGroups as turn, turnIndex (turnIndex)}
 			{@const turnStats = message?.timings?.agentic?.perTurn?.[turnIndex]}
+			{@const turnClusters = computeClusters(turn.sections, turn.flatIndices)}
 			<div class="agentic-turn my-2 hover:bg-muted/80 dark:hover:bg-muted/30">
 				<span class="agentic-turn-label">Turn {turnIndex + 1}</span>
-				{#each turn.sections as section, sIdx (turn.flatIndices[sIdx])}
-					{@render renderSection(section, turn.flatIndices[sIdx])}
+				{#each turnClusters as cluster, cIdx (cIdx)}
+					{#if cluster.type === 'tool-group'}
+						{@render renderToolGroup(cluster)}
+					{:else}
+						{@render renderSection(cluster.section, cluster.index)}
+					{/if}
 				{/each}
 				{#if turnStats}
 					<div class="turn-stats">
@@ -745,8 +890,12 @@
 			</div>
 		{/each}
 	{:else}
-		{#each sectionsParsed as section, index (index)}
-			{@render renderSection(section, index)}
+		{#each sectionClusters as cluster, cIdx (cIdx)}
+			{#if cluster.type === 'tool-group'}
+				{@render renderToolGroup(cluster)}
+			{:else}
+				{@render renderSection(cluster.section, cluster.index)}
+			{/if}
 		{/each}
 	{/if}
 </div>
@@ -921,6 +1070,16 @@
 		overflow-y: auto;
 	}
 
+	.agentic-tool-group-body {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		margin-top: 0.125rem;
+		margin-left: 1rem;
+		padding-left: 0.625rem;
+		border-left: 2px solid hsl(var(--muted-foreground) / 0.15);
+	}
+
 	.subagent-steps {
 		display: flex;
 		flex-direction: column;
@@ -974,6 +1133,10 @@
 
 	:global(.skill-icon) {
 		color: hsl(217 91% 60%);
+	}
+
+	:global(.file-tool-icon) {
+		color: hsl(43 96% 56%);
 	}
 
 	.agentic-turn {

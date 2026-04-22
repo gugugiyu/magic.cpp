@@ -14,6 +14,9 @@
 		"allowCredentials": true,
 		"maxAge": 86400
 	},
+	"filesystem": {
+		"rootPath": "data/sandbox"
+	},
 	"upstreams": [
 		{
 			"id": "local-main",

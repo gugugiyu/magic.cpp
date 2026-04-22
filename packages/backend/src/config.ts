@@ -30,6 +30,12 @@ const UpstreamSchema = z.object({
 	modelList: z.array(z.string()).default([])
 });
 
+const FilesystemConfigSchema = z.object({
+	rootPath: z.string().default('data/sandbox')
+}).default(() => ({ rootPath: 'data/sandbox' }));
+
+export type FilesystemConfig = z.infer<typeof FilesystemConfigSchema>;
+
 const ConfigFileSchema = z.object({
 	port: z.number().int().positive().default(3000),
 	staticDir: z.string().default('../public'),
@@ -41,6 +47,7 @@ const ConfigFileSchema = z.object({
 	streaming: StreamingConfigSchema.default({ enabled: true, bufferWords: 0 }),
 	database: DatabaseConfigSchema.default(() => ({ path: 'data/chat.db' })),
 	cors: CorsConfigSchema,
+	filesystem: FilesystemConfigSchema,
 });
 
 export type UpstreamConfig = z.infer<typeof UpstreamSchema> & {
@@ -58,6 +65,8 @@ export type Config = Omit<z.infer<typeof ConfigFileSchema>, 'upstreams'> & {
 	resolvedStaticDir: string;
 	/** Absolute path to the SQLite database file */
 	resolvedDatabasePath: string;
+	/** Absolute path to the filesystem sandbox root */
+	resolvedFilesystemRootPath: string;
 	streaming: StreamingConfig;
 	cors: CorsConfig;
 };
@@ -105,5 +114,6 @@ export function loadConfig(configPath?: string): Config {
 		upstreams,
 		resolvedStaticDir: resolve(dirname(path), data.staticDir),
 		resolvedDatabasePath: resolve(dirname(path), data.database.path),
+		resolvedFilesystemRootPath: resolve(dirname(path), data.filesystem.rootPath),
 	};
 }

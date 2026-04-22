@@ -37,6 +37,7 @@
 		applyHighlightTheme
 	} from '$lib/utils/highlight-theme';
 	import { renderMermaidDiagram, renderSvgDiagram } from '$lib/utils/diagram-renderer';
+	import { buildIncrementalSvg } from '$lib/utils/svg-stream-parser';
 	import { ActionIconsCodeBlock, DialogCodePreview } from '$lib/components/app';
 	import { createAutoScrollController } from '$lib/hooks/use-auto-scroll.svelte';
 	import { ArrowDown } from '@lucide/svelte';
@@ -69,6 +70,16 @@
 	let streamingCodeScrollContainer = $state<HTMLDivElement>();
 	let showScrollToBottom = $state(false);
 	let isStreamingComplete = $state(false);
+
+	// Streaming SVG live-render state
+	let isStreamingSvg = $derived(
+		incompleteCodeBlock !== null &&
+			(incompleteCodeBlock.language === 'svg' ||
+				(incompleteCodeBlock.language === 'xml' && /<svg[\s>]/.test(incompleteCodeBlock.code)))
+	);
+	let liveSvgHtml = $derived(
+		isStreamingSvg && incompleteCodeBlock ? buildIncrementalSvg(incompleteCodeBlock.code) : ''
+	);
 
 	// Auto-scroll controller for streaming code block content
 	const streamingAutoScroll = createAutoScrollController();
@@ -420,6 +431,52 @@
 	}
 
 	/**
+	 * Shared helper to render (or toggle back) an SVG block inside a wrapper.
+	 * Used by both the click handler and the auto-render logic.
+	 */
+	async function renderSvgBlock(
+		wrapper: HTMLElement,
+		scrollContainer: HTMLElement,
+		rawCode: string,
+		button?: HTMLButtonElement
+	): Promise<void> {
+		// Toggle back to code view if already rendered
+		const existing = wrapper.querySelector<HTMLElement>('.svg-render-container');
+		if (existing) {
+			const savedScrollTop = scrollContainer.scrollTop;
+			(existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup?.();
+			existing.remove();
+			// Clean up any skeleton left behind
+			wrapper.querySelector('.diagram-render-skeleton')?.remove();
+			scrollContainer.style.display = '';
+			scrollContainer.scrollTop = savedScrollTop;
+			if (button) button.title = 'Render SVG';
+			return;
+		}
+
+		// Prevent race conditions: block rapid double-clicks
+		if (wrapper.dataset.renderingInProgress === 'true') return;
+
+		wrapper.dataset.renderingInProgress = 'true';
+		if (button) {
+			button.disabled = true;
+			button.title = 'Rendering…';
+		}
+
+		try {
+			await renderSvgDiagram(wrapper, scrollContainer, rawCode);
+			if (button) button.title = 'Show source';
+		} catch (err) {
+			console.error('SVG render failed:', err);
+			if (button) button.title = 'Render SVG';
+			throw err;
+		} finally {
+			if (button) button.disabled = false;
+			delete wrapper.dataset.renderingInProgress;
+		}
+	}
+
+	/**
 	 * Handles click on "Render SVG" button for svg code blocks.
 	 * Sanitizes with DOMPurify and injects the SVG inline, toggling code/render view.
 	 */
@@ -433,9 +490,6 @@
 		const wrapper = target.closest<HTMLElement>('.code-block-wrapper');
 		if (!wrapper) return;
 
-		// Prevent race conditions: block rapid double-clicks
-		if (wrapper.dataset.renderingInProgress === 'true') return;
-
 		const scrollContainer =
 			wrapper.querySelector<HTMLElement>('.code-block-scroll-container') ||
 			wrapper.querySelector<HTMLElement>('.streaming-code-scroll-container');
@@ -444,34 +498,7 @@
 		const info = getCodeInfoFromTarget(target);
 		if (!info) return;
 
-		// Toggle back to code view if already rendered
-		const existing = wrapper.querySelector<HTMLElement>('.svg-render-container');
-		if (existing) {
-			const savedScrollTop = scrollContainer.scrollTop;
-			(existing as HTMLElement & { _zoomPanCleanup?: () => void })._zoomPanCleanup?.();
-			existing.remove();
-			// Clean up any skeleton left behind
-			wrapper.querySelector('.diagram-render-skeleton')?.remove();
-			scrollContainer.style.display = '';
-			scrollContainer.scrollTop = savedScrollTop;
-			target.title = 'Render SVG';
-			return;
-		}
-
-		wrapper.dataset.renderingInProgress = 'true';
-		target.disabled = true;
-		target.title = 'Rendering…';
-
-		try {
-			await renderSvgDiagram(wrapper, scrollContainer, info.rawCode);
-			target.title = 'Show source';
-		} catch (err) {
-			console.error('SVG render failed:', err);
-			target.title = 'Render SVG';
-		} finally {
-			target.disabled = false;
-			delete wrapper.dataset.renderingInProgress;
-		}
+		await renderSvgBlock(wrapper, scrollContainer, info.rawCode, target);
 	}
 
 	/**
@@ -655,6 +682,33 @@
 				}
 				svgButton.addEventListener('click', handleSvgRenderClick);
 			}
+
+			// Auto-render completed SVG blocks on first mount
+			if (
+				isStreamingComplete &&
+				svgButton &&
+				!wrapper.querySelector('.svg-render-container') &&
+				wrapper.dataset.svgAutoRendered !== 'true'
+			) {
+				const langLabel = wrapper.querySelector<HTMLElement>('.code-language');
+				const lang = langLabel?.textContent?.trim().toLowerCase() || '';
+				const codeEl = wrapper.querySelector<HTMLElement>('code[data-code-id]');
+				const codeText = codeEl?.textContent || '';
+				const isSvgContent = lang === 'svg' || (lang === 'xml' && /<svg[\s>]/.test(codeText));
+
+				if (isSvgContent) {
+					wrapper.dataset.svgAutoRendered = 'true';
+					const sc =
+						wrapper.querySelector<HTMLElement>('.code-block-scroll-container') ||
+						wrapper.querySelector<HTMLElement>('.streaming-code-scroll-container');
+					if (sc) {
+						const info = getCodeInfoFromTarget(svgButton);
+						if (info) {
+							renderSvgBlock(wrapper, sc, info.rawCode, svgButton).catch(() => {});
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -836,16 +890,22 @@
 		<div class="code-block-wrapper streaming-code-block relative">
 			<div class="code-block-header">
 				<span class="code-language">{incompleteCodeBlock.language || 'text'}</span>
-				<ActionIconsCodeBlock
-					code={incompleteCodeBlock.code}
-					language={incompleteCodeBlock.language || 'text'}
-					disabled
-					onPreview={(code, lang) => {
-						previewCode = code;
-						previewLanguage = lang;
-						previewDialogOpen = true;
-					}}
-				/>
+				{#if isStreamingSvg}
+					<div class="code-block-actions">
+						<span class="streaming-svg-badge">Drawing SVG…</span>
+					</div>
+				{:else}
+					<ActionIconsCodeBlock
+						code={incompleteCodeBlock.code}
+						language={incompleteCodeBlock.language || 'text'}
+						disabled
+						onPreview={(code, lang) => {
+							previewCode = code;
+							previewLanguage = lang;
+							previewDialogOpen = true;
+						}}
+					/>
+				{/if}
 			</div>
 			<div
 				bind:this={streamingCodeScrollContainer}
@@ -855,13 +915,24 @@
 					showScrollToBottom = !streamingAutoScroll.autoScrollEnabled;
 				}}
 			>
-				<pre class="streaming-code-pre"><code
-						class="hljs language-{incompleteCodeBlock.language || 'text'}"
-						>{@html highlightCode(
-							incompleteCodeBlock.code,
-							incompleteCodeBlock.language || 'text'
-						)}</code
-					></pre>
+				{#if isStreamingSvg}
+					<div class="svg-stream-container">
+						{#if liveSvgHtml}
+							<!-- eslint-disable-next-line no-at-html-tags -->
+							{@html liveSvgHtml}
+						{:else}
+							<div class="svg-stream-placeholder">Waiting for SVG…</div>
+						{/if}
+					</div>
+				{:else}
+					<pre class="streaming-code-pre"><code
+							class="hljs language-{incompleteCodeBlock.language || 'text'}"
+							>{@html highlightCode(
+								incompleteCodeBlock.code,
+								incompleteCodeBlock.language || 'text'
+							)}</code
+						></pre>
+				{/if}
 			</div>
 			{#if showScrollToBottom}
 				<button
@@ -1198,6 +1269,7 @@
 		top: 0;
 		left: 0;
 		right: 0;
+		z-index: 10;
 	}
 
 	div :global(.code-language) {
@@ -1495,9 +1567,59 @@
 		animation: diagram-spin 0.7s linear infinite;
 	}
 
+	/* Responsive scaling for rendered Mermaid / SVG diagrams */
+	div :global(.mermaid-render-container),
+	div :global(.svg-render-container) {
+		width: 100%;
+	}
+
+	div :global(.mermaid-render-container svg),
+	div :global(.svg-render-container svg) {
+		max-width: 100%;
+		height: auto;
+		display: block;
+	}
+
 	@keyframes diagram-spin {
 		to {
 			transform: rotate(360deg);
+		}
+	}
+
+	/* Live-streaming SVG styles */
+	.streaming-svg-badge {
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
+		animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	}
+
+	.svg-stream-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 120px;
+		padding: 1rem;
+		background: var(--code-background);
+	}
+
+	.svg-stream-container :global(svg) {
+		max-width: 100%;
+		height: auto;
+	}
+
+	.svg-stream-placeholder {
+		font-size: 0.875rem;
+		color: var(--muted-foreground);
+		text-align: center;
+	}
+
+	@keyframes pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
 		}
 	}
 </style>

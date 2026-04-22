@@ -63,7 +63,7 @@ export async function renderMermaidDiagram(
 		const renderContainer = document.createElement('div') as ZoomPanTarget;
 		renderContainer.className = 'mermaid-render-container';
 		renderContainer.style.cssText =
-			'overflow:hidden;cursor:grab;position:relative;min-height:200px;';
+			'overflow:hidden;cursor:grab;position:relative;min-height:300px;display:flex;align-items:center;justify-content:center;';
 
 		const inner = document.createElement('div');
 		inner.innerHTML = svg;
@@ -128,7 +128,7 @@ export async function renderSvgDiagram(
 		const renderContainer = document.createElement('div') as ZoomPanTarget;
 		renderContainer.className = 'svg-render-container';
 		renderContainer.style.cssText =
-			'overflow:hidden;cursor:grab;position:relative;min-height:80px;';
+			'overflow:hidden;cursor:grab;position:relative;min-height:200px;display:flex;align-items:center;justify-content:center;';
 
 		const inner = document.createElement('div');
 		inner.innerHTML = clean;

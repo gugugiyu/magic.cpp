@@ -2,10 +2,9 @@ import type { ApiChatCompletionToolCall } from '$lib/types/api';
 import { createModuleLogger } from './logger';
 
 const MAX_REPAIR_LENGTH = 50_000;
-const logger = createModuleLogger("JSONRepair")
+const logger = createModuleLogger('JSONRepair');
 function devLog(...args: unknown[]): void {
-		logger.debug('[json-repair]', ...args);
-
+	logger.debug('[json-repair]', ...args);
 }
 
 /* ─── Markdown fences ────────────────────────────────────────────────────── */

@@ -91,7 +91,7 @@ describe('repairJsonObject', () => {
 	});
 
 	it('handles mixed single quotes and unquoted keys', () => {
-		expect(repairJsonObject("{'key': \"val\", unquoted: true}")).toBe(
+		expect(repairJsonObject('{\'key\': "val", unquoted: true}')).toBe(
 			'{"key": "val", "unquoted": true}'
 		);
 	});

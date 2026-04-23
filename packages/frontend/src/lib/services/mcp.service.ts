@@ -62,7 +62,7 @@ interface ToolCallResult {
 	_meta?: Record<string, unknown>;
 }
 
-const logger = createModuleLogger("MCPService")
+const logger = createModuleLogger('MCPService');
 
 export class MCPService {
 	/**

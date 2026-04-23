@@ -7,6 +7,7 @@ import {
 } from '$lib/constants';
 import { AgenticSectionType } from '$lib/enums/agentic';
 import { deriveAgenticSections } from './agentic';
+import { repairJsonObject } from './json-repair';
 
 /**
  * Formats file size in bytes to human readable format
@@ -188,7 +189,7 @@ export function formatAgenticTurn(
 		} else if (section.toolName === 'sequential_thinking') {
 			/* Special parsing for sequential thinking tool */
 			try {
-				const args = section.toolArgs ? JSON.parse(section.toolArgs) : null;
+				const args = section.toolArgs ? JSON.parse(repairJsonObject(section.toolArgs)) : null;
 				if (args?.thought) {
 					const n = args.thoughtNumber;
 					const total = args.totalThoughts;

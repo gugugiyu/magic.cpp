@@ -193,3 +193,6 @@ export * from './skills';
 
 // Logger utilities
 export { logger, createModuleLogger, LogLevel, type Logger } from './logger';
+
+// JSON repair utilities
+export { repairJsonObject, sanitizeToolName, repairToolCallsJson } from './json-repair';

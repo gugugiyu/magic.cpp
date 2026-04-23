@@ -32,7 +32,13 @@ import {
 	getBuiltinToolNames,
 	BUILTIN_TOOL_EXECUTION_TARGET
 } from '$lib/enums/builtin-tools';
-import { isAbortError, safeNumber, createLinkedController } from '$lib/utils';
+import {
+	isAbortError,
+	safeNumber,
+	createLinkedController,
+	repairJsonObject,
+	sanitizeToolName
+} from '$lib/utils';
 import { sequentialThinkingStore, type ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
 import {
 	DEFAULT_AGENTIC_CONFIG,
@@ -1230,7 +1236,7 @@ class AgenticStore {
 					});
 
 					for (const tc of toolCalls ?? []) {
-						const tcName = tc.function?.name ?? '';
+						const tcName = sanitizeToolName(tc.function?.name ?? '');
 						const tcArgs = this.sanitizeToolArguments(tc.function?.arguments ?? '{}');
 						const tcId = tc.id ?? `call_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
@@ -1365,15 +1371,7 @@ class AgenticStore {
 	}
 
 	private sanitizeToolArguments(args: string): string {
-		if (args && args.trim() !== '') {
-			try {
-				JSON.parse(args);
-				return args;
-			} catch {
-				return '{}';
-			}
-		}
-		return '{}';
+		return repairJsonObject(args);
 	}
 
 	private buildFinalTimings(
@@ -1400,7 +1398,7 @@ class AgenticStore {
 				id: call?.id ?? `tool_${index}`,
 				type: (call?.type as ToolCallType.FUNCTION) ?? ToolCallType.FUNCTION,
 				function: {
-					name: call?.function?.name ?? '',
+					name: sanitizeToolName(call?.function?.name ?? ''),
 					arguments: this.sanitizeToolArguments(call?.function?.arguments ?? '')
 				}
 			}))

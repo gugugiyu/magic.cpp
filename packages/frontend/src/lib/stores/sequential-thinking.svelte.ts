@@ -9,6 +9,8 @@
  * renderer can look up the thought sequence for a specific assistant message.
  */
 
+import { repairJsonObject } from '$lib/utils';
+
 export interface ThoughtEntry {
 	thoughtNumber: number;
 	totalThoughts: number;
@@ -127,7 +129,7 @@ class SequentialThinkingStore {
 		const thoughts: ThoughtEntry[] = [];
 		for (const call of seqThinkingCalls) {
 			try {
-				const args = JSON.parse(call.function?.arguments || '{}');
+				const args = JSON.parse(repairJsonObject(call.function?.arguments || '{}'));
 				thoughts.push({
 					thoughtNumber: Number(args.thoughtNumber ?? thoughts.length + 1),
 					totalThoughts: Number(args.totalThoughts ?? 1),

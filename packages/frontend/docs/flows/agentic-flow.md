@@ -351,6 +351,7 @@ The compaction system uses `COMPACT_SUMMARIZER_BASE_PROMPT` and can incorporate 
 | MCP server disconnect         | Health check detects failure, tools unavailable |
 | Abort (user cancel)           | Flow exits immediately, saves partial state     |
 | Turn limit exceeded           | Flow completes with current state, no error     |
+| Malformed tool arguments      | Heuristically repaired before execution; unrecoverable JSON falls back to `{}` |
 
 ---
 

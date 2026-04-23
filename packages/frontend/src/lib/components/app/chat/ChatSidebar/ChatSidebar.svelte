@@ -198,7 +198,7 @@
 
 		<Sidebar.GroupContent>
 			<Sidebar.Menu>
-				{#each conversationTree as { conversation, depth } (conversation.id)}
+				{#each isSearchModeActive ? conversationTree : unpinnedConversations as { conversation, depth } (conversation.id)}
 					<Sidebar.MenuItem class="mb-1 p-0">
 						<ChatSidebarConversationItem
 							conversation={{
@@ -206,7 +206,8 @@
 								name: conversation.name,
 								lastModified: conversation.lastModified,
 								currNode: conversation.currNode,
-								forkedFromConversationId: conversation.forkedFromConversationId
+								forkedFromConversationId: conversation.forkedFromConversationId,
+								pinned: conversation.pinned
 							}}
 							{depth}
 							{handleMobileSidebarItemClick}

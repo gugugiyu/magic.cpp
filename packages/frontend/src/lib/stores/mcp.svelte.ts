@@ -33,7 +33,8 @@ import {
 	uuid,
 	isAbortError,
 	throwIfAborted,
-	createLinkedController
+	createLinkedController,
+	repairJsonObject
 } from '$lib/utils';
 import {
 	MCPConnectionPhase,
@@ -1280,8 +1281,9 @@ class MCPStore {
 				return {};
 			}
 
+			const repaired = repairJsonObject(trimmed);
 			try {
-				const parsed = JSON.parse(trimmed);
+				const parsed = JSON.parse(repaired);
 				if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
 					throw new Error(
 						`Tool arguments must be an object, got ${Array.isArray(parsed) ? 'array' : typeof parsed}`

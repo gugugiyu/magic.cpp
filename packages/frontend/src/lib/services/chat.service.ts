@@ -4,7 +4,9 @@ import {
 	getJsonHeaders,
 	formatAttachmentText,
 	detectLanguagePinner,
-	apiPost
+	apiPost,
+	repairJsonObject,
+	sanitizeToolName
 } from '$lib/utils';
 import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
@@ -507,7 +509,7 @@ export class ChatService {
 
 			if (streamFinished) {
 				finalizeOpenToolCallBatch();
-
+				ChatService.sanitizeAndRepairToolCalls(aggregatedToolCalls);
 				const finalToolCalls =
 					aggregatedToolCalls.length > 0 ? JSON.stringify(aggregatedToolCalls) : undefined;
 
@@ -530,6 +532,7 @@ export class ChatService {
 					);
 				}
 				finalizeOpenToolCallBatch();
+				ChatService.sanitizeAndRepairToolCalls(aggregatedToolCalls);
 				const finalToolCalls =
 					aggregatedToolCalls.length > 0 ? JSON.stringify(aggregatedToolCalls) : undefined;
 				onComplete?.(
@@ -599,6 +602,7 @@ export class ChatService {
 
 			if (toolCalls && toolCalls.length > 0) {
 				const mergedToolCalls = ChatService.mergeToolCallDeltas([], toolCalls);
+				ChatService.sanitizeAndRepairToolCalls(mergedToolCalls);
 
 				if (mergedToolCalls.length > 0) {
 					serializedToolCalls = JSON.stringify(mergedToolCalls);
@@ -627,15 +631,22 @@ export class ChatService {
 
 	/**
 	 * Repairs malformed tool call arguments that may have been truncated during streaming.
-	 * If arguments don't parse as valid JSON, returns '{}' as a safe fallback.
+	 * Uses conservative heuristic JSON repair; falls back to '{}' if unrecoverable.
 	 */
 	private static repairToolArguments(args: string | undefined): string {
-		if (!args || args.trim() === '') return '{}';
-		try {
-			JSON.parse(args);
-			return args;
-		} catch {
-			return '{}';
+		return repairJsonObject(args ?? '');
+	}
+
+	/**
+	 * Sanitize tool names and repair tool arguments for an array of tool calls.
+	 * Mutates the array in-place.
+	 */
+	private static sanitizeAndRepairToolCalls(toolCalls: ApiChatCompletionToolCall[]): void {
+		for (const tc of toolCalls) {
+			if (tc.function) {
+				tc.function.name = sanitizeToolName(tc.function.name ?? '');
+				tc.function.arguments = repairJsonObject(tc.function.arguments ?? '');
+			}
 		}
 	}
 
@@ -734,11 +745,7 @@ export class ChatService {
 			try {
 				toolCalls = JSON.parse(message.toolCalls) as ApiChatCompletionToolCall[];
 				// Repair any malformed arguments from truncated streaming
-				for (const tc of toolCalls) {
-					if (tc.function) {
-						tc.function.arguments = ChatService.repairToolArguments(tc.function.arguments);
-					}
-				}
+				ChatService.sanitizeAndRepairToolCalls(toolCalls);
 			} catch {
 				// Ignore parse errors for malformed tool calls
 			}

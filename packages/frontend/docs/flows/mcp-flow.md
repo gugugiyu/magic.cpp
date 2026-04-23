@@ -93,6 +93,8 @@ sequenceDiagram
     mcpStore->>MCPSvc: callTool(connection, {name, arguments}, signal)
     activate MCPSvc
 
+    Note right of MCPSvc: Tool arguments pass through a<br/>conservative JSON repair harness<br/>(fixes trailing commas, unclosed braces, quotes, etc.)
+
     MCPSvc->>MCPSvc: throwIfAborted(signal)
     MCPSvc->>ExtMCP: callTool(name, arguments)
 

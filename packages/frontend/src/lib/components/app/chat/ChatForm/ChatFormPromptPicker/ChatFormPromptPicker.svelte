@@ -4,7 +4,8 @@
 	import { debounce, logger, uuid } from '$lib/utils';
 	import { KeyboardKey } from '$lib/enums';
 	import type { MCPPromptInfo, GetPromptResult, MCPServerSettingsEntry } from '$lib/types';
-	import { SvelteMap } from 'svelte/reactivity';
+
+	import { toast } from 'svelte-sonner';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import {
 		ChatFormPickerPopover,
@@ -55,7 +56,7 @@
 
 	let serverSettingsMap = $derived.by(() => {
 		const servers = mcpStore.getServers();
-		const map = new SvelteMap<string, MCPServerSettingsEntry>();
+		const map = new Map<string, MCPServerSettingsEntry>();
 
 		for (const server of servers) {
 			map.set(server.id, server);
@@ -97,7 +98,9 @@
 
 			prompts = await mcpStore.getAllPrompts();
 		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
 			console.error('[ChatFormPromptPicker] Failed to load prompts:', error);
+			toast.error(`Failed to load MCP prompts: ${message}`);
 			prompts = [];
 		} finally {
 			isLoading = false;
@@ -248,13 +251,10 @@
 	}
 
 	function handleArgBlur(argName: string) {
-		// Delay to allow click on suggestion
-		setTimeout(() => {
-			if (activeAutocomplete === argName) {
-				suggestions[argName] = [];
-				activeAutocomplete = null;
-			}
-		}, 150);
+		if (activeAutocomplete === argName) {
+			suggestions[argName] = [];
+			activeAutocomplete = null;
+		}
 	}
 
 	function handleArgFocus(argName: string) {

@@ -102,16 +102,16 @@
 	}
 
 	onMount(() => {
-		setTimeout(() => chatFormRef?.focus(), 10);
+		requestAnimationFrame(() => chatFormRef?.focus());
 	});
 
 	afterNavigate(() => {
-		setTimeout(() => chatFormRef?.focus(), 10);
+		requestAnimationFrame(() => chatFormRef?.focus());
 	});
 
 	$effect(() => {
 		if (previousIsLoading && !isLoading) {
-			setTimeout(() => chatFormRef?.focus(), 10);
+			requestAnimationFrame(() => chatFormRef?.focus());
 		}
 
 		previousIsLoading = isLoading;

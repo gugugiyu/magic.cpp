@@ -609,6 +609,7 @@ class ChatStore {
 			this.setChatLoading(convId, false);
 			this.clearChatStreaming(convId);
 			this.setProcessingState(convId, null);
+			this.abortControllers.delete(convId);
 		};
 
 		this.setStreamingActive(true);

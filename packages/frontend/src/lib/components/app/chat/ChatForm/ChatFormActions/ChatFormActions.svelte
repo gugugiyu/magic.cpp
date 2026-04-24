@@ -15,7 +15,12 @@
 	import { FileTypeCategory } from '$lib/enums';
 	import { getFileTypeCategory } from '$lib/utils';
 	import { config } from '$lib/stores/settings.svelte';
-	import { modelsStore, modelOptions, selectedModelId } from '$lib/stores/models.svelte';
+	import {
+		modelsStore,
+		modelOptions,
+		selectedModelId,
+		propsCacheVersion
+	} from '$lib/stores/models.svelte';
 	import { isRouterMode, serverError } from '$lib/stores/server.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { activeMessages, conversationsStore } from '$lib/stores/conversations.svelte';
@@ -26,6 +31,7 @@
 		canSend?: boolean;
 		class?: string;
 		disabled?: boolean;
+		hasLoadingAttachments?: boolean;
 		isLoading?: boolean;
 		isRecording?: boolean;
 		hasText?: boolean;
@@ -42,6 +48,7 @@
 		canSend = false,
 		class: className = '',
 		disabled = false,
+		hasLoadingAttachments = false,
 		isLoading = false,
 		isRecording = false,
 		hasText = false,
@@ -72,58 +79,21 @@
 		}
 	});
 
-	let activeModelId = $derived.by(() => {
-		const options = modelOptions();
-
-		if (!isRouter) {
-			return options.length > 0 ? options[0].model : null;
-		}
-
-		const selectedId = selectedModelId();
-		if (selectedId) {
-			const model = options.find((m) => m.id === selectedId);
-			if (model) return model.model;
-		}
-
-		if (conversationModel) {
-			const model = options.find((m) => m.model === conversationModel);
-			if (model) return model.model;
-		}
-
-		return null;
-	});
-
-	let modelPropsVersion = $state(0); // Used to trigger reactivity after fetch
-
-	$effect(() => {
-		if (activeModelId) {
-			const cached = modelsStore.getModelProps(activeModelId);
-
-			if (!cached) {
-				modelsStore.fetchModelProps(activeModelId).then(() => {
-					modelPropsVersion++;
-				});
-			}
-		}
-	});
+	let activeModelId = $derived.by(() => modelsStore.resolveActiveModelId(conversationModel));
 
 	let hasAudioModality = $derived.by(() => {
 		if (activeModelId) {
-			void modelPropsVersion;
-
+			propsCacheVersion();
 			return modelsStore.modelSupportsAudio(activeModelId);
 		}
-
 		return false;
 	});
 
 	let hasVisionModality = $derived.by(() => {
 		if (activeModelId) {
-			void modelPropsVersion;
-
+			propsCacheVersion();
 			return modelsStore.modelSupportsVision(activeModelId);
 		}
-
 		return false;
 	});
 
@@ -234,7 +204,7 @@
 
 		{#if isMobile.current}
 			<ModelsSelectorSheet
-				disabled={disabled || isOffline}
+				disabled={disabled || isOffline || hasLoadingAttachments}
 				bind:this={selectorModelRef}
 				currentModel={conversationModel}
 				forceForegroundText
@@ -242,7 +212,7 @@
 			/>
 		{:else}
 			<ModelsSelector
-				disabled={disabled || isOffline}
+				disabled={disabled || isOffline || hasLoadingAttachments}
 				bind:this={selectorModelRef}
 				currentModel={conversationModel}
 				forceForegroundText

@@ -160,7 +160,9 @@
 
 			handleOpenChange(false);
 		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
 			console.error('Failed to attach template resource:', error);
+			toast.error(`Failed to attach resource: ${message}`);
 		} finally {
 			isAttaching = false;
 		}
@@ -242,7 +244,9 @@
 
 			handleOpenChange(false);
 		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
 			console.error('Failed to attach resources:', error);
+			toast.error(`Failed to attach resources: ${message}`);
 		} finally {
 			isAttaching = false;
 		}

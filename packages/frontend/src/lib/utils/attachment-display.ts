@@ -73,7 +73,7 @@ export function getAttachmentDisplayItems(
 		const isMcpResource = isMcpResourceAttachment(attachment);
 
 		items.push({
-			id: `attachment-${index}`,
+			id: `__att__${index}`,
 			name: attachment.name,
 			preview: isImage && 'base64Url' in attachment ? attachment.base64Url : undefined,
 			isImage,

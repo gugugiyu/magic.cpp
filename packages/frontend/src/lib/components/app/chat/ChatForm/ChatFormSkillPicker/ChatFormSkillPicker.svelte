@@ -46,7 +46,7 @@
 	);
 
 	// Filtered skills based on search query
-	const filteredSkills = $derived(() => {
+	const filteredSkills = $derived.by(() => {
 		const query = searchQuery.toLowerCase().trim();
 		if (!query) return availableSkills;
 
@@ -87,7 +87,7 @@
 
 	// Ensure selectedIndex is within bounds
 	$effect(() => {
-		if (filteredSkills().length > 0 && selectedIndex >= filteredSkills().length) {
+		if (filteredSkills.length > 0 && selectedIndex >= filteredSkills.length) {
 			selectedIndex = 0;
 		}
 	});
@@ -95,7 +95,7 @@
 	export function handleKeydown(event: KeyboardEvent): boolean {
 		if (!isOpen) return false;
 
-		const skills = filteredSkills();
+		const skills = filteredSkills;
 		if (skills.length === 0) return false;
 
 		if (event.key === KeyboardKey.ARROW_DOWN) {
@@ -141,8 +141,8 @@
 		role="listbox"
 		tabindex="0"
 		aria-label="Select a skill"
-		aria-activedescendant={selectedIndex >= 0 && filteredSkills()[selectedIndex]
-			? `skill-option-${filteredSkills()[selectedIndex].name}`
+		aria-activedescendant={selectedIndex >= 0 && filteredSkills[selectedIndex]
+			? `skill-option-${filteredSkills[selectedIndex].name}`
 			: undefined}
 	>
 		{#if skillsStore.isLoading}
@@ -150,7 +150,7 @@
 				<Loader2 class="h-4 w-4 animate-spin" />
 				Loading skills...
 			</div>
-		{:else if filteredSkills().length === 0}
+		{:else if filteredSkills.length === 0}
 			<div class="p-4 text-center text-sm text-muted-foreground">
 				{searchQuery.trim() ? 'No matching skills' : 'No enabled skills'}
 			</div>
@@ -162,7 +162,7 @@
 					<span class="text-xs font-medium text-muted-foreground"> Select a skill to inject </span>
 				</div>
 
-				{#each filteredSkills() as skill, index (skill.name)}
+				{#each filteredSkills as skill, index (skill.name)}
 					<button
 						type="button"
 						id="skill-option-{skill.name}"

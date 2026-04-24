@@ -4,7 +4,8 @@
 	import { mcpResourceStore } from '$lib/stores/mcp-resources.svelte';
 	import { KeyboardKey } from '$lib/enums';
 	import type { MCPResourceInfo, MCPServerSettingsEntry } from '$lib/types';
-	import { SvelteMap } from 'svelte/reactivity';
+
+	import { toast } from 'svelte-sonner';
 	import { FolderOpen } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
@@ -40,7 +41,7 @@
 
 	let serverSettingsMap = $derived.by(() => {
 		const servers = mcpStore.getServers();
-		const map = new SvelteMap<string, MCPServerSettingsEntry>();
+		const map = new Map<string, MCPServerSettingsEntry>();
 
 		for (const server of servers) {
 			map.set(server.id, server);
@@ -79,7 +80,9 @@
 			await mcpStore.fetchAllResources();
 			resources = mcpResourceStore.getAllResourceInfos();
 		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
 			console.error('[ChatFormResourcePicker] Failed to load resources:', error);
+			toast.error(`Failed to load MCP resources: ${message}`);
 			resources = [];
 		} finally {
 			isLoading = false;

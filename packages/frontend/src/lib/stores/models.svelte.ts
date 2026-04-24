@@ -416,6 +416,7 @@ class ModelsStore {
 		try {
 			const props = await PropsService.fetchForModel(modelId);
 			this.modelPropsCache.set(modelId, props);
+			this.propsCacheVersion++;
 			return props;
 		} catch (error) {
 			console.warn(`Failed to fetch props for model ${modelId}:`, error);
@@ -564,6 +565,32 @@ class ModelsStore {
 
 	hasModel(modelName: string): boolean {
 		return this.models.some((model) => model.model === modelName);
+	}
+
+	/**
+	 * Resolve the effective active model ID for the current context.
+	 * Centralizes the logic duplicated across ChatForm and ChatFormActions.
+	 */
+	resolveActiveModelId(conversationModel: string | null): string | null {
+		const options = this.models;
+		const isRouter = serverStore.isRouterMode;
+
+		if (!isRouter) {
+			return options.length > 0 ? options[0].model : null;
+		}
+
+		const selectedId = this.selectedModelId;
+		if (selectedId) {
+			const model = options.find((m) => m.id === selectedId);
+			if (model) return model.model;
+		}
+
+		if (conversationModel) {
+			const model = options.find((m) => m.model === conversationModel);
+			if (model) return model.model;
+		}
+
+		return null;
 	}
 
 	/**

@@ -43,6 +43,7 @@
 		isAudioRecordingSupported
 	} from '$lib/utils/browser-only';
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 
 	interface Props {
 		// Data
@@ -144,26 +145,7 @@
 	let conversationModel = $derived(
 		chatStore.getConversationModel(activeMessages() as DatabaseMessage[])
 	);
-	let activeModelId = $derived.by(() => {
-		const options = modelOptions();
-
-		if (!isRouter) {
-			return options.length > 0 ? options[0].model : null;
-		}
-
-		const selectedId = selectedModelId();
-		if (selectedId) {
-			const model = options.find((m) => m.id === selectedId);
-			if (model) return model.model;
-		}
-
-		if (conversationModel) {
-			const model = options.find((m) => m.model === conversationModel);
-			if (model) return model.model;
-		}
-
-		return null;
-	});
+	let activeModelId = $derived.by(() => modelsStore.resolveActiveModelId(conversationModel));
 
 	// Form Validation State
 	let hasModelSelected = $derived(!isRouter || !!conversationModel || !!selectedModelId());
@@ -235,8 +217,9 @@
 	}
 
 	function handleFileRemove(fileId: string) {
-		if (fileId.startsWith('attachment-')) {
-			const index = parseInt(fileId.replace('attachment-', ''), 10);
+		const ATT_PREFIX = '__att__';
+		if (fileId.startsWith(ATT_PREFIX)) {
+			const index = parseInt(fileId.slice(ATT_PREFIX.length), 10);
 			if (!isNaN(index) && index >= 0 && index < attachments.length) {
 				onAttachmentRemove?.(index);
 			}
@@ -391,9 +374,9 @@
 					onUploadedFilesChange?.(uploadedFiles);
 				}
 
-				setTimeout(() => {
+				requestAnimationFrame(() => {
 					textareaRef?.focus();
-				}, 10);
+				});
 
 				return;
 			}
@@ -585,6 +568,8 @@
 				onFilesAdd?.([audioFile]);
 				isRecording = false;
 			} catch (error) {
+				const message = error instanceof Error ? error.message : 'Unknown error';
+				toast.error(`Failed to stop recording: ${message}`);
 				console.error('Failed to stop recording:', error);
 				isRecording = false;
 			}
@@ -593,6 +578,8 @@
 				await audioRecorder.startRecording();
 				isRecording = true;
 			} catch (error) {
+				const message = error instanceof Error ? error.message : 'Unknown error';
+				toast.error(`Microphone access failed: ${message}`);
 				console.error('Failed to start recording:', error);
 			}
 		}
@@ -685,6 +672,7 @@
 				canSend={canSubmit}
 				hasText={value.trim().length > 0}
 				{disabled}
+				{hasLoadingAttachments}
 				{isLoading}
 				{isRecording}
 				{uploadedFiles}

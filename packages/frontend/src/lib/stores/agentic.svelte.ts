@@ -1020,7 +1020,10 @@ class AgenticStore {
 						originalLength: data.originalLength
 					});
 				}
-				return { content: String(data.result ?? ''), extras: extras.length > 0 ? extras : undefined };
+				return {
+					content: String(data.result ?? ''),
+					extras: extras.length > 0 ? extras : undefined
+				};
 			} catch (err) {
 				return { content: `Error: ${err instanceof Error ? err.message : String(err)}` };
 			}
@@ -1034,9 +1037,24 @@ class AgenticStore {
 			case 'get_location':
 				return { content: await this._executeGetLocationTool() };
 			case 'sequential_thinking':
-				return { content: this._executeSequentialThinkingTool(parsed, conversationId, messageId, toolCallId) };
+				return {
+					content: this._executeSequentialThinkingTool(
+						parsed,
+						conversationId,
+						messageId,
+						toolCallId
+					)
+				};
 			case 'call_subagent':
-				return { content: await this._executeCallSubagentTool(parsed, conversationId, messageId, allTools, signal) };
+				return {
+					content: await this._executeCallSubagentTool(
+						parsed,
+						conversationId,
+						messageId,
+						allTools,
+						signal
+					)
+				};
 			case 'list_skill':
 				return { content: await this._executeListSkillTool() };
 			case 'read_skill':

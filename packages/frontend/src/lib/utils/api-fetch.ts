@@ -72,11 +72,12 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 	const timeoutSignal = controller ? controller.signal : undefined;
 
 	// Set up timeout
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 	if (controller) {
-		const timeoutId = setTimeout(
+		timeoutId = setTimeout(
 			() => controller.abort(),
 			options.timeout ?? DEFAULT_API_TIMEOUT
-		) as unknown as number;
+		);
 		controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
 	}
 
@@ -86,6 +87,8 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 			headers,
 			signal: timeoutSignal
 		});
+
+		if (timeoutId !== undefined) clearTimeout(timeoutId);
 
 		if (!response.ok) {
 			const errorMessage = await parseErrorMessage(response);
@@ -154,7 +157,7 @@ export async function apiFetchWithParams<T>(
 	const timeoutId = setTimeout(
 		() => controller.abort(),
 		options.timeout ?? DEFAULT_API_TIMEOUT
-	) as unknown as number;
+	);
 	controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
 
 	try {
@@ -163,6 +166,8 @@ export async function apiFetchWithParams<T>(
 			headers,
 			signal: controller.signal
 		});
+
+		clearTimeout(timeoutId);
 
 		if (!response.ok) {
 			const errorMessage = await parseErrorMessage(response);

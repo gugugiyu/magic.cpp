@@ -17,19 +17,26 @@ function parsePreset(raw: unknown): PresetView {
 		id: String(p.id),
 		name: String(p.name),
 		systemPrompt: String(p.systemPrompt),
-		enabledTools: safeParseJson(String(p.enabledTools ?? '[]'), []),
-		commonPrompts: safeParseJson(String(p.commonPrompts ?? '[]'), []),
+		enabledTools: coerceStringArray(p.enabledTools),
+		commonPrompts: coerceStringArray(p.commonPrompts),
 		createdAt: Number(p.createdAt),
 		updatedAt: Number(p.updatedAt)
 	};
 }
 
-function safeParseJson<T>(json: string, fallback: T): T {
-	try {
-		return JSON.parse(json) as T;
-	} catch {
-		return fallback;
+function coerceStringArray(value: unknown): string[] {
+	if (Array.isArray(value) && value.every((v) => typeof v === 'string')) {
+		return value;
 	}
+	try {
+		const parsed = JSON.parse(String(value ?? '[]'));
+		if (Array.isArray(parsed) && parsed.every((v) => typeof v === 'string')) {
+			return parsed;
+		}
+	} catch {
+		// fall through
+	}
+	return [];
 }
 
 /**

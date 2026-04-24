@@ -1,5 +1,5 @@
-g<script lang="ts">
-	import { Package, Filter } from '@lucide/svelte';
+<script lang="ts">
+	import { Package, Filter, Sparkles } from '@lucide/svelte';
 	import { BadgeInfo, ActionIconCopyToClipboard } from '$lib/components/app';
 	import ModelId from './ModelId.svelte';
 	import { modelsStore, modelOptions } from '$lib/stores/models.svelte';
@@ -25,19 +25,18 @@ g<script lang="ts">
 		showTooltip = false
 	}: Props = $props();
 
-	let activePresetName = $derived(presetsStore.activePreset?.name);
+	let presetName = $derived(modelProp ? undefined : presetsStore.activePreset?.name);
 	let model = $derived(
 		modelProp ||
-			activePresetName ||
 			modelsStore.singleModelName ||
 			(!serverStore.isRouterMode
 				? (modelsStore.selectedModel?.name ?? modelOptions()[0]?.name ?? null)
 				: null)
 	);
-	// Show badge when: a model/preset is known AND (explicitly provided, or not in router mode, or active preset)
-	// In router mode without an explicit modelProp, each conversation has its own model badge
+	// Show badge when: a model is known AND (explicitly provided, or not in router mode)
+	// or when a preset is active (presets are shown separately)
 	let shouldShow = $derived(
-		!!model && (modelProp !== undefined || !serverStore.isRouterMode || !!activePresetName)
+		!!presetName || (!!model && (modelProp !== undefined || !serverStore.isRouterMode))
 	);
 
 	const filterOptions = $derived({
@@ -50,7 +49,7 @@ g<script lang="ts">
 	const filterCount = $derived(activeFilters.length);
 </script>
 
-{#snippet badgeContent()}
+g{#snippet badgeContent()}
 	<BadgeInfo class={className} {onclick}>
 		{#snippet icon()}
 			<Package class="h-3 w-3" />
@@ -68,18 +67,44 @@ g<script lang="ts">
 
 {#if shouldShow}
 	<div class="inline-flex items-center gap-1">
-		{#if showTooltip}
-			<Tooltip.Root>
-				<Tooltip.Trigger>
-					{@render badgeContent()}
-				</Tooltip.Trigger>
+		{#if presetName}
+			{#if showTooltip}
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						<div
+							class="inline-flex cursor-default items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary"
+						>
+							<Sparkles class="h-3 w-3" />
+							<span>{presetName}</span>
+						</div>
+					</Tooltip.Trigger>
+					<Tooltip.Content>Active preset</Tooltip.Content>
+				</Tooltip.Root>
+			{:else}
+				<div
+					class="inline-flex cursor-default items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary"
+					title="Active preset: {presetName}"
+				>
+					<Sparkles class="h-3 w-3" />
+					<span>{presetName}</span>
+				</div>
+			{/if}
+		{/if}
 
-				<Tooltip.Content>
-					{onclick ? 'Click for model details' : model}
-				</Tooltip.Content>
-			</Tooltip.Root>
-		{:else}
-			{@render badgeContent()}
+		{#if model}
+			{#if showTooltip}
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						{@render badgeContent()}
+					</Tooltip.Trigger>
+
+					<Tooltip.Content>
+						{onclick ? 'Click for model details' : model}
+					</Tooltip.Content>
+				</Tooltip.Root>
+			{:else}
+				{@render badgeContent()}
+			{/if}
 		{/if}
 
 		{#if filterCount > 0}

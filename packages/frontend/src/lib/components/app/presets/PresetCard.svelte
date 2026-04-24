@@ -96,6 +96,21 @@
 		{preset.systemPrompt || 'No system prompt'}
 	</p>
 
+	<!-- Common prompts preview -->
+	{#if preset.commonPrompts.length > 0}
+		<div class="mb-2 flex flex-wrap items-center gap-1">
+			<Sparkles class="mr-1 h-3 w-3 text-muted-foreground" />
+			{#each preset.commonPrompts.slice(0, 2) as prompt, i (i)}
+				<Badge variant="outline" class="max-w-[12rem] truncate text-[10px]">
+					{prompt.length > 24 ? prompt.slice(0, 24) + '…' : prompt}
+				</Badge>
+			{/each}
+			{#if preset.commonPrompts.length > 2}
+				<Badge variant="secondary" class="text-[10px]">+{preset.commonPrompts.length - 2}</Badge>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Tools badges -->
 	{#if toolLabels.length > 0}
 		<div class="mb-2 flex flex-wrap items-center gap-1">

@@ -23,6 +23,7 @@ class PresetsStore {
 	#isLoading = $state(false);
 	#error = $state<string | null>(null);
 	#activePresetId = $state<string | null>(this.#loadActiveId());
+	#previousSystemMessage = $state<string>('');
 	#loadRequestId = 0;
 	#lastLoadTime = 0;
 
@@ -113,10 +114,11 @@ class PresetsStore {
 
 	/** Create a new preset and reload the list. */
 	async createPreset(input: PresetInput): Promise<PresetView> {
+		const wasEmpty = this.#presets.length === 0;
 		const preset = await PresetService.createPreset(input);
 		await this.loadPresets();
 		// Auto-activate the very first preset
-		if (this.#presets.length === 1) {
+		if (wasEmpty) {
 			this.applyPreset(preset.id);
 		}
 		return preset;
@@ -130,6 +132,7 @@ class PresetsStore {
 		if (idx !== -1) {
 			this.#presets[idx] = preset;
 		}
+		await this.loadPresets();
 		return preset;
 	}
 
@@ -160,17 +163,19 @@ class PresetsStore {
 			return;
 		}
 
+		this.#previousSystemMessage = settingsStore.config[SETTINGS_KEYS.SYSTEM_MESSAGE] as string;
 		this.#activePresetId = id;
 		this.#saveActiveId();
 
-		// Apply system prompt
-		settingsStore.updateConfig(SETTINGS_KEYS.SYSTEM_MESSAGE, preset.systemPrompt);
+		const updates: Partial<SettingsConfigType> = {
+			[SETTINGS_KEYS.SYSTEM_MESSAGE]: preset.systemPrompt
+		};
 
-		// Apply tools
 		for (const tool of builtinToolFields) {
-			const enabled = preset.enabledTools.includes(tool.key);
-			settingsStore.updateConfig(tool.key as keyof SettingsConfigType, enabled);
+			updates[tool.key as keyof SettingsConfigType] = preset.enabledTools.includes(tool.key);
 		}
+
+		settingsStore.updateMultipleConfig(updates);
 	}
 
 	/**
@@ -179,7 +184,7 @@ class PresetsStore {
 	clearActivePreset(): void {
 		this.#activePresetId = null;
 		this.#saveActiveId();
-		settingsStore.updateConfig(SETTINGS_KEYS.SYSTEM_MESSAGE, '');
+		settingsStore.updateConfig(SETTINGS_KEYS.SYSTEM_MESSAGE, this.#previousSystemMessage);
 	}
 }
 

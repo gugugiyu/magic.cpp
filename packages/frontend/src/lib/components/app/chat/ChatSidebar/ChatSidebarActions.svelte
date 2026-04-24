@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Search, SquarePen, X, Plug, Wrench, Bot } from '@lucide/svelte';
+	import { Search, SquarePen, X, Plug, Wrench, UserCog } from '@lucide/svelte';
 	import { KeyboardShortcutInfo } from '$lib/components/app';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -112,7 +112,7 @@
 			variant="ghost"
 		>
 			<div class="flex items-center gap-2">
-				<Bot class="h-4 w-4" />
+				<UserCog class="h-4 w-4" />
 
 				Presets
 			</div>

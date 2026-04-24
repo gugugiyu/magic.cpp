@@ -23,7 +23,7 @@ let db: DrizzleDB | null = null;
  * Seed a default preset if the presets table is empty.
  * Called at database initialization time.
  */
-async function seedDefaultPreset(db: DrizzleDB): Promise<void> {
+function seedDefaultPreset(db: DrizzleDB): void {
 	const existing = db.select().from(schema.presets).limit(1).get();
 	if (existing) return;
 
@@ -81,9 +81,11 @@ export function initializeDatabase(config: Config): DrizzleDB {
 	});
 
 	// Seed a default preset if the table is empty
-	seedDefaultPreset(db).catch((err) => {
+	try {
+		seedDefaultPreset(db);
+	} catch (err) {
 		console.warn('[database] default preset seed failed:', err);
-	});
+	}
 
 	console.log('[database] SQLite database initialized successfully');
 	return db;

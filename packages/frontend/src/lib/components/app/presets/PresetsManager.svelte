@@ -11,7 +11,6 @@
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { presetsStore } from '$lib/stores/presets.svelte';
 	import { builtinToolFields } from '$lib/enums/builtin-tools';
-	import { useDebounce } from '$lib/hooks/use-debounce.svelte';
 	import { PresetCard } from '$lib/components/app';
 	import { Sparkles, Plus, Search, Loader2, X, FileText, ArrowUpDown } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
@@ -21,7 +20,6 @@
 
 	// View modes
 	let searchQuery = $state('');
-	const debouncedSearchQuery = useDebounce(() => searchQuery, 150);
 	let showNewModal = $state(false);
 
 	// New/Edit modal state
@@ -52,32 +50,21 @@
 
 	// Load presets on mount (with TTL caching)
 	let hasLoadedForSession = $state(false);
-	const PRESET_CACHE_TTL_MS = 30_000;
-	let lastLoadTime = $state<number>(0);
 
 	$effect(() => {
 		if (hasLoadedForSession) return;
-
-		const now = Date.now();
-		const isStale = now - lastLoadTime > PRESET_CACHE_TTL_MS;
-		const isEmpty = presetsStore.presets.length === 0;
-
-		if (isStale || isEmpty) {
-			void presetsStore.loadPresets().then(() => {
-				lastLoadTime = Date.now();
-				hasLoadedForSession = true;
-			});
-		} else {
+		void presetsStore.loadPresetsIfStale(30_000).then(() => {
 			hasLoadedForSession = true;
-		}
+		});
 	});
 
 	// Filtered and sorted presets
 	const filteredPresets = $derived.by(() => {
+		const query = searchQuery.toLowerCase();
 		let result = presetsStore.presets.filter(
 			(p) =>
-				p.name.toLowerCase().includes(debouncedSearchQuery.current.toLowerCase()) ||
-				p.systemPrompt.toLowerCase().includes(debouncedSearchQuery.current.toLowerCase())
+				p.name.toLowerCase().includes(query) ||
+				p.systemPrompt.toLowerCase().includes(query)
 		);
 
 		if (sortMode === 'nameAsc') {
@@ -331,10 +318,7 @@
 					<Button
 						size="sm"
 						onclick={() => {
-							lastLoadTime = 0;
-							void presetsStore.loadPresets().then(() => {
-								lastLoadTime = Date.now();
-							});
+							void presetsStore.loadPresets();
 						}}
 					>
 						<Loader2 class="mr-1.5 h-4 w-4" />

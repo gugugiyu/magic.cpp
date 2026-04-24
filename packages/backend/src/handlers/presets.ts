@@ -23,10 +23,22 @@ function generateId(): string {
 	return crypto.randomUUID();
 }
 
+function toPresetResponse(preset: Preset) {
+	return {
+		...preset,
+		enabledTools: JSON.parse(preset.enabledTools),
+		commonPrompts: JSON.parse(preset.commonPrompts)
+	};
+}
+
+function isStringArray(value: unknown): value is string[] {
+	return Array.isArray(value) && value.every((v) => typeof v === 'string');
+}
+
 export async function handleListPresets(db: DrizzleDB): Promise<Response> {
 	try {
 		const presets = getAllPresets(db);
-		return Response.json(presets, {
+		return Response.json(presets.map(toPresetResponse), {
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (err) {
@@ -61,6 +73,20 @@ export async function handleCreatePreset(req: Request, db: DrizzleDB): Promise<R
 			);
 		}
 
+		if (enabledTools !== undefined && !isStringArray(enabledTools)) {
+			return Response.json(
+				{ error: 'Invalid "enabledTools" field (array of strings required)' },
+				{ status: 400, headers: { 'Content-Type': 'application/json' } }
+			);
+		}
+
+		if (commonPrompts !== undefined && !isStringArray(commonPrompts)) {
+			return Response.json(
+				{ error: 'Invalid "commonPrompts" field (array of strings required)' },
+				{ status: 400, headers: { 'Content-Type': 'application/json' } }
+			);
+		}
+
 		const preset: Preset = {
 			id: generateId(),
 			name: name.trim(),
@@ -73,7 +99,7 @@ export async function handleCreatePreset(req: Request, db: DrizzleDB): Promise<R
 
 		createPreset(db, preset);
 
-		return Response.json(preset, {
+		return Response.json(toPresetResponse(preset), {
 			status: 201,
 			headers: { 'Content-Type': 'application/json' }
 		});
@@ -94,7 +120,7 @@ export async function handleGetPreset(db: DrizzleDB, id: string): Promise<Respon
 				{ status: 404, headers: { 'Content-Type': 'application/json' } }
 			);
 		}
-		return Response.json(preset, {
+		return Response.json(toPresetResponse(preset), {
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (err) {
@@ -123,6 +149,27 @@ export async function handleUpdatePreset(req: Request, db: DrizzleDB, id: string
 			);
 		}
 
+		if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0)) {
+			return Response.json(
+				{ error: 'Invalid "name" field (non-empty string required)' },
+				{ status: 400, headers: { 'Content-Type': 'application/json' } }
+			);
+		}
+
+		if (enabledTools !== undefined && !isStringArray(enabledTools)) {
+			return Response.json(
+				{ error: 'Invalid "enabledTools" field (array of strings required)' },
+				{ status: 400, headers: { 'Content-Type': 'application/json' } }
+			);
+		}
+
+		if (commonPrompts !== undefined && !isStringArray(commonPrompts)) {
+			return Response.json(
+				{ error: 'Invalid "commonPrompts" field (array of strings required)' },
+				{ status: 400, headers: { 'Content-Type': 'application/json' } }
+			);
+		}
+
 		const updates: Partial<Omit<Preset, 'id'>> = {};
 		if (name !== undefined) updates.name = name.trim();
 		if (systemPrompt !== undefined) updates.systemPrompt = systemPrompt.trim();
@@ -132,7 +179,7 @@ export async function handleUpdatePreset(req: Request, db: DrizzleDB, id: string
 		updatePreset(db, id, updates);
 
 		const updated = getPreset(db, id)!;
-		return Response.json(updated, {
+		return Response.json(toPresetResponse(updated), {
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (err) {

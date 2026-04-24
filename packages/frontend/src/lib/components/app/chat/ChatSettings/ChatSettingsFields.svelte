@@ -183,7 +183,7 @@
 				}}
 			>
 				<div class="relative w-full md:w-auto md:max-w-md">
-					<Select.Trigger class="w-full">
+					<Select.Trigger class="w-full {isCustomRealTime ? 'pr-10' : ''}">
 						<div class="flex items-center gap-2">
 							{#if selectedOption?.icon}
 								{@const IconComponent = selectedOption.icon}

@@ -363,7 +363,7 @@ class ConversationsStore {
 			await DatabaseService.deleteAllConversations(deleteWithForks);
 
 			this.clearActiveConversation();
-			this.conversations = [];
+			await this.loadConversations();
 
 			toast.success('All conversations deleted');
 
@@ -1007,7 +1007,10 @@ export function buildConversationTree(convs: DatabaseConversation[]): Conversati
 
 	for (const conv of convs) {
 		if (!visited.has(conv.id)) {
-			walk(conv, 1);
+			const parentExists = conv.forkedFromConversationId
+				? convs.some((c) => c.id === conv.forkedFromConversationId)
+				: false;
+			walk(conv, parentExists ? 1 : 0);
 		}
 	}
 

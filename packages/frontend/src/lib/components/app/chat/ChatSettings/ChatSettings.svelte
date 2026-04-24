@@ -20,13 +20,15 @@
 		ChatSettingsFields,
 		McpLogo,
 		McpServersSettings,
-		BuiltinToolsSection
+		BuiltinToolsSection,
+		SettingsSectionDivider
 	} from '$lib/components/app';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { config, settingsStore } from '$lib/stores/settings.svelte';
 	import { skillsStore } from '$lib/stores/skills.svelte';
 	import {
 		SETTINGS_SECTION_TITLES,
+		SETTINGS_SECTION_SLUGS,
 		SETTINGS_SECTION_TITLE_TO_SLUG,
 		type SettingsSectionTitle,
 		NUMERIC_FIELDS,
@@ -42,7 +44,8 @@
 	import { goto } from '$app/navigation';
 	import { useUnsavedChanges } from '$lib/hooks/use-unsaved-changes.svelte';
 	import { useScrollController } from '$lib/hooks/use-scroll-controller.svelte';
-	import { slide } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
+	import { tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
 	const SCROLL_CENTER_DELAY_MS = 50;
@@ -332,11 +335,6 @@
 					type: SettingsFieldType.CHECKBOX
 				},
 				{
-					key: SETTINGS_KEYS.FILTER_RAW_MODE,
-					label: 'Raw mode',
-					type: SettingsFieldType.CHECKBOX
-				},
-				{
 					key: SETTINGS_KEYS.FILTER_LANGUAGE_PINNER,
 					label: 'Language pinner',
 					type: SettingsFieldType.CHECKBOX
@@ -385,12 +383,8 @@
 	];
 
 	let activeSection = $derived.by<SettingsSectionTitle>(() => {
-		const sectionParam = page.params.section;
-		return (
-			Object.values(SETTINGS_SECTION_TITLES).find(
-				(s) => s.toLowerCase().replace(/\//g, '-') === sectionParam
-			) ?? SETTINGS_SECTION_TITLES.GENERAL
-		);
+		const sectionParam = page.params.section?.toLowerCase() ?? '';
+		return SETTINGS_SECTION_SLUGS[sectionParam] ?? SETTINGS_SECTION_TITLES.GENERAL;
 	});
 	let currentSection = $derived(
 		settingSections.find((section) => section.title === activeSection) || settingSections[0]
@@ -406,6 +400,9 @@
 	function navigateToSection(section: SettingsSectionTitle) {
 		const slug = SETTINGS_SECTION_TITLE_TO_SLUG[section];
 		goto(`#/settings/${slug}`);
+		tick().then(() => {
+			document.getElementById('settings-heading')?.focus();
+		});
 	}
 
 	// Scroll mobile menu to active section on route change
@@ -433,9 +430,7 @@
 
 	function handleConfigChange(key: string, value: string | boolean) {
 		if (key === SETTINGS_KEYS.FILTER_NORMALIZE_MARKDOWN && value === true) {
-			localConfig[SETTINGS_KEYS.FILTER_RAW_MODE] = false;
-		} else if (key === SETTINGS_KEYS.FILTER_RAW_MODE && value === true) {
-			localConfig[SETTINGS_KEYS.FILTER_NORMALIZE_MARKDOWN] = false;
+			localConfig[SETTINGS_KEYS.FILTER_CODEBLOCK_ONLY] = false;
 		}
 		localConfig[key] = value;
 	}
@@ -496,6 +491,7 @@
 		<nav class="space-y-1 py-2">
 			{#each settingSections as section (section.title)}
 				<button
+					aria-current={activeSection === section.title ? 'page' : undefined}
 					class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent {activeSection ===
 					section.title
 						? 'bg-accent text-accent-foreground'
@@ -514,9 +510,9 @@
 	<div class="flex flex-col pt-6 md:hidden">
 		<div class="border-b border-border/30 pt-4 md:py-4">
 			<!-- Horizontal Scrollable Category Menu with Navigation -->
-			<div class="relative flex items-center" style="scroll-padding: 1rem;">
+			<div class="relative flex scroll-p-4 items-center">
 				<button
-					class="absolute left-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm transition-opacity hover:bg-accent {scroll.canScrollLeft
+					class="absolute left-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm hover:bg-accent motion-safe:transition-opacity {scroll.canScrollLeft
 						? 'opacity-100'
 						: 'pointer-events-none opacity-0'}"
 					onclick={scroll.scrollLeft}
@@ -533,6 +529,7 @@
 					<div class="flex min-w-max gap-2">
 						{#each settingSections as section (section.title)}
 							<button
+								aria-current={activeSection === section.title ? 'page' : undefined}
 								class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors first:ml-4 last:mr-4 hover:bg-accent {activeSection ===
 								section.title
 									? 'bg-accent text-accent-foreground'
@@ -550,7 +547,7 @@
 				</div>
 
 				<button
-					class="absolute right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm transition-opacity hover:bg-accent {scroll.canScrollRight
+					class="absolute right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm hover:bg-accent motion-safe:transition-opacity {scroll.canScrollRight
 						? 'opacity-100'
 						: 'pointer-events-none opacity-0'}"
 					onclick={scroll.scrollRight}
@@ -564,20 +561,22 @@
 
 	<ScrollArea class="flex-1">
 		{#key activeSection}
-			<div class="flex h-full flex-col p-4 md:p-6" in:slide={{ duration: 150 }}>
+			<div class="flex h-full flex-col p-4 md:p-6" in:fade={{ duration: 100 }}>
 				<div
 					class="sticky top-0 z-10 -mx-4 -mt-4 mb-6 hidden items-center gap-2 border-b border-border/30 bg-background px-4 pt-4 pb-6 md:-mx-6 md:-mt-6 md:flex md:px-6 md:pt-6"
 				>
 					<currentSection.icon class="h-5 w-5" />
 
-					<h3 class="text-lg font-semibold">{currentSection.title}</h3>
+					<h3 id="settings-heading" class="text-lg font-semibold" tabindex="-1">
+						{currentSection.title}
+					</h3>
 				</div>
 
 				<div class="min-h-0 flex-1">
 					{#if currentSection.title === SETTINGS_SECTION_TITLES.IMPORT_EXPORT}
 						<ChatSettingsImportExportTab />
 					{:else if currentSection.title === SETTINGS_SECTION_TITLES.CONNECTION}
-						<ChatSettingsConnectionTab />
+						<ChatSettingsConnectionTab subagentEnabled={!!localConfig[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]} />
 					{:else if currentSection.title === SETTINGS_SECTION_TITLES.MCP}
 						<div class="space-y-6">
 							<ChatSettingsFields
@@ -619,16 +618,16 @@
 								</div>
 							{/if}
 
-							<div class="border-t border-border/30 pt-6">
+							<SettingsSectionDivider>
 								<McpServersSettings />
-							</div>
+							</SettingsSectionDivider>
 
-							<div class="border-t border-border/30 pt-6">
+							<SettingsSectionDivider>
 								<BuiltinToolsSection {localConfig} onConfigChange={handleConfigChange} />
-							</div>
+							</SettingsSectionDivider>
 
 							<!-- Skills Section -->
-							<div class="border-t border-border/30 pt-6">
+							<SettingsSectionDivider>
 								<h4 class="mb-2 text-sm font-semibold">Skills</h4>
 								<p class="mb-3 text-xs text-muted-foreground">
 									Enabled skills are available for model discovery via <code
@@ -645,7 +644,7 @@
 										{skillsStore.enabledSkills.length} enabled
 									</span>
 								</div>
-							</div>
+							</SettingsSectionDivider>
 						</div>
 					{:else}
 						<div class="space-y-6">

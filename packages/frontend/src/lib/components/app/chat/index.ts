@@ -761,6 +761,12 @@ export { default as ChatSettingsParameterSourceIndicator } from './ChatSettings/
 export { default as BuiltinToolsSection } from './ChatSettings/BuiltinToolsSection.svelte';
 
 /**
+ * Simple horizontal divider used between settings subsections.
+ * Applies a top border and top padding for consistent visual separation.
+ */
+export { default as SettingsSectionDivider } from './ChatSettings/SettingsSectionDivider.svelte';
+
+/**
  *
  * SIDEBAR
  *

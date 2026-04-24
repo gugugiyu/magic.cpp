@@ -114,7 +114,7 @@ function rowToConversation(row: Conversation): DatabaseConversation {
 		mcpServerOverrides: row.mcpServerOverrides
 			? JSON.parse(row.mcpServerOverrides)
 			: undefined,
-		forkedFromConversationId: row.forkedFromConversationId ?? undefined,
-		pinned: row.pinned ?? undefined
+		forkedFromConversationId: row.forkedFromConversationId ?? null,
+		pinned: row.pinned ?? null
 	};
 }

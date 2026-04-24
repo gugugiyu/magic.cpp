@@ -14,7 +14,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { FORK_TREE_DEPTH_PADDING } from '$lib/constants';
 	import { getAllLoadingChats } from '$lib/stores/chat.svelte';
-	import { conversationsStore } from '$lib/stores/conversations.svelte';
+	import { conversationsStore, conversations } from '$lib/stores/conversations.svelte';
 
 	interface Props {
 		isActive?: boolean;
@@ -42,6 +42,12 @@
 	let dropdownOpen = $state(false);
 
 	let isLoading = $derived(getAllLoadingChats().includes(conversation.id));
+
+	let hasParentInList = $derived(
+		conversation.forkedFromConversationId
+			? conversations().some((c) => c.id === conversation.forkedFromConversationId)
+			: false
+	);
 
 	function handleEdit(event: Event) {
 		event.stopPropagation();
@@ -105,7 +111,7 @@
 		class="flex min-w-0 flex-1 items-center gap-2"
 		style:padding-left="{depth * FORK_TREE_DEPTH_PADDING}px"
 	>
-		{#if depth > 0}
+		{#if depth > 0 && hasParentInList}
 			<Tooltip.Root>
 				<Tooltip.Trigger>
 					<a

@@ -185,7 +185,7 @@ export function handleDeleteConversation(
           deleteConversation(tx, descId);
         }
       } else {
-        const newParent = existing.forkedFromConversationId;
+        const newParent = existing.forkedFromConversationId ?? null;
         const directChildren = getChildrenConversations(tx, id);
         for (const child of directChildren) {
           updateConversation(tx, child.id, {
@@ -508,7 +508,7 @@ export async function handleImportConversations(
           console.warn(
             `Conversation "${conv.name}" references external parent "${conv.forkedFromConversationId}", setting to null`,
           );
-          conversationToInsert.forkedFromConversationId = undefined;
+          conversationToInsert.forkedFromConversationId = null;
         }
 
         createConversation(tx, conversationToInsert);

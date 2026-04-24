@@ -100,8 +100,8 @@ export interface DatabaseConversation {
 	lastModified: number;
 	name: string;
 	mcpServerOverrides?: McpServerOverride[];
-	forkedFromConversationId?: string;
-	pinned?: boolean;
+	forkedFromConversationId?: string | null;
+	pinned?: boolean | null;
 }
 
 // ========================

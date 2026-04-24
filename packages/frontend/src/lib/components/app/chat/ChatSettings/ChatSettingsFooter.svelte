@@ -52,15 +52,15 @@
 
 		{#if showIndicator}
 			<span
-				class="flex items-center gap-1.5 text-xs text-amber-500 transition-all duration-300 {isDirty
+				class="flex items-center gap-1.5 text-xs text-destructive transition-all duration-300 {isDirty
 					? 'translate-x-0 opacity-100'
 					: 'translate-x-2 opacity-0'}"
 			>
 				<span class="relative flex h-2 w-2">
 					<span
-						class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"
+						class="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive/75 opacity-75"
 					></span>
-					<span class="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
+					<span class="relative inline-flex h-2 w-2 rounded-full bg-destructive"></span>
 				</span>
 				You have unsaved changes
 			</span>

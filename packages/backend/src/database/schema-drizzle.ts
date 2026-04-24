@@ -35,7 +35,19 @@ export const messages = sqliteTable('messages', {
 	index('idx_msg_timestamp').on(table.timestamp)
 ]);
 
+export const presets = sqliteTable('presets', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	systemPrompt: text('system_prompt').notNull(),
+	enabledTools: text('enabled_tools').notNull(),
+	commonPrompts: text('common_prompts').notNull(),
+	createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
+	updatedAt: integer('updated_at').notNull().default(sql`(unixepoch() * 1000)`)
+});
+
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type NewConversation = typeof conversations.$inferInsert;
 export type NewMessage = typeof messages.$inferInsert;
+export type Preset = typeof presets.$inferSelect;
+export type NewPreset = typeof presets.$inferInsert;

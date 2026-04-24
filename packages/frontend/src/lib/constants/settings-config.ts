@@ -6,7 +6,6 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	// Do not use nested objects, keep it single level. Prefix the key if you need to group them.
 	// apiKey: removed - backend handles API key centrally
 	systemMessage: '',
-	useOpinionatedSystemPrompt: false,
 	showSystemMessage: true,
 	theme: ColorMode.SYSTEM,
 	showThoughtInProgress: true,
@@ -79,6 +78,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	builtinToolSkills: false,
 	builtinToolSafeFileTools: false,
 	builtinToolMutatingFileTools: false,
+	builtinToolRunCommand: false,
 	// experimental features
 	pyInterpreterEnabled: false,
 	enableContinueGeneration: false
@@ -87,8 +87,6 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 export const SETTING_CONFIG_INFO: Record<string, string> = {
 	// apiKey: removed - backend handles API key centrally
 	systemMessage: 'The starting message that defines how model should behave.',
-	useOpinionatedSystemPrompt:
-		'When enabled, replaces the custom system message with an opinionated prompt optimized for agentic workflows. Adapts dynamically to your enabled tools. The custom message is preserved and restored when this is turned off.',
 	showSystemMessage: 'Display the system message at the top of each conversation.',
 	theme:
 		'Choose the color theme for the interface. You can choose between System (follows your device settings), Light, or Dark.',
@@ -201,6 +199,8 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 		'Inject a call_subagent tool that delegates tasks to a separate subagent model on a different endpoint.',
 	builtinToolSkills:
 		'Inject skill tools that the model can invoke to access custom capabilities defined in skill files.',
+	builtinToolRunCommand:
+		'Enable the run_command tool that lets the model execute whitelisted commands inside the sandbox. Each command also requires per-session user approval.',
 	pyInterpreterEnabled:
 		'Enable Python interpreter using Pyodide. Allows running Python code in markdown code blocks.',
 	enableContinueGeneration:

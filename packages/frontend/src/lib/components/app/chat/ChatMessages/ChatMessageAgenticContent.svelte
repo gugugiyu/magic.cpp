@@ -26,7 +26,8 @@
 		Search,
 		BookOpen,
 		FileText,
-		FolderOpen
+		FolderOpen,
+		Terminal
 	} from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import {
@@ -36,7 +37,7 @@
 		type SubagentFinalStats
 	} from '$lib/stores/agentic.svelte';
 	import { cn } from '$lib/components/ui/utils';
-	import { AgenticSectionType, FileTypeText } from '$lib/enums';
+	import { AgenticSectionType, AttachmentType, FileTypeText } from '$lib/enums';
 	import { formatJsonPretty, applyResponseFilters, copyToClipboard } from '$lib/utils';
 	import { truncateToWords } from '$lib/utils/text';
 	import {
@@ -50,7 +51,10 @@
 	import { ChatMessageStatsView } from '$lib/enums';
 	import { DatabaseService } from '$lib/services/database.service';
 	import { conversationsStore } from '$lib/stores/conversations.svelte';
+	import { runCommandSessionStore } from '$lib/stores/run-command-session.svelte';
+	import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { onDestroy } from 'svelte';
 
 	interface Props {
 		message: DatabaseMessage;
@@ -70,6 +74,16 @@
 	// Per-section editing state
 	let editingSectionIndex = $state<number | null>(null);
 	let editingSectionText = $state('');
+	/** Tracks which run_command tool call is currently being re-executed after inline approval. */
+	let reExecutingToolCallId = $state<string | null>(null);
+	/** Errors from re-execution attempts, keyed by toolCallId. */
+	let reExecutionErrors = $state<Record<string, string>>({});
+	/** AbortController for the active re-execution fetch. */
+	let reExecutionAbortController: AbortController | null = null;
+
+	onDestroy(() => {
+		reExecutionAbortController?.abort();
+	});
 
 	const subagentProgress = $derived(
 		agenticStore.subagentProgress(message.convId)
@@ -325,6 +339,30 @@
 		}
 	}
 
+	/** Safely extract run_command rationale, command, and shell mode from a section's toolArgs string. */
+	function parseRunCommandArgs(section: (typeof sectionsParsed)[number]): {
+		rationale: string;
+		command: string;
+		inShell: boolean;
+	} {
+		if (!section.toolArgs) return { rationale: '', command: '', inShell: false };
+		try {
+			const raw =
+				typeof section.toolArgs === 'string' ? JSON.parse(section.toolArgs) : section.toolArgs;
+			return {
+				rationale: String(raw?.rationale ?? ''),
+				command: String(raw?.command ?? ''),
+				inShell: Boolean(raw?.inShell ?? false)
+			};
+		} catch {
+			return { rationale: '', command: '', inShell: false };
+		}
+	}
+
+	function isSessionApprovalError(result: string | undefined): boolean {
+		return !!result && result.includes('is not approved for this session');
+	}
+
 	/**
 	 * Check if this section is the first sequential_thinking section across ALL sections (global, not per-turn).
 	 * Used to determine where to render the single header-only stepper.
@@ -435,6 +473,99 @@
 		}
 
 		cancelSectionEdit();
+	}
+
+	/**
+	 * Re-execute a run_command tool call after the user approved it via the inline button.
+	 * Updates the tool result message in the database and local store with the new output.
+	 */
+	async function reExecuteRunCommand(section: (typeof sectionsParsed)[number]) {
+		if (!section.toolCallId || !section.toolArgs) return;
+
+		let parsedArgs: Record<string, unknown> = {};
+		try {
+			parsedArgs = JSON.parse(section.toolArgs);
+		} catch {
+			return;
+		}
+
+		const command = String(parsedArgs.command ?? '');
+		if (!command) return;
+
+		// Clear any previous error for this tool call
+		if (reExecutionErrors[section.toolCallId]) {
+			reExecutionErrors = { ...reExecutionErrors, [section.toolCallId]: '' };
+		}
+
+		runCommandSessionStore.approve(command);
+		reExecutingToolCallId = section.toolCallId;
+		reExecutionAbortController?.abort();
+		reExecutionAbortController = new AbortController();
+
+		try {
+			const toolMsg = toolMessages.find((m) => m.toolCallId === section.toolCallId);
+			if (!toolMsg) return;
+
+			const endpoint = serverEndpointStore.getBaseUrl();
+			const resp = await fetch(`${endpoint}/api/tools/execute`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: 'run_command',
+					args: {
+						...parsedArgs,
+						sessionApprovedCommands: runCommandSessionStore.getApprovedCommands()
+					}
+				}),
+				signal: reExecutionAbortController.signal
+			});
+			if (!resp.ok) {
+				const text = await resp.text().catch(() => 'Unknown error');
+				throw new Error(`HTTP ${resp.status} — ${text}`);
+			}
+			const data = (await resp.json()) as {
+				result?: string;
+				error?: string;
+				truncated?: boolean;
+				originalLength?: number;
+			};
+			const result = data.error ? `Error: ${data.error}` : String(data.result ?? '');
+
+			const extras = toolMsg.extra ? [...toolMsg.extra] : [];
+			if (data.truncated && typeof data.originalLength === 'number') {
+				extras.push({
+					type: AttachmentType.TRUNCATED,
+					name: 'truncated',
+					originalLength: data.originalLength
+				});
+			}
+
+			await DatabaseService.updateMessage(toolMsg.id, {
+				content: result,
+				extra: extras.length > 0 ? extras : undefined
+			});
+			const idx = conversationsStore.findMessageIndex(toolMsg.id);
+			if (idx !== -1) {
+				conversationsStore.updateMessageAtIndex(idx, {
+					content: result,
+					extra: extras.length > 0 ? extras : undefined
+				});
+			}
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			if (err instanceof DOMException && err.name === 'AbortError') {
+				// User navigated away or cancelled — no need to surface error
+				return;
+			}
+			reExecutionErrors = {
+				...reExecutionErrors,
+				[section.toolCallId]: `Re-execution failed: ${message}`
+			};
+			console.error('Failed to re-execute run_command:', err);
+		} finally {
+			reExecutingToolCallId = null;
+			reExecutionAbortController = null;
+		}
 	}
 </script>
 
@@ -638,6 +769,16 @@
 			(section.toolResult?.startsWith('{') && section.toolResult.includes('"error"'))}
 		{@const isListSkill = section.toolName === 'list_skill'}
 		{@const isReadSkill = section.toolName === 'read_skill'}
+		{@const isRunCommand = section.toolName === 'run_command'}
+		{@const runCommandArgs = isRunCommand
+			? parseRunCommandArgs(section)
+			: { rationale: '', command: '', inShell: false }}
+		{@const isAwaitingApproval =
+			isPending && isRunCommand && runCommandSessionStore.isPending(section.toolCallId || '')}
+		{@const isSessionError =
+			isRunCommand &&
+			isSessionApprovalError(section.toolResult) &&
+			!runCommandSessionStore.isApproved(runCommandArgs.command)}
 		{@const skillIcon = isListSkill ? Search : isReadSkill ? BookOpen : null}
 		{@const FILE_TOOL_LABELS: Record<string, { pending: string; done: string; error: string }> = {
 			read_file: { pending: 'Model is reading file…', done: 'Model read file', error: 'Error reading file' },
@@ -658,15 +799,17 @@
 				onclick={() => toggleExpanded(index, section)}
 				aria-expanded={isExpanded(index, section)}
 			>
-				{#if isPending && !skillIcon && !isFileTool}
+				{#if isPending && !skillIcon && !isFileTool && !isRunCommand}
 					<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
-				{:else if hasError && !skillIcon && !isFileTool}
+				{:else if hasError && !skillIcon && !isFileTool && !isRunCommand}
 					<AlertCircle class="tool-error-icon h-3.5 w-3.5 shrink-0" />
 				{:else if skillIcon}
 					{@const Icon = skillIcon}
 					<Icon class="skill-icon h-3.5 w-3.5 shrink-0" />
 				{:else if isFileTool}
 					<FolderOpen class="file-tool-icon h-3.5 w-3.5 shrink-0" />
+				{:else if isRunCommand}
+					<Terminal class="h-3.5 w-3.5 shrink-0 text-cyan-500" />
 				{:else}
 					<CheckCircle class="tool-success-icon h-3.5 w-3.5 shrink-0" />
 				{/if}
@@ -690,6 +833,12 @@
 							: hasError
 								? fileToolLabel.error
 								: fileToolLabel.done}
+					{:else if isRunCommand}
+						{isPending
+							? `${runCommandArgs.rationale || '…'}`
+							: hasError
+								? 'Error running command'
+								: `[DONE] ${runCommandArgs.rationale || '…'}`}
 					{:else}
 						{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}
 						<span class="agentic-name">{section.toolName || 'tool'}</span>{isPending ? '…' : ''}
@@ -760,7 +909,7 @@
 
 					<div class="mt-3 mb-2 flex items-center gap-2 text-xs text-muted-foreground/60">
 						<span>Result</span>
-						{#if isPending}<Loader2 class="h-3 w-3 animate-spin" />{/if}
+						{#if isPending && !isAwaitingApproval}<Loader2 class="h-3 w-3 animate-spin" />{/if}
 						{#if section.wasCropped}
 							<span
 								class="inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-500"
@@ -777,6 +926,77 @@
 							</span>
 						{/if}
 					</div>
+					{#if isAwaitingApproval}
+						<div class="mt-2 rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
+							<p class="mb-2 text-xs text-cyan-700 dark:text-cyan-300">
+								This command requires session approval before it can run.
+							</p>
+							{#if runCommandArgs.inShell}
+								<div
+									class="mb-2 inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[10px] font-semibold text-destructive"
+								>
+									<AlertCircle class="h-3 w-3" />
+									Shell mode requested — arbitrary code execution is possible.
+								</div>
+							{/if}
+							<div class="flex gap-2">
+								<button
+									type="button"
+									class="inline-flex items-center gap-1.5 rounded-md border border-cyan-500 px-2.5 py-1.5 text-xs font-medium text-cyan-700 transition-colors hover:bg-cyan-500/10 dark:text-cyan-300"
+									onclick={() => {
+										runCommandSessionStore.approve(runCommandArgs.command);
+										runCommandSessionStore.resolveApproval(section.toolCallId || '', true);
+									}}
+								>
+									<Terminal class="h-3 w-3" />
+									Approve and run "{runCommandArgs.command.trim().split(/\s+/)[0]}"
+								</button>
+								<button
+									type="button"
+									class="inline-flex items-center gap-1.5 rounded-md border border-destructive px-2.5 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+									onclick={() =>
+										runCommandSessionStore.resolveApproval(section.toolCallId || '', false)}
+								>
+									<X class="h-3 w-3" />
+									Deny
+								</button>
+							</div>
+						</div>
+					{:else if isSessionError}
+						<div class="mt-2 rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
+							<p class="mb-2 text-xs text-cyan-700 dark:text-cyan-300">
+								This command requires session approval before it can run.
+							</p>
+							{#if runCommandArgs.inShell}
+								<div
+									class="mb-2 inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[10px] font-semibold text-destructive"
+								>
+									<AlertCircle class="h-3 w-3" />
+									Shell mode requested — arbitrary code execution is possible.
+								</div>
+							{/if}
+							<button
+								type="button"
+								class="inline-flex items-center gap-1.5 rounded-md border border-cyan-500 px-2.5 py-1.5 text-xs font-medium text-cyan-700 transition-colors hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-cyan-300"
+								onclick={() => reExecuteRunCommand(section)}
+								disabled={reExecutingToolCallId === section.toolCallId}
+							>
+								{#if reExecutingToolCallId === section.toolCallId}
+									<Loader2 class="h-3 w-3 animate-spin" />
+									Running…
+								{:else}
+									<Terminal class="h-3 w-3" />
+									Approve and run "{runCommandArgs.command.trim().split(/\s+/)[0]}"
+								{/if}
+							</button>
+							{#if reExecutionErrors[section.toolCallId || '']}
+								<p class="mt-2 text-xs text-destructive">
+									{reExecutionErrors[section.toolCallId || '']}
+								</p>
+							{/if}
+						</div>
+					{/if}
+
 					{#if section.toolResult}
 						<div class="overflow-auto rounded-md border border-border bg-muted/50 p-3">
 							{#each section.parsedLines as line, i (i)}
@@ -798,8 +1018,6 @@
 								{/if}
 							{/each}
 						</div>
-					{:else if isPending}
-						<p class="text-xs text-muted-foreground/60 italic">Waiting for result…</p>
 					{/if}
 				</div>
 			{/if}

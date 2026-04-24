@@ -41,6 +41,7 @@
 
 	let serverSettingsMap = $derived.by(() => {
 		const servers = mcpStore.getServers();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const map = new Map<string, MCPServerSettingsEntry>();
 
 		for (const server of servers) {

@@ -26,6 +26,7 @@
 	let isHomeRoute = $derived(page.route.id === '/');
 	let isSettingsRoute = $derived(page.route.id?.startsWith('/settings/[section]') ?? false);
 	let isSkillsRoute = $derived(page.route.id === '/skills');
+	let isPresetsRoute = $derived(page.route.id === '/presets');
 	let isNewChatMode = $derived(page.url.searchParams.get('new_chat') === 'true');
 	let showSidebarByDefault = $derived(activeMessages().length > 0 || isLoading());
 	let alwaysShowSidebarOnDesktop = $derived(config().alwaysShowSidebarOnDesktop);
@@ -92,8 +93,8 @@
 			return;
 		}
 
-		if (isSettingsRoute || isSkillsRoute) {
-			// Always keep sidebar visible on settings and skills routes
+		if (isSettingsRoute || isSkillsRoute || isPresetsRoute) {
+			// Always keep sidebar visible on settings, skills, and presets routes
 			sidebarOpen = true;
 			return;
 		}

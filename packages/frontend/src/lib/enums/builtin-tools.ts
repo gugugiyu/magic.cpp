@@ -29,7 +29,8 @@ export const BUILTIN_TOOL_NAMES = {
 	LIST_DIRECTORY: 'list_directory',
 	SEARCH_FILES: 'search_files',
 	DELETE_FILE: 'delete_file',
-	MOVE_FILE: 'move_file'
+	MOVE_FILE: 'move_file',
+	RUN_COMMAND: 'run_command'
 } as const;
 
 export type BuiltinToolName = (typeof BUILTIN_TOOL_NAMES)[keyof typeof BUILTIN_TOOL_NAMES];
@@ -80,6 +81,12 @@ export const builtinToolFields = [
 		label: 'Mutating file tools',
 		description:
 			'Enable write-capable filesystem tools (write_file, patch_file, delete_file, move_file) that let the model modify files in the sandbox. Use with caution.'
+	},
+	{
+		key: SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND,
+		label: 'Run command',
+		description:
+			'Enable the run_command tool that lets the model execute whitelisted commands inside the sandbox. Each command also requires per-session user approval.'
 	}
 ] as const;
 
@@ -89,7 +96,8 @@ const SETTING_KEY_TO_TOOL: Record<string, OpenAIToolDefinition> = {
 	[SETTINGS_KEYS.BUILTIN_TOOL_TIME]: BUILTIN_TOOLS[1],
 	[SETTINGS_KEYS.BUILTIN_TOOL_LOCATION]: BUILTIN_TOOLS[2],
 	[SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING]: BUILTIN_TOOLS[3],
-	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: BUILTIN_TOOLS[4]
+	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: BUILTIN_TOOLS[4],
+	[SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND]: BUILTIN_TOOLS[14]
 };
 
 /** Maps a group setting key → the list of tool definitions it enables. */
@@ -123,7 +131,8 @@ export const BUILTIN_TOOL_EXECUTION_TARGET: Record<string, 'frontend' | 'backend
 	list_directory: 'backend',
 	search_files: 'backend',
 	delete_file: 'backend',
-	move_file: 'backend'
+	move_file: 'backend',
+	run_command: 'backend'
 };
 
 /** Maps settings keys to execution target (derived from the tools each key enables). */
@@ -135,7 +144,8 @@ export const BUILTIN_TOOL_SETTING_KEY_TARGET: Record<string, 'frontend' | 'backe
 	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_SKILLS]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS]: 'backend',
-	[SETTINGS_KEYS.BUILTIN_TOOL_MUTATING_FILE_TOOLS]: 'backend'
+	[SETTINGS_KEYS.BUILTIN_TOOL_MUTATING_FILE_TOOLS]: 'backend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND]: 'backend'
 };
 
 export function getActiveBuiltinTools(settings: SettingsConfigType): OpenAIToolDefinition[] {

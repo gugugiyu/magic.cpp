@@ -1,10 +1,11 @@
-<script lang="ts">
+g<script lang="ts">
 	import { Package, Filter } from '@lucide/svelte';
 	import { BadgeInfo, ActionIconCopyToClipboard } from '$lib/components/app';
 	import ModelId from './ModelId.svelte';
 	import { modelsStore, modelOptions } from '$lib/stores/models.svelte';
 	import { serverStore } from '$lib/stores/server.svelte';
 	import { config } from '$lib/stores/settings.svelte';
+	import { presetsStore } from '$lib/stores/presets.svelte';
 	import { getActiveFilters } from '$lib/utils';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 
@@ -24,16 +25,20 @@
 		showTooltip = false
 	}: Props = $props();
 
+	let activePresetName = $derived(presetsStore.activePreset?.name);
 	let model = $derived(
 		modelProp ||
+			activePresetName ||
 			modelsStore.singleModelName ||
 			(!serverStore.isRouterMode
 				? (modelsStore.selectedModel?.name ?? modelOptions()[0]?.name ?? null)
 				: null)
 	);
-	// Show badge when: a model is known AND (explicitly provided, or not in router mode)
+	// Show badge when: a model/preset is known AND (explicitly provided, or not in router mode, or active preset)
 	// In router mode without an explicit modelProp, each conversation has its own model badge
-	let shouldShow = $derived(!!model && (modelProp !== undefined || !serverStore.isRouterMode));
+	let shouldShow = $derived(
+		!!model && (modelProp !== undefined || !serverStore.isRouterMode || !!activePresetName)
+	);
 
 	const filterOptions = $derived({
 		filterEmojiRemoval: config().filterEmojiRemoval as boolean,

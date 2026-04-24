@@ -27,7 +27,7 @@
 		SpecialFileType
 	} from '$lib/enums';
 	import { config } from '$lib/stores/settings.svelte';
-	import { modelOptions, selectedModelId } from '$lib/stores/models.svelte';
+	import { selectedModelId, modelsStore } from '$lib/stores/models.svelte';
 	import { isRouterMode } from '$lib/stores/server.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
@@ -182,6 +182,12 @@
 
 	export function resetTextareaHeight() {
 		textareaRef?.resetHeight();
+	}
+
+	export function setValue(text: string) {
+		value = text;
+		onValueChange?.(text);
+		requestAnimationFrame(() => textareaRef?.focus());
 	}
 
 	export function openModelSelector() {

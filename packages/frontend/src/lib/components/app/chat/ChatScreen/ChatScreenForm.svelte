@@ -39,6 +39,10 @@
 	let previousIsLoading = $derived(isLoading);
 	let previousInitialMessage = $derived(initialMessage);
 
+	export function insertText(text: string) {
+		chatFormRef?.setValue(text);
+	}
+
 	// Sync message when initialMessage prop changes (e.g., after draft restoration)
 	$effect(() => {
 		if (initialMessage !== previousInitialMessage) {

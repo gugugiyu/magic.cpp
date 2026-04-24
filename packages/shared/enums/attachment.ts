@@ -10,5 +10,6 @@ export enum AttachmentType {
 	MCP_SUMMARY = 'MCP_SUMMARY',
 	PDF = 'PDF',
 	TEXT = 'TEXT',
+	TRUNCATED = 'TRUNCATED',
 	LEGACY_CONTEXT = 'context' // Legacy attachment type for backward compatibility
 }

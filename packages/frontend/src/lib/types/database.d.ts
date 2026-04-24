@@ -10,6 +10,7 @@ export type {
 	DatabaseMessageExtraPdfFile,
 	DatabaseMessageExtraTextFile,
 	DatabaseMessageExtraMcpSummary,
+	DatabaseMessageExtraTruncated,
 	DatabaseMessageExtraCompactionSummary,
 	DatabaseMessageExtra,
 	DatabaseMessage,

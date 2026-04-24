@@ -6,6 +6,7 @@
 	import type { MCPPromptInfo, GetPromptResult, MCPServerSettingsEntry } from '$lib/types';
 
 	import { toast } from 'svelte-sonner';
+	import { SvelteMap } from 'svelte/reactivity';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import {
 		ChatFormPickerPopover,
@@ -56,7 +57,7 @@
 
 	let serverSettingsMap = $derived.by(() => {
 		const servers = mcpStore.getServers();
-		const map = new Map<string, MCPServerSettingsEntry>();
+		const map = new SvelteMap<string, MCPServerSettingsEntry>();
 
 		for (const server of servers) {
 			map.set(server.id, server);

@@ -11,7 +11,8 @@ import { getDatabase } from "./database/index.ts";
 import * as conversationHandlers from "./handlers/conversations.ts";
 import * as messageHandlers from "./handlers/messages.ts";
 import * as skillHandlers from "./handlers/skills.ts";
-import { handleExecuteTool } from "./handlers/tools.ts";
+import * as presetHandlers from "./handlers/presets.ts";
+import { handleExecuteTool, handleGetAllowedCommands } from "./handlers/tools.ts";
 
 type RouteHandler = (
   req: Request,
@@ -200,6 +201,11 @@ function initializeRoutes(pool: ModelPool, config: Config) {
     "POST",
     (req) => handleExecuteTool(req, config),
   );
+  addRoute(
+    "/api/tools/allowed-commands",
+    "GET",
+    (req) => handleGetAllowedCommands(req, config),
+  );
 
   // Skill API routes
   addRoute(
@@ -236,6 +242,42 @@ function initializeRoutes(pool: ModelPool, config: Config) {
     (req) => {
       const skillName = extractId(new URL(req.url).pathname, /^\/api\/skills\/([^/]+)$/);
       return skillHandlers.handleDeleteSkill(getDatabase(), skillName!);
+    },
+  );
+
+  // Preset API routes
+  addRoute(
+    "/api/presets",
+    "GET",
+    () => presetHandlers.handleListPresets(getDatabase()),
+  );
+  addRoute(
+    "/api/presets",
+    "POST",
+    (req) => presetHandlers.handleCreatePreset(req, getDatabase()),
+  );
+  addRoute(
+    /^\/api\/presets\/([^/]+)$/,
+    "GET",
+    (req) => {
+      const presetId = extractId(new URL(req.url).pathname, /^\/api\/presets\/([^/]+)$/);
+      return presetHandlers.handleGetPreset(getDatabase(), presetId!);
+    },
+  );
+  addRoute(
+    /^\/api\/presets\/([^/]+)$/,
+    "PUT",
+    (req) => {
+      const presetId = extractId(new URL(req.url).pathname, /^\/api\/presets\/([^/]+)$/);
+      return presetHandlers.handleUpdatePreset(req, getDatabase(), presetId!);
+    },
+  );
+  addRoute(
+    /^\/api\/presets\/([^/]+)$/,
+    "DELETE",
+    (req) => {
+      const presetId = extractId(new URL(req.url).pathname, /^\/api\/presets\/([^/]+)$/);
+      return presetHandlers.handleDeletePreset(getDatabase(), presetId!);
     },
   );
 }

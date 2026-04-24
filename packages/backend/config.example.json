@@ -17,6 +17,10 @@
 	"filesystem": {
 		"rootPath": "data/sandbox"
 	},
+	"commands": {
+		"allowedList": ["ls", "cat", "grep", "find", "git", "bun"],
+		"shellEnabled": false
+	},
 	"upstreams": [
 		{
 			"id": "local-main",

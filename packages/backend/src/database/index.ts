@@ -20,6 +20,29 @@ let rawDb: Database | null = null;
 let db: DrizzleDB | null = null;
 
 /**
+ * Seed a default preset if the presets table is empty.
+ * Called at database initialization time.
+ */
+async function seedDefaultPreset(db: DrizzleDB): Promise<void> {
+	const existing = db.select().from(schema.presets).limit(1).get();
+	if (existing) return;
+
+	db.insert(schema.presets)
+		.values({
+			id: 'default',
+			name: 'Default',
+			systemPrompt: '',
+			enabledTools: '[]',
+			commonPrompts: '[]',
+			createdAt: Date.now(),
+			updatedAt: Date.now()
+		})
+		.run();
+
+	console.log('[database] seeded default preset');
+}
+
+/**
  * Initialize the SQLite database. Runs pending migrations automatically.
  * Must be called once at server startup.
  */
@@ -55,6 +78,11 @@ export function initializeDatabase(config: Config): DrizzleDB {
 	// Seed built-in skills (harmless re-seed if already exist)
 	seedBuiltInSkills().catch((err) => {
 		console.warn('[database] built-in skills seed failed:', err);
+	});
+
+	// Seed a default preset if the table is empty
+	seedDefaultPreset(db).catch((err) => {
+		console.warn('[database] default preset seed failed:', err);
 	});
 
 	console.log('[database] SQLite database initialized successfully');

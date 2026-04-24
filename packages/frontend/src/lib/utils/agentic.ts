@@ -25,6 +25,8 @@ export interface AgenticSection {
 	wasCropped?: boolean;
 	/** The message ID this section's content originated from. Used for per-section editing. */
 	sourceMessageId?: string;
+	/** The tool call ID for matching with tool result messages. */
+	toolCallId?: string;
 }
 
 /**
@@ -95,7 +97,8 @@ function deriveSingleTurnSections(
 			toolResultExtras: resultMsg?.extra,
 			wasSummarized,
 			wasCropped,
-			sourceMessageId: message.id
+			sourceMessageId: message.id,
+			toolCallId: tc.id
 		});
 	}
 
@@ -108,7 +111,8 @@ function deriveSingleTurnSections(
 			content: '',
 			toolName: tc.function?.name?.trim() || undefined,
 			toolArgs: tc.function?.arguments,
-			sourceMessageId: message.id
+			sourceMessageId: message.id,
+			toolCallId: tc.id
 		});
 	}
 

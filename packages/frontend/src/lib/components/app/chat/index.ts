@@ -542,6 +542,13 @@ export { default as ChatMessageUser } from './ChatMessages/ChatMessageUser.svelt
 export { default as ChatMessageAssistant } from './ChatMessages/ChatMessageAssistant.svelte';
 
 /**
+ * Fun, playful inline loader that cycles witty unicode messages based on the
+ * current activity (generation, tool call, skill, compaction, etc.).
+ * Replaces the static "Processing..." text with contextual, animated feedback.
+ */
+export { default as ChatLoader } from './ChatLoader.svelte';
+
+/**
  * Inline message editing form. Provides textarea for editing message content with
  * attachment management. Shows save/cancel buttons and optional "Save only" button
  * for editing without regenerating responses. Used within ChatMessage components

@@ -5,7 +5,7 @@
 	import Label from '$lib/components/ui/label/label.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { buildOpinionatedSystemPrompt, SETTING_CONFIG_INFO, SETTINGS_KEYS } from '$lib/constants';
+	import { SETTING_CONFIG_INFO, SETTINGS_KEYS } from '$lib/constants';
 	import { SettingsFieldType } from '$lib/enums/settings';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { serverStore, serverLoading } from '$lib/stores/server.svelte';
@@ -13,7 +13,6 @@
 	import { normalizeFloatingPoint } from '$lib/utils/precision';
 	import { ChatSettingsParameterSourceIndicator } from '$lib/components/app';
 	import type { Component } from 'svelte';
-	import { getBuiltinToolNames } from '$lib/enums/builtin-tools';
 
 	interface Props {
 		fields: SettingsFieldConfig[];
@@ -119,31 +118,12 @@
 				{/if}
 			</Label>
 
-			{#if field.key === SETTINGS_KEYS.SYSTEM_MESSAGE}
-				<div class="mb-2 flex items-center gap-2">
-					<Checkbox
-						id="useOpinionatedSystemPrompt"
-						checked={Boolean(localConfig.useOpinionatedSystemPrompt)}
-						onCheckedChange={(checked) =>
-							onConfigChange(SETTINGS_KEYS.USE_OPINIONATED_SYSTEM_PROMPT, Boolean(checked))}
-					/>
-					<Label for="useOpinionatedSystemPrompt" class="cursor-pointer text-sm font-normal">
-						Use opinionated system prompt (~{buildOpinionatedSystemPrompt({
-							hasMcpServers: false,
-							enabledBuiltinToolNames: [...getBuiltinToolNames()]
-						}).length} chars)
-					</Label>
-				</div>
-			{/if}
-
 			<Textarea
 				id={field.key}
 				value={String(localConfig[field.key] ?? '')}
 				onchange={(e) => onConfigChange(field.key, e.currentTarget.value)}
 				placeholder=""
-				disabled={field.key === SETTINGS_KEYS.SYSTEM_MESSAGE &&
-					Boolean(localConfig.useOpinionatedSystemPrompt)}
-				class="min-h-[10rem] w-full disabled:cursor-not-allowed disabled:opacity-50 md:max-w-2xl"
+				class="min-h-[10rem] w-full md:max-w-2xl"
 			/>
 
 			{#if field.help || SETTING_CONFIG_INFO[field.key]}

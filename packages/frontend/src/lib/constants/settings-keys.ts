@@ -9,7 +9,6 @@ export const SETTINGS_KEYS = {
 	THEME: 'theme',
 	// apiKey: removed - backend handles API key centrally
 	SYSTEM_MESSAGE: 'systemMessage',
-	USE_OPINIONATED_SYSTEM_PROMPT: 'useOpinionatedSystemPrompt',
 	PASTE_LONG_TEXT_TO_FILE_LEN: 'pasteLongTextToFileLen',
 	COPY_TEXT_ATTACHMENTS_AS_PLAIN_TEXT: 'copyTextAttachmentsAsPlainText',
 	ENABLE_CONTINUE_GENERATION: 'enableContinueGeneration',
@@ -65,6 +64,7 @@ export const SETTINGS_KEYS = {
 	BUILTIN_TOOL_SKILLS: 'builtinToolSkills',
 	BUILTIN_TOOL_SAFE_FILE_TOOLS: 'builtinToolSafeFileTools',
 	BUILTIN_TOOL_MUTATING_FILE_TOOLS: 'builtinToolMutatingFileTools',
+	BUILTIN_TOOL_RUN_COMMAND: 'builtinToolRunCommand',
 	ALWAYS_SHOW_AGENTIC_TURNS: 'alwaysShowAgenticTurns',
 	AGENTIC_MAX_TOOL_PREVIEW_LINES: 'agenticMaxToolPreviewLines',
 	SHOW_TOOL_CALL_IN_PROGRESS: 'showToolCallInProgress',

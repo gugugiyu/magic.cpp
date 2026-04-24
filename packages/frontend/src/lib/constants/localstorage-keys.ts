@@ -7,3 +7,4 @@ export const SELECTED_MODEL_LOCALSTORAGE_KEY = 'LlamaCppWebui.selectedModel';
 export const SUBAGENT_CONFIG_LOCALSTORAGE_KEY = 'LlamaCppWebui.subagentConfig';
 export const MODEL_CAPABILITIES_LOCALSTORAGE_KEY = 'LlamaCppWebui.modelCapabilities';
 export const SKILLS_LOCALSTORAGE_KEY = 'LlamaCppWebui.skillStates';
+export const SESSION_COMMANDS_LOCALSTORAGE_KEY = 'LlamaCppWebui.sessionCommands';

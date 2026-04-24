@@ -40,6 +40,7 @@ import {
 	sanitizeToolName
 } from '$lib/utils';
 import { sequentialThinkingStore, type ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
+import { runCommandSessionStore } from '$lib/stores/run-command-session.svelte';
 import {
 	DEFAULT_AGENTIC_CONFIG,
 	NEWLINE_SEPARATOR,
@@ -441,6 +442,7 @@ class AgenticStore {
 			return { handled: true, error: normalizedError };
 		} finally {
 			this.updateSession(conversationId, { isRunning: false });
+			runCommandSessionStore.clearPending();
 			if (mcpTools.length > 0) {
 				await mcpStore
 					.releaseConnection()
@@ -752,6 +754,7 @@ class AgenticStore {
 				result: string;
 				success: boolean;
 				durationMs: number;
+				extras?: DatabaseMessageExtra[];
 			};
 
 			if (signal?.aborted) {
@@ -772,10 +775,11 @@ class AgenticStore {
 							}
 						};
 						let result: string;
+						let extras: DatabaseMessageExtra[] | undefined;
 						let success = true;
 						try {
 							if (builtinToolNames.has(mcpCall.function.name)) {
-								result = await this.executeBuiltinTool(
+								const builtinResult = await this.executeBuiltinTool(
 									mcpCall.function.name,
 									typeof mcpCall.function.arguments === 'string'
 										? mcpCall.function.arguments
@@ -786,6 +790,8 @@ class AgenticStore {
 									signal,
 									mcpCall.id
 								);
+								result = builtinResult.content;
+								extras = builtinResult.extras;
 								if (result.startsWith('Error:')) success = false;
 							} else {
 								const executionResult = await withMcpToolTimeout(
@@ -803,7 +809,8 @@ class AgenticStore {
 							toolCall,
 							result,
 							success,
-							durationMs: Math.round(performance.now() - toolStartTime)
+							durationMs: Math.round(performance.now() - toolStartTime),
+							extras
 						};
 					})
 				);
@@ -821,7 +828,7 @@ class AgenticStore {
 			}
 
 			// Phase 2: Process results sequentially (DB writes and session ordering must be serial)
-			for (const { toolCall, result, success: toolSuccess, durationMs } of toolOutcomes) {
+			for (const { toolCall, result, success: toolSuccess, durationMs, extras } of toolOutcomes) {
 				const toolTiming: ChatMessageToolCallTiming = {
 					name: toolCall.function.name,
 					duration_ms: durationMs,
@@ -880,7 +887,7 @@ class AgenticStore {
 					});
 				}
 
-				const allExtras = [...summaryExtras, ...attachments];
+				const allExtras = [...summaryExtras, ...attachments, ...(extras ?? [])];
 
 				// Create the tool result message in the DB
 				let toolResultMessage: DatabaseMessage | undefined;
@@ -951,7 +958,7 @@ class AgenticStore {
 		allTools?: OpenAIToolDefinition[],
 		signal?: AbortSignal,
 		toolCallId?: string
-	): Promise<string> {
+	): Promise<{ content: string; extras?: DatabaseMessageExtra[] }> {
 		let parsed: Record<string, unknown> = {};
 		try {
 			parsed = JSON.parse(args || '{}');
@@ -960,39 +967,82 @@ class AgenticStore {
 		}
 
 		if (BUILTIN_TOOL_EXECUTION_TARGET[name] === 'backend') {
+			if (name === 'run_command') {
+				const command = String(parsed.command ?? '');
+				if (!command) return { content: 'Error: command is required' };
+				if (!runCommandSessionStore.isApproved(command)) {
+					const approved = await runCommandSessionStore.requestApproval(
+						toolCallId || '',
+						command,
+						signal
+					);
+					if (!approved) {
+						const baseCommand = command.trim().split(/\s+/)[0];
+						return {
+							content: `Error: command '${baseCommand}' is not approved for this session`
+						};
+					}
+				}
+			}
+
 			const endpoint = serverEndpointStore.getBaseUrl();
 			try {
 				const resp = await fetch(`${endpoint}/api/tools/execute`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ name, args: parsed }),
+					body: JSON.stringify({
+						name,
+						args: {
+							...parsed,
+							...(name === 'run_command' && {
+								sessionApprovedCommands: runCommandSessionStore.getApprovedCommands()
+							})
+						}
+					}),
 					signal
 				});
-				const data = await resp.json();
-				if (data.error) return `Error: ${data.error}`;
-				return String(data.result ?? '');
+				if (!resp.ok) {
+					const text = await resp.text().catch(() => 'Unknown error');
+					return { content: `Error: HTTP ${resp.status} — ${text}` };
+				}
+				const data = (await resp.json()) as {
+					result?: string;
+					error?: string;
+					truncated?: boolean;
+					originalLength?: number;
+				};
+				if (data.error) return { content: `Error: ${data.error}` };
+				const extras: DatabaseMessageExtra[] = [];
+				if (data.truncated && typeof data.originalLength === 'number') {
+					extras.push({
+						type: AttachmentType.TRUNCATED,
+						name: 'truncated',
+						originalLength: data.originalLength
+					});
+				}
+				return { content: String(data.result ?? ''), extras: extras.length > 0 ? extras : undefined };
 			} catch (err) {
-				return `Error: ${err instanceof Error ? err.message : String(err)}`;
+				return { content: `Error: ${err instanceof Error ? err.message : String(err)}` };
 			}
 		}
 
 		switch (name) {
 			case 'calculator':
-				return this._executeCalculatorTool(parsed);
+				return { content: this._executeCalculatorTool(parsed) };
 			case 'get_time':
-				return this._executeGetTimeTool(parsed);
+				return { content: this._executeGetTimeTool(parsed) };
 			case 'get_location':
-				return this._executeGetLocationTool();
+				return { content: await this._executeGetLocationTool() };
 			case 'sequential_thinking':
-				return this._executeSequentialThinkingTool(parsed, conversationId, messageId, toolCallId);
+				return { content: this._executeSequentialThinkingTool(parsed, conversationId, messageId, toolCallId) };
 			case 'call_subagent':
-				return this._executeCallSubagentTool(parsed, conversationId, messageId, allTools, signal);
+				return { content: await this._executeCallSubagentTool(parsed, conversationId, messageId, allTools, signal) };
 			case 'list_skill':
-				return this._executeListSkillTool();
+				return { content: await this._executeListSkillTool() };
 			case 'read_skill':
-				return this._executeReadSkillTool(parsed, conversationId);
+				return { content: await this._executeReadSkillTool(parsed, conversationId) };
 			default:
-				return `Error: unknown built-in tool "${name}"`;
+				return { content: `Error: unknown built-in tool "${name}"` };
 		}
 	}
 
@@ -1262,7 +1312,7 @@ class AgenticStore {
 						let toolResult: string;
 						try {
 							if (builtinNameSet.has(tcName)) {
-								toolResult = await this.executeBuiltinTool(
+								const builtinResult = await this.executeBuiltinTool(
 									tcName,
 									tcArgs,
 									conversationId,
@@ -1271,6 +1321,7 @@ class AgenticStore {
 									subagentSignal,
 									tcId
 								);
+								toolResult = builtinResult.content;
 							} else {
 								const mcpResult = await mcpStore.executeTool(
 									{ id: tcId, function: { name: tcName, arguments: tcArgs } },

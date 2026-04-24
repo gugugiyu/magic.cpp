@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Search, SquarePen, X, Plug, Wrench } from '@lucide/svelte';
+	import { Search, SquarePen, X, Plug, Wrench, Bot } from '@lucide/svelte';
 	import { KeyboardShortcutInfo } from '$lib/components/app';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -103,6 +103,18 @@
 				<Plug class="h-4 w-4" />
 
 				Connections
+			</div>
+		</Button>
+
+		<Button
+			class="w-full justify-between backdrop-blur-none! hover:[&>kbd]:opacity-100"
+			onclick={() => goto('#/presets')}
+			variant="ghost"
+		>
+			<div class="flex items-center gap-2">
+				<Bot class="h-4 w-4" />
+
+				Presets
 			</div>
 		</Button>
 

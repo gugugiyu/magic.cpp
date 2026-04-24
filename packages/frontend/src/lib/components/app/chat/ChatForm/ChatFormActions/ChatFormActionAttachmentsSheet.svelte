@@ -47,7 +47,8 @@
 			label: 'Sequential thinking',
 			icon: '💭'
 		},
-		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent', icon: '🤖' }
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent', icon: '🤖' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND, label: 'Run command', icon: '⚡' }
 	] as const;
 
 	let currentConfig = $derived(config());

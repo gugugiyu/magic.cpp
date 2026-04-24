@@ -36,6 +36,13 @@ const FilesystemConfigSchema = z.object({
 
 export type FilesystemConfig = z.infer<typeof FilesystemConfigSchema>;
 
+const CommandsConfigSchema = z.object({
+	allowedList: z.array(z.string()).default([]),
+	shellEnabled: z.boolean().default(false)
+}).default(() => ({ allowedList: [], shellEnabled: false }));
+
+export type CommandsConfig = z.infer<typeof CommandsConfigSchema>;
+
 const ConfigFileSchema = z.object({
 	port: z.number().int().positive().default(3000),
 	staticDir: z.string().default('../public'),
@@ -48,6 +55,7 @@ const ConfigFileSchema = z.object({
 	database: DatabaseConfigSchema.default(() => ({ path: 'data/chat.db' })),
 	cors: CorsConfigSchema,
 	filesystem: FilesystemConfigSchema,
+	commands: CommandsConfigSchema,
 });
 
 export type UpstreamConfig = z.infer<typeof UpstreamSchema> & {
@@ -69,6 +77,7 @@ export type Config = Omit<z.infer<typeof ConfigFileSchema>, 'upstreams'> & {
 	resolvedFilesystemRootPath: string;
 	streaming: StreamingConfig;
 	cors: CorsConfig;
+	commands: CommandsConfig;
 };
 
 function resolveEnvPlaceholder(value: string | null): string | null {
@@ -115,5 +124,6 @@ export function loadConfig(configPath?: string): Config {
 		resolvedStaticDir: resolve(dirname(path), data.staticDir),
 		resolvedDatabasePath: resolve(dirname(path), data.database.path),
 		resolvedFilesystemRootPath: resolve(dirname(path), data.filesystem.rootPath),
+		commands: data.commands,
 	};
 }

@@ -170,6 +170,12 @@ export interface DatabaseMessageExtraMcpSummary {
 	originalLineCount: number;
 }
 
+export interface DatabaseMessageExtraTruncated {
+	type: AttachmentType.TRUNCATED;
+	name: string;
+	originalLength: number;
+}
+
 export interface DatabaseMessageExtraCompactionSummary {
 	type: AttachmentType.COMPACTION_SUMMARY;
 	name: string;
@@ -185,6 +191,7 @@ export type DatabaseMessageExtra =
 	| DatabaseMessageExtraMcpPrompt
 	| DatabaseMessageExtraMcpResource
 	| DatabaseMessageExtraMcpSummary
+	| DatabaseMessageExtraTruncated
 	| DatabaseMessageExtraCompactionSummary
 	| DatabaseMessageExtraLegacyContext;
 

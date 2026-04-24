@@ -71,17 +71,6 @@ if (config.debug) {
 	console.log('[debug] DEBUG MODE ON, DO NOT USE IN PRODUCTION');
 }
 
-// Initial model list fetch before accepting requests
-console.log('[startup] fetching initial model list...');
-try {
-	await pool.refresh();
-	console.log(`[startup] ${pool.getMergedModels().length} model(s) discovered`);
-} catch (err) {
-	console.warn('[startup] initial model fetch failed (upstreams may be offline):', err);
-}
-
-heartbeat.start();
-
 // Mutable router so we can recreate it when config changes
 let router = createRouter(pool, config);
 
@@ -117,6 +106,21 @@ const server = Bun.serve({
 });
 
 console.log(`[server] listening on http://localhost:${server.port}`);
+
+// Start background services
+heartbeat.start();
+
+// Initial model list fetch in the background so the server begins serving
+// static assets immediately. The frontend has its own splash screen for
+// upstream-unavailable states.
+console.log('[startup] fetching initial model list...');
+pool.refresh()
+	.then(() => {
+		console.log(`[startup] ${pool.getMergedModels().length} model(s) discovered`);
+	})
+	.catch((err) => {
+		console.warn('[startup] initial model fetch failed (upstreams may be offline):', err);
+	});
 
 // --- Hot Reload Watcher ---
 let stopWatcher: (() => void) | null = null;

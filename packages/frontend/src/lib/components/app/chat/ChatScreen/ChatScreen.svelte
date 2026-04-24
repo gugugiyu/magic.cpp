@@ -36,6 +36,7 @@
 		isCompatibilityMode
 	} from '$lib/stores/server.svelte';
 	import { modelsStore, modelOptions, selectedModelId } from '$lib/stores/models.svelte';
+	import { presetsStore } from '$lib/stores/presets.svelte';
 	import { isFileTypeSupported, filterFilesByModalities } from '$lib/utils';
 	import { parseFilesToMessageExtras, processFilesToChatUploaded } from '$lib/utils/browser-only';
 	import { ErrorDialogType } from '$lib/enums';
@@ -48,6 +49,7 @@
 
 	let disableAutoScroll = $derived(Boolean(config().disableAutoScroll));
 	let chatScrollContainer: HTMLDivElement | undefined = $state();
+	let chatScreenFormRef: ChatScreenForm | undefined = $state(undefined);
 	let dragCounter = $state(0);
 	let isDragOver = $state(false);
 	let showFileErrorDialog = $state(false);
@@ -403,6 +405,7 @@
 
 				<div class="conversation-chat-form pointer-events-auto rounded-t-3xl">
 					<ChatScreenForm
+						bind:this={chatScreenFormRef}
 						disabled={hasPropsError || isEditing()}
 						{initialMessage}
 						isLoading={isCurrentConversationLoading}
@@ -440,6 +443,21 @@
 						? 'Record audio, type a message '
 						: 'Type a message'} or upload files to get started
 				</p>
+
+				{#if presetsStore.activePreset && presetsStore.activePreset.commonPrompts.length > 0}
+					<div class="mt-4 flex flex-wrap justify-center gap-2">
+						{#each presetsStore.activePreset.commonPrompts as prompt, i (i)}
+							<button
+								type="button"
+								class="rounded-full border border-border/50 bg-muted px-3 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+								onclick={() => chatScreenFormRef?.insertText(prompt)}
+								title={prompt}
+							>
+								{prompt.length > 36 ? prompt.slice(0, 36) + '…' : prompt}
+							</button>
+						{/each}
+					</div>
+				{/if}
 			</div>
 
 			{#if hasPropsError}
@@ -467,6 +485,7 @@
 
 			<div in:fly={{ y: 10, duration: 250, delay: hasPropsError ? 0 : 300 }}>
 				<ChatScreenForm
+					bind:this={chatScreenFormRef}
 					disabled={hasPropsError}
 					{initialMessage}
 					isLoading={isCurrentConversationLoading}

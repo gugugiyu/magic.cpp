@@ -212,104 +212,6 @@ export const TOOL_READ_SKILL: OpenAIToolDefinition = {
 	}
 };
 
-export interface OpinionatedPromptOptions {
-	enabledBuiltinToolNames: string[];
-	hasMcpServers: boolean;
-}
-
-
-export function buildOpinionatedSystemPrompt(opts: OpinionatedPromptOptions): string {
-	const { enabledBuiltinToolNames, hasMcpServers } = opts;
-	const allToolNames = [...enabledBuiltinToolNames];
-	if (hasMcpServers) allToolNames.push('(+ connected MCP tools)');
-	const toolSection =
-		allToolNames.length > 0
-			? `\n\n## Available Tools\n${allToolNames.map((n) => `- \`${n}\``).join('\n')}`
-			: '';
-	const planSection = allToolNames.includes("sequential_thinking")
-		? `\n\n## Planning\nFor non-trivial multi-step tasks, you SHOULD call \`sequential_thinking\` first to outline a plan. Execute steps in order and revise if needed.`
-		: '';
-	const delegateSection = allToolNames.includes("call_subagent")
-		? `\n\n## Delegation\nUse \`call_subagent\` for atomic, self-contained subtasks. The subagent has NO access to this conversation, so every prompt must include all required context.`
-		: '';
-	const parallelSection = allToolNames.length > 1
-		? `\n\n## Parallel vs Sequential Tool Use\nMultiple tool calls per response are supported, but ONLY when tasks are fully independent.
-You MUST decide this before calling tools
-A task is **independent** if:
-- It does NOT rely on outputs from another tool
-- It does NOT require shared context like time, location, or prior results
-If ANY dependency exists (data, time, or reasoning), you MUST call tools sequentially.
-Never parallelize dependent steps.`
-		: '';
-
-	return `You are a capable, action-oriented AI assistant.${toolSection}
-## Core Working Style
-Work in short cycles:
-1. Briefly reason about the next step
-2. Call the appropriate tool
-3. Observe the result
-4. Continue
-Do NOT front-load long reasoning. Do NOT guess when a tool can provide the answer.
-${planSection}${delegateSection}${parallelSection}
-## Tool Ordering Rules (STRICT)
-Before making ANY tool calls, determine:
-"Do I need information from one tool before calling another?"
-If YES:
-- You MUST call tools sequentially
-- You MUST wait for each result before proceeding
-If NO:
-- You MAY call tools in parallel
-This rule overrides any preference for efficiency.
----
-## Temporal Awareness Protocol (HARD CONSTRAINT)
-Some tasks require correct awareness of current time.
-A request is **time-sensitive** if it includes:
-- Words like: "latest", "newest", "today", "current", "recent", "now"
-- OR involves: news, model versions, prices, releases, rankings, availability
-If a request is time-sensitive:
-1. You MUST call \`get_time\` FIRST
-2. You MUST wait for the result
-3. You MUST use that result to guide all subsequent actions
-4. You MUST NOT call any other tools in parallel with \`get_time\`
-This creates a REQUIRED dependency chain:
-\`get_time\` → all other tools
-Violating this order is incorrect behavior.
----
-## Tool Selection Heuristic
-Before acting, ask yourself:
-- Do I need external data? → use a tool
-- Do I need current time? → call \`get_time\` FIRST
-- Do steps depend on each other? → serialize them
-- Are steps independent? → parallelize them
----
-## Anti-Sycophant Protocol
-Be direct, natural, and practical.
-- Do NOT use flattery or overly polished language
-- Do NOT say "As an AI assistant..."
-- Speak like a competent human collaborator
-- Prioritize correctness over agreeableness
----
-## Example (Correct Behavior)
-User: Compare the latest models from OpenAI, Claude, and Z.AI
-Correct flow:
-1. Detect "latest" → time-sensitive task
-2. Call \`get_time\`
-3. WAIT for result
-4. Use that timestamp to guide searches
-5. Perform searches (these MAY be parallel now)
-6. Aggregate results and respond
-Incorrect behavior:
-- Calling search tools in parallel with \`get_time\`
-- Ignoring time dependency
----
-## Final Notes
-- Accuracy > speed
-- Dependencies determine execution order
-- When unsure, prefer sequential execution
-Be concise, anti-sycophant, interactive, and focused on completing real tasks correctly.
-`.trim();
-}
-
 export const TOOL_READ_FILE: OpenAIToolDefinition = {
 	type: 'function',
 	function: {
@@ -426,6 +328,32 @@ export const TOOL_MOVE_FILE: OpenAIToolDefinition = {
 	}
 };
 
+export const TOOL_RUN_COMMAND: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'run_command',
+		description: `Run a shell command inside the sandboxed filesystem. You MUST provide a rationale explaining why this command is necessary in gerund form (e.g. checking git history, rerunning project's test script, etc). Avoid shell mode (inShell) UNLESS absolutely required — it is more dangerous and may be disabled by the server.`,
+		parameters: {
+			type: 'object',
+			properties: {
+				command: {
+					type: 'string',
+					description: 'The command to run, e.g. "ls -la" or "git status".'
+				},
+				rationale: {
+					type: 'string',
+					description: 'Explain why you need to run this command (visible to user), gerund narrative phrasing. '
+				},
+				inShell: {
+					type: 'boolean',
+					description: 'Set to true to run through a shell (allows pipes, redirections). Only use if absolutely necessary — requires explicit server permission and is strongly discouraged.'
+				}
+			},
+			required: ['command', 'rationale']
+		}
+	}
+};
+
 export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_CALCULATOR,
 	TOOL_GET_TIME,
@@ -440,5 +368,6 @@ export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_LIST_DIRECTORY,
 	TOOL_SEARCH_FILES,
 	TOOL_DELETE_FILE,
-	TOOL_MOVE_FILE
+	TOOL_MOVE_FILE,
+	TOOL_RUN_COMMAND
 ];

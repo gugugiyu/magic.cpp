@@ -4,7 +4,8 @@
 		ChatMessageActions,
 		ChatMessageStatistics,
 		ModelBadge,
-		ModelsSelector
+		ModelsSelector,
+		ChatLoader
 	} from '$lib/components/app';
 	import { getMessageEditContext } from '$lib/contexts';
 	import { useProcessingState } from '$lib/hooks/use-processing-state.svelte';
@@ -162,6 +163,7 @@
 		message?.role === MessageRole.ASSISTANT &&
 			isActivelyProcessing &&
 			hasNoContent &&
+			!hasReasoning &&
 			!isAgentic &&
 			isLastAssistantMessage
 	);
@@ -198,11 +200,7 @@
 	{#if showProcessingInfoTop}
 		<div class="mt-6 w-full max-w-[48rem]" in:fade>
 			<div class="processing-container">
-				<span class="processing-text">
-					{processingState.getPromptProgressText() ??
-						processingState.getProcessingMessage() ??
-						'Processing...'}
-				</span>
+				<ChatLoader convId={message.convId} />
 			</div>
 		</div>
 	{/if}
@@ -270,11 +268,7 @@
 	{#if showProcessingInfoBottom}
 		<div class="mt-4 w-full max-w-[48rem]" in:fade>
 			<div class="processing-container">
-				<span class="processing-text">
-					{processingState.getPromptProgressText() ??
-						processingState.getProcessingMessage() ??
-						'Processing...'}
-				</span>
+				<ChatLoader convId={message.convId} />
 			</div>
 		</div>
 	{/if}

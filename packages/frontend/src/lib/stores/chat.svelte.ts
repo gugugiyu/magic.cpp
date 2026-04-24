@@ -38,7 +38,6 @@ import {
 	INACTIVE_CONVERSATION_STATE_MAX_AGE_MS,
 	SYSTEM_MESSAGE_PLACEHOLDER
 } from '$lib/constants';
-import { buildOpinionatedSystemPrompt } from '@shared/constants/prompts-and-tools';
 import type {
 	ChatMessageTimings,
 	ChatMessagePromptProgress,
@@ -50,6 +49,7 @@ import type { CompactSessionResponse } from '$lib/types/compact';
 import { ErrorDialogType, MessageRole, MessageType, AttachmentType } from '$lib/enums';
 import { sequentialThinkingStore } from '$lib/stores/sequential-thinking.svelte';
 import { serverEndpointStore } from './server-endpoint.svelte';
+import { loadingContext } from './loading-context.svelte';
 import { createModuleLogger } from '$lib/utils/logger';
 
 const logger = createModuleLogger('chatStore');
@@ -501,7 +501,7 @@ class ChatStore {
 				const rootId = await DatabaseService.createRootMessage(currentConv.id);
 				const currentConfig = config();
 				const systemPrompt = currentConfig.systemMessage?.toString().trim();
-				if (systemPrompt && !currentConfig.useOpinionatedSystemPrompt) {
+				if (systemPrompt) {
 					const systemMessage = await DatabaseService.createSystemMessage(
 						currentConv.id,
 						systemPrompt,
@@ -775,30 +775,8 @@ class ChatStore {
 		const perChatOverrides = conversationsStore.activeConversation?.mcpServerOverrides;
 
 		const currentConfig = config();
-		let dispatchMessages: (DatabaseMessage | { role: MessageRole; content: string })[] =
+		const dispatchMessages: (DatabaseMessage | { role: MessageRole; content: string })[] =
 			allMessages;
-		if (currentConfig.useOpinionatedSystemPrompt) {
-			const builtinToolNameMap: Record<string, string[]> = {
-				builtinToolCalculator: ['calculator'],
-				builtinToolTime: ['get_time'],
-				builtinToolLocation: ['get_location'],
-				builtinToolSequentialThinking: ['sequential_thinking'],
-				builtinToolCallSubagent: ['call_subagent'],
-				builtinToolSkills: ['list_skill', 'read_skill']
-			};
-			const enabledBuiltinToolNames = Object.entries(builtinToolNameMap)
-				.filter(([key]) => currentConfig[key as keyof typeof currentConfig])
-				.flatMap(([, names]) => names);
-			const hasMcpServers = mcpStore.getServers().length > 0;
-			const opinionatedContent = buildOpinionatedSystemPrompt({
-				enabledBuiltinToolNames,
-				hasMcpServers
-			});
-			dispatchMessages = [
-				{ role: MessageRole.SYSTEM, content: opinionatedContent },
-				...allMessages.filter((m) => m.role !== MessageRole.SYSTEM)
-			];
-		}
 
 		const agenticConfig = agenticStore.getConfig(currentConfig, perChatOverrides);
 		if (agenticConfig.enabled) {
@@ -1609,6 +1587,7 @@ class ChatStore {
 		this.showErrorDialog(null);
 		this.setChatLoading(activeConv.id, true);
 		this.clearChatStreaming(activeConv.id);
+		loadingContext.setCompaction(true);
 
 		try {
 			const convId = activeConv.id;
@@ -1704,16 +1683,19 @@ class ChatStore {
 				this.setChatLoading(convId, false);
 				this.clearChatStreaming(convId);
 				this.setProcessingState(convId, null);
+				loadingContext.setCompaction(false);
 			} finally {
 				this.abortControllers.delete(convId);
 			}
 		} catch (error) {
 			if (isAbortError(error)) {
 				this.setChatLoading(activeConv.id, false);
+				loadingContext.setCompaction(false);
 				return;
 			}
 			logger.error('Failed to compact session:', error);
 			this.setChatLoading(activeConv.id, false);
+			loadingContext.setCompaction(false);
 			this.showErrorDialog({
 				type: ErrorDialogType.SERVER,
 				message: error instanceof Error ? error.message : 'Unknown error'

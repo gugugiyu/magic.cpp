@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Check, Loader2 } from '@lucide/svelte';
-	import { fly } from 'svelte/transition';
+
 	import { cn } from '$lib/components/ui/utils';
 	import { agenticStreamingToolCall } from '$lib/stores/agentic.svelte';
 	import type { ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
@@ -97,7 +97,7 @@
 				{@const isExpanded = expandedSteps.has(i)}
 				{@const truncatedText = truncateToWords(thought.thought, DEFAULT_VISIBLE_WORDS)}
 				{@const hasMore = wordCount > DEFAULT_VISIBLE_WORDS}
-				<li class="step-item" in:fly={{ y: 20, duration: 300, delay: 0 }}>
+				<li class="step-item">
 					<div class={cn('step-icon', done && 'step-icon--done', active && 'step-icon--active')}>
 						{#if active}
 							<Loader2 class="h-3 w-3 animate-spin" />
@@ -124,7 +124,7 @@
 			{/each}
 
 			{#each { length: pendingCount } as _, i (i)}
-				<li class="step-item step-item--pending" in:fly={{ y: 20, duration: 300, delay: 0 }}>
+				<li class="step-item step-item--pending">
 					<div class="step-icon step-icon--pending"></div>
 					<div class="step-body">
 						<p class="step-thought step-thought--pending">Thinking…</p>
@@ -162,17 +162,6 @@
 		align-items: center;
 		gap: 0.375rem;
 		color: hsl(var(--primary));
-		animation: reasoning-pulse 1.6s ease-in-out infinite;
-	}
-
-	@keyframes reasoning-pulse {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.5;
-		}
 	}
 
 	.steps-progress {

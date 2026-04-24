@@ -62,9 +62,7 @@
 	const filteredPresets = $derived.by(() => {
 		const query = searchQuery.toLowerCase();
 		let result = presetsStore.presets.filter(
-			(p) =>
-				p.name.toLowerCase().includes(query) ||
-				p.systemPrompt.toLowerCase().includes(query)
+			(p) => p.name.toLowerCase().includes(query) || p.systemPrompt.toLowerCase().includes(query)
 		);
 
 		if (sortMode === 'nameAsc') {

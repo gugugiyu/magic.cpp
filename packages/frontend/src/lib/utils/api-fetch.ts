@@ -74,10 +74,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 	// Set up timeout
 	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 	if (controller) {
-		timeoutId = setTimeout(
-			() => controller.abort(),
-			options.timeout ?? DEFAULT_API_TIMEOUT
-		);
+		timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_API_TIMEOUT);
 		controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
 	}
 
@@ -154,10 +151,7 @@ export async function apiFetchWithParams<T>(
 
 	// Create abort controller for timeout
 	const controller = new AbortController();
-	const timeoutId = setTimeout(
-		() => controller.abort(),
-		options.timeout ?? DEFAULT_API_TIMEOUT
-	);
+	const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_API_TIMEOUT);
 	controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
 
 	try {

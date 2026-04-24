@@ -33,16 +33,25 @@
 		hideSummary = false
 	}: Props = $props();
 
-	let activeView: ChatMessageStatsView = $derived(initialView);
+	let activeView: ChatMessageStatsView = $state(initialView);
 	let hasAutoSwitchedToGeneration = $state(false);
+	let userHasInteracted = $state(false);
 
 	$effect(() => {
 		onActiveViewChange?.(activeView);
 	});
 
-	// In live mode: auto-switch to GENERATION tab when prompt processing completes
+	// Reset interaction tracking when a new live session starts
 	$effect(() => {
 		if (isLive) {
+			userHasInteracted = false;
+			hasAutoSwitchedToGeneration = false;
+		}
+	});
+
+	// In live mode: auto-switch to GENERATION tab when prompt processing completes
+	$effect(() => {
+		if (isLive && !userHasInteracted) {
 			// Auto-switch to generation tab only when prompt processing is done (once)
 			if (
 				!hasAutoSwitchedToGeneration &&
@@ -125,7 +134,10 @@
 						ChatMessageStatsView.READING
 							? 'bg-background text-foreground shadow-sm'
 							: 'hover:text-foreground'}"
-						onclick={() => (activeView = ChatMessageStatsView.READING)}
+						onclick={() => {
+							userHasInteracted = true;
+							activeView = ChatMessageStatsView.READING;
+						}}
 					>
 						<BookOpenText class="h-3 w-3" />
 
@@ -148,7 +160,12 @@
 						: isGenerationDisabled
 							? 'cursor-not-allowed opacity-40'
 							: 'hover:text-foreground'}"
-					onclick={() => !isGenerationDisabled && (activeView = ChatMessageStatsView.GENERATION)}
+					onclick={() => {
+						if (!isGenerationDisabled) {
+							userHasInteracted = true;
+							activeView = ChatMessageStatsView.GENERATION;
+						}
+					}}
 					disabled={isGenerationDisabled}
 				>
 					<Sparkles class="h-3 w-3" />
@@ -175,7 +192,10 @@
 						ChatMessageStatsView.TOOLS
 							? 'bg-background text-foreground shadow-sm'
 							: 'hover:text-foreground'}"
-						onclick={() => (activeView = ChatMessageStatsView.TOOLS)}
+						onclick={() => {
+							userHasInteracted = true;
+							activeView = ChatMessageStatsView.TOOLS;
+						}}
 					>
 						<Wrench class="h-3 w-3" />
 
@@ -197,7 +217,10 @@
 							ChatMessageStatsView.SUMMARY
 								? 'bg-background text-foreground shadow-sm'
 								: 'hover:text-foreground'}"
-							onclick={() => (activeView = ChatMessageStatsView.SUMMARY)}
+							onclick={() => {
+								userHasInteracted = true;
+								activeView = ChatMessageStatsView.SUMMARY;
+							}}
 						>
 							<Layers class="h-3 w-3" />
 

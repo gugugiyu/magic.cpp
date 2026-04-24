@@ -49,7 +49,7 @@
 	const filterCount = $derived(activeFilters.length);
 </script>
 
-g{#snippet badgeContent()}
+{#snippet badgeContent()}
 	<BadgeInfo class={className} {onclick}>
 		{#snippet icon()}
 			<Package class="h-3 w-3" />

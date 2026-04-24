@@ -140,15 +140,15 @@ interface AgenticSession {
 
 #### Built-in Tools (Frontend-Only)
 
-| Tool                  | Setting Key                     | Description                                                                 |
-| --------------------- | ------------------------------- | --------------------------------------------------------------------------- |
-| `calculator`          | `builtinToolCalculator`         | Evaluates JavaScript math expressions (user-confirmed via `window.confirm`) |
-| `get_time`            | `builtinToolTime`               | Returns current UTC date/time as ISO 8601 string                            |
-| `get_location`        | `builtinToolLocation`           | Browser Geolocation API (requires user permission)                          |
-| `sequential_thinking` | `builtinToolSequentialThinking` | Structured reasoning steps with live stepper UI                             |
-| `call_subagent`       | `builtinToolCallSubagent`       | Delegate to separate model endpoint                                         |
-| `list_skill`          | `builtinToolSkills`             | List enabled user skills                                                    |
-| `read_skill`          | `builtinToolSkills`             | Read full skill content by name                                             |
+| Tool                  | Setting Key                     | Description                                                                  |
+| --------------------- | ------------------------------- | ---------------------------------------------------------------------------- |
+| `calculator`          | `builtinToolCalculator`         | Evaluates JavaScript math expressions automatically with strict-mode sandbox |
+| `get_time`            | `builtinToolTime`               | Returns current UTC date/time as ISO 8601 string                             |
+| `get_location`        | `builtinToolLocation`           | Browser Geolocation API (requires user permission)                           |
+| `sequential_thinking` | `builtinToolSequentialThinking` | Structured reasoning steps with live stepper UI                              |
+| `call_subagent`       | `builtinToolCallSubagent`       | Delegate to separate model endpoint                                          |
+| `list_skill`          | `builtinToolSkills`             | List enabled user skills                                                     |
+| `read_skill`          | `builtinToolSkills`             | Read full skill content by name                                              |
 
 Built-in tools are defined in `@shared/constants/prompts-and-tools.ts` and registered via `getBuiltinTools()` in `agenticStore`.
 
@@ -165,10 +165,12 @@ MCP tools require an external MCP server connection. The `mcpStore` manages:
 **`calculator`**:
 
 ```typescript
-// User must confirm via window.confirm before eval
-const confirmed = window.confirm(`Allow calculator to evaluate:\n\n${expression}`);
-if (!confirmed) return 'User denied calculator execution.';
-const result = new Function(`return ${expression}`)();
+// Automatically evaluates the expression in a strict-mode sandbox
+const result = new Function(`"use strict"; return (${expression})`)();
+if (typeof result !== 'number' || !isFinite(result)) {
+	return 'Error: expression did not produce a finite number';
+}
+return String(result);
 ```
 
 **`get_time`**:

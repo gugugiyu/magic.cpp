@@ -274,13 +274,19 @@
 		let rafHandle: number | null = null;
 		let observer: MutationObserver | null = null;
 
+		function isNearBottom(el: HTMLElement): boolean {
+			return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+		}
+
 		function start() {
 			if (observer) return;
 			observer = new MutationObserver(() => {
 				if (rafHandle !== null) cancelAnimationFrame(rafHandle);
 				rafHandle = requestAnimationFrame(() => {
 					rafHandle = null;
-					node.scrollTop = node.scrollHeight;
+					if (isNearBottom(node)) {
+						node.scrollTop = node.scrollHeight;
+					}
 				});
 			});
 			observer.observe(node, { childList: true, subtree: true, characterData: true });
@@ -443,7 +449,7 @@
 
 	function startSectionEdit(index: number, content: string) {
 		editingSectionIndex = index;
-		editingSectionText = content;
+		editingSectionText = content.trim();
 	}
 
 	function cancelSectionEdit() {
@@ -597,9 +603,9 @@
 			{#if hasAnyPending}
 				<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
 			{:else if hasAnyError}
-				<AlertCircle class="tool-error-icon h-3.5 w-3.5 shrink-0" />
+				<AlertCircle class="h-3.5 w-3.5 shrink-0 text-destructive" />
 			{:else}
-				<CheckCircle class="tool-success-icon h-3.5 w-3.5 shrink-0" />
+				<CheckCircle class="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
 			{/if}
 			<span class="agentic-label">
 				{hasAnyPending ? 'Calling' : hasAnyError ? 'Error in' : 'Called'}
@@ -654,7 +660,7 @@
 					{#if isThisStepActive}
 						<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
 					{:else if thought.done}
-						<Check class="step-done-icon h-3.5 w-3.5 shrink-0" />
+						<Check class="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
 					{:else}
 						<Brain class="h-3.5 w-3.5 shrink-0" />
 					{/if}
@@ -674,7 +680,7 @@
 		{/if}
 	{:else if section.type === AgenticSectionType.TEXT}
 		{@const displayContent = applyResponseFilters(section.content, filterOptions)}
-		<div class="agentic-text-group">
+		<div class="agentic-text-group" class:editing={editingSectionIndex === index}>
 			{#if editingSectionIndex === index}
 				<textarea
 					class="agentic-edit-textarea"
@@ -802,16 +808,16 @@
 				{#if isPending && !skillIcon && !isFileTool && !isRunCommand}
 					<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
 				{:else if hasError && !skillIcon && !isFileTool && !isRunCommand}
-					<AlertCircle class="tool-error-icon h-3.5 w-3.5 shrink-0" />
+					<AlertCircle class="h-3.5 w-3.5 shrink-0 text-destructive" />
 				{:else if skillIcon}
 					{@const Icon = skillIcon}
-					<Icon class="skill-icon h-3.5 w-3.5 shrink-0" />
+					<Icon class="h-3.5 w-3.5 shrink-0 text-primary" />
 				{:else if isFileTool}
-					<FolderOpen class="file-tool-icon h-3.5 w-3.5 shrink-0" />
+					<FolderOpen class="h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
 				{:else if isRunCommand}
-					<Terminal class="h-3.5 w-3.5 shrink-0 text-cyan-500" />
+					<Terminal class="h-3.5 w-3.5 shrink-0 text-primary" />
 				{:else}
-					<CheckCircle class="tool-success-icon h-3.5 w-3.5 shrink-0" />
+					<CheckCircle class="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
 				{/if}
 				<span class="agentic-label">
 					{#if isListSkill}
@@ -927,8 +933,8 @@
 						{/if}
 					</div>
 					{#if isAwaitingApproval}
-						<div class="mt-2 rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
-							<p class="mb-2 text-xs text-cyan-700 dark:text-cyan-300">
+						<div class="mt-2 rounded-md border border-primary/20 bg-primary/5 p-3">
+							<p class="mb-2 text-xs text-primary">
 								This command requires session approval before it can run.
 							</p>
 							{#if runCommandArgs.inShell}
@@ -942,7 +948,7 @@
 							<div class="flex gap-2">
 								<button
 									type="button"
-									class="inline-flex items-center gap-1.5 rounded-md border border-cyan-500 px-2.5 py-1.5 text-xs font-medium text-cyan-700 transition-colors hover:bg-cyan-500/10 dark:text-cyan-300"
+									class="inline-flex items-center gap-1.5 rounded-md border border-primary px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
 									onclick={() => {
 										runCommandSessionStore.approve(runCommandArgs.command);
 										runCommandSessionStore.resolveApproval(section.toolCallId || '', true);
@@ -963,8 +969,8 @@
 							</div>
 						</div>
 					{:else if isSessionError}
-						<div class="mt-2 rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
-							<p class="mb-2 text-xs text-cyan-700 dark:text-cyan-300">
+						<div class="mt-2 rounded-md border border-primary/20 bg-primary/5 p-3">
+							<p class="mb-2 text-xs text-primary">
 								This command requires session approval before it can run.
 							</p>
 							{#if runCommandArgs.inShell}
@@ -977,7 +983,7 @@
 							{/if}
 							<button
 								type="button"
-								class="inline-flex items-center gap-1.5 rounded-md border border-cyan-500 px-2.5 py-1.5 text-xs font-medium text-cyan-700 transition-colors hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-cyan-300"
+								class="inline-flex items-center gap-1.5 rounded-md border border-primary px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
 								onclick={() => reExecuteRunCommand(section)}
 								disabled={reExecutingToolCallId === section.toolCallId}
 							>
@@ -1136,10 +1142,15 @@
 		position: relative;
 	}
 
-	.agentic-text-group:hover .agentic-section-actions {
+	.agentic-text-group:hover .agentic-section-actions,
+	.agentic-text-group.editing .agentic-section-actions {
 		opacity: 1;
 		max-height: 2rem;
 		transition-delay: 550ms;
+	}
+
+	.agentic-text-group.editing .agentic-section-actions {
+		transition-delay: 0ms;
 	}
 
 	.agentic-section-actions {
@@ -1158,9 +1169,9 @@
 		width: 100%;
 		resize: vertical;
 		border-radius: 0.375rem;
-		border: 1px solid hsl(var(--input));
-		background: hsl(var(--background));
-		color: hsl(var(--foreground));
+		border: 1px solid var(--input);
+		background: var(--background);
+		color: var(--foreground);
 		padding: 0.5rem 0.75rem;
 		font-size: 0.875rem;
 		line-height: 1.5;
@@ -1169,8 +1180,8 @@
 	}
 
 	.agentic-edit-textarea:focus {
-		border-color: hsl(var(--ring));
-		box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+		border-color: var(--ring);
+		box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 20%, transparent);
 	}
 
 	.agentic-action-btn {
@@ -1180,34 +1191,32 @@
 		gap: 0.25rem;
 		padding: 0.25rem 0.5rem;
 		border-radius: 0.25rem;
-		border: 1px solid hsl(var(--border) / 0.5);
-		background: hsl(var(--muted) / 0.3);
-		color: hsl(var(--muted-foreground));
+		border: none;
+		background: transparent;
+		color: var(--muted-foreground);
 		cursor: pointer;
 		transition:
 			color 0.15s,
-			background 0.15s,
-			border-color 0.15s;
+			background 0.15s;
 		font-size: 0.75rem;
 	}
 
 	.agentic-action-btn:hover {
-		color: hsl(var(--foreground));
-		background: hsl(var(--muted) / 0.6);
-		border-color: hsl(var(--border));
+		color: var(--foreground);
+		background: color-mix(in oklch, var(--muted) 40%, transparent);
 	}
 
 	.agentic-action-btn.save {
-		color: hsl(var(--primary));
-		border-color: hsl(var(--primary) / 0.3);
+		color: var(--primary);
+		border-color: color-mix(in oklch, var(--primary) 30%, transparent);
 	}
 
 	.agentic-action-btn.save:hover {
-		background: hsl(var(--primary) / 0.1);
+		background: color-mix(in oklch, var(--primary) 10%, transparent);
 	}
 
 	.agentic-action-btn.cancel {
-		color: hsl(var(--muted-foreground));
+		color: var(--muted-foreground);
 	}
 
 	.agentic-turn {
@@ -1216,11 +1225,14 @@
 		gap: 0;
 	}
 
+	.agentic-inline-block {
+		margin-bottom: 0.3rem;
+	}
+
 	.agentic-inline-trigger {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.375rem;
-		margin-bottom: 0.25rem;
 		padding: 0.125rem 0.25rem;
 		border-radius: 0.25rem;
 		background: transparent;
@@ -1238,7 +1250,7 @@
 
 	.agentic-inline-trigger:hover {
 		color: var(--foreground);
-		background: hsl(var(--muted) / 0.5);
+		background: color-mix(in oklch, var(--muted) 50%, transparent);
 	}
 
 	:global(.seq-thinking-header) {
@@ -1251,7 +1263,7 @@
 	}
 
 	:global(.seq-thinking-header:hover) {
-		background: hsl(var(--muted) / 0.5);
+		background: color-mix(in oklch, var(--muted) 50%, transparent);
 	}
 
 	.agentic-label {
@@ -1264,7 +1276,7 @@
 	}
 
 	.agentic-preview {
-		color: hsl(var(--muted-foreground) / 0.6);
+		color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
 		font-style: italic;
 	}
 
@@ -1280,10 +1292,10 @@
 	}
 
 	.agentic-inline-content {
-		/* margin-left: 1.25rem; No longer needed, we're switching to inline style*/
+		padding-left: 1.25rem;
 		margin-top: 0.25rem;
 		/* padding-left: 0.75rem; */
-		border-left: 2px solid hsl(var(--muted-foreground) / 0.25);
+		border-left: 2px solid color-mix(in oklch, var(--muted-foreground) 25%, transparent);
 		max-height: 32rem;
 		overflow-y: auto;
 	}
@@ -1295,7 +1307,7 @@
 		margin-top: 0.125rem;
 		margin-left: 1rem;
 		padding-left: 0.625rem;
-		border-left: 2px solid hsl(var(--muted-foreground) / 0.15);
+		border-left: 2px solid color-mix(in oklch, var(--muted-foreground) 15%, transparent);
 	}
 
 	.subagent-steps {
@@ -1337,43 +1349,20 @@
 		animation: thinking-pulse 1.6s ease-in-out infinite;
 	}
 
-	:global(.step-done-icon) {
-		color: hsl(142 71% 45%);
-	}
-
-	:global(.tool-success-icon) {
-		color: hsl(142 71% 45%);
-	}
-
-	:global(.tool-error-icon) {
-		color: hsl(0 72% 51%);
-	}
-
-	:global(.skill-icon) {
-		color: hsl(217 91% 60%);
-	}
-
-	:global(.file-tool-icon) {
-		color: hsl(43 96% 56%);
-	}
-
 	.agentic-turn {
 		position: relative;
-		border: 1.5px dashed var(--muted-foreground);
+		border: 1px solid color-mix(in oklch, var(--muted-foreground) 22%, transparent);
 		border-radius: 0.75rem;
 		padding: 1rem;
-		transition: background 0.1s;
+		background: color-mix(in oklch, var(--muted) 15%, transparent);
+		transition: background 0.15s ease;
 	}
 
 	.agentic-turn-label {
-		position: absolute;
-		top: -1rem;
-		left: 0.75rem;
-		padding: 0 0.375rem;
-		background: var(--background);
-		font-size: 0.7rem;
-		font-weight: 500;
-		color: var(--muted-foreground);
+		font-size: 0.65rem;
+		margin-bottom: 0.25rem;
+		font-weight: 600;
+		color: color-mix(in oklch, var(--muted-foreground) 90%, transparent);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
@@ -1381,6 +1370,6 @@
 	.turn-stats {
 		margin-top: 0.75rem;
 		padding-top: 0.5rem;
-		border-top: 1px solid hsl(var(--muted) / 0.5);
+		border-top: 1px solid color-mix(in oklch, var(--muted) 50%, transparent);
 	}
 </style>

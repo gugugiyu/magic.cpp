@@ -1067,10 +1067,6 @@ class AgenticStore {
 	private _executeCalculatorTool(parsed: Record<string, unknown>): string {
 		const expression = String(parsed.expression ?? '');
 		if (!expression) return 'Error: missing expression';
-		const confirmed = window.confirm(
-			`The AI assistant wants to evaluate this expression:\n\n${expression}\n\nAllow?`
-		);
-		if (!confirmed) return 'User denied calculator execution.';
 		try {
 			const result = new Function(`"use strict"; return (${expression})`)();
 			if (typeof result !== 'number' || !isFinite(result)) {
@@ -1084,17 +1080,22 @@ class AgenticStore {
 
 	private _executeGetTimeTool(parsed: Record<string, unknown>): string {
 		const tz = String(parsed.timezone ?? import.meta.env.TZ ?? 'UTC');
-		const formatter = new Intl.DateTimeFormat('en-CA', {
-			timeZone: tz,
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false,
-			timeZoneName: 'short'
-		});
+		let formatter: Intl.DateTimeFormat;
+		try {
+			formatter = new Intl.DateTimeFormat('en-CA', {
+				timeZone: tz,
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit',
+				hour12: false,
+				timeZoneName: 'short'
+			});
+		} catch {
+			return `Error: invalid timezone "${tz}"`;
+		}
 		const parts = formatter.formatToParts(new Date());
 		const get = (unit: string) => parts.find((p) => p.type === unit)?.value ?? '';
 		const dateStr = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;

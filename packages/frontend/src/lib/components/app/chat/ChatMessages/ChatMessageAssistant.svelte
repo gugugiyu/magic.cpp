@@ -363,28 +363,6 @@
 		gap: 0.5rem;
 	}
 
-	.processing-text {
-		background: linear-gradient(
-			90deg,
-			var(--muted-foreground),
-			var(--foreground),
-			var(--muted-foreground)
-		);
-		background-size: 200% 100%;
-		background-clip: text;
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		animation: shine 1s linear infinite;
-		font-weight: 500;
-		font-size: 0.875rem;
-	}
-
-	@keyframes shine {
-		to {
-			background-position: -200% 0;
-		}
-	}
-
 	.raw-output {
 		width: 100%;
 		max-width: 48rem;

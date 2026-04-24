@@ -110,38 +110,6 @@ export const TOOL_GET_LOCATION: OpenAIToolDefinition = {
 	}
 };
 
-export const TOOL_SEQUENTIAL_THINKING: OpenAIToolDefinition = {
-	type: 'function',
-	function: {
-		name: 'sequential_thinking',
-		description:
-			'Think through a problem step by step before giving a final answer. Call this tool once per reasoning step. Set nextThoughtNeeded=false on the last step.',
-		parameters: {
-			type: 'object',
-			properties: {
-				thought: {
-					type: 'string',
-					description:
-						'The content of this reasoning step. **MAX** 100-120 words. Write it in a narrative way. Use plain text in 1 single paragraph only. (e.g. "Now I\'m pondering about...")'
-				},
-				thoughtNumber: {
-					type: 'integer',
-					description: 'The 1-based index of this thought.'
-				},
-				totalThoughts: {
-					type: 'integer',
-					description: 'Estimated total number of thoughts needed (may be revised upward).'
-				},
-				nextThoughtNeeded: {
-					type: 'boolean',
-					description: 'True if another thought step is needed; false when reasoning is done.'
-				}
-			},
-			required: ['thought', 'thoughtNumber', 'totalThoughts', 'nextThoughtNeeded']
-		}
-	}
-};
-
 export const TOOL_CALL_SUBAGENT: OpenAIToolDefinition = {
 	type: 'function',
 	function: {
@@ -358,7 +326,6 @@ export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_CALCULATOR,
 	TOOL_GET_TIME,
 	TOOL_GET_LOCATION,
-	TOOL_SEQUENTIAL_THINKING,
 	TOOL_CALL_SUBAGENT,
 	TOOL_LIST_SKILL,
 	TOOL_READ_SKILL,

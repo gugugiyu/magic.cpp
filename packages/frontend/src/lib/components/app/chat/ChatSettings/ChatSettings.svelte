@@ -576,7 +576,9 @@
 					{#if currentSection.title === SETTINGS_SECTION_TITLES.IMPORT_EXPORT}
 						<ChatSettingsImportExportTab />
 					{:else if currentSection.title === SETTINGS_SECTION_TITLES.CONNECTION}
-						<ChatSettingsConnectionTab subagentEnabled={!!localConfig[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]} />
+						<ChatSettingsConnectionTab
+							subagentEnabled={!!localConfig[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]}
+						/>
 					{:else if currentSection.title === SETTINGS_SECTION_TITLES.MCP}
 						<div class="space-y-6">
 							<ChatSettingsFields

@@ -19,7 +19,6 @@ export const BUILTIN_TOOL_NAMES = {
 	CALCULATOR: 'calculator',
 	GET_TIME: 'get_time',
 	GET_LOCATION: 'get_location',
-	SEQUENTIAL_THINKING: 'sequential_thinking',
 	CALL_SUBAGENT: 'call_subagent',
 	LIST_SKILL: 'list_skill',
 	READ_SKILL: 'read_skill',
@@ -53,12 +52,6 @@ export const builtinToolFields = [
 		label: 'Get location',
 		description:
 			'Inject a get_location tool the model can call to retrieve your browser-reported geolocation (requires permission).'
-	},
-	{
-		key: SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING,
-		label: 'Sequential thinking',
-		description:
-			'Inject a sequential_thinking tool that lets the model break problems into explicit reasoning steps before answering.'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT,
@@ -95,9 +88,8 @@ const SETTING_KEY_TO_TOOL: Record<string, OpenAIToolDefinition> = {
 	[SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR]: BUILTIN_TOOLS[0],
 	[SETTINGS_KEYS.BUILTIN_TOOL_TIME]: BUILTIN_TOOLS[1],
 	[SETTINGS_KEYS.BUILTIN_TOOL_LOCATION]: BUILTIN_TOOLS[2],
-	[SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING]: BUILTIN_TOOLS[3],
-	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: BUILTIN_TOOLS[4],
-	[SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND]: BUILTIN_TOOLS[14]
+	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: BUILTIN_TOOLS[3],
+	[SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND]: BUILTIN_TOOLS[13]
 };
 
 /** Maps a group setting key → the list of tool definitions it enables. */
@@ -121,7 +113,6 @@ export const BUILTIN_TOOL_EXECUTION_TARGET: Record<string, 'frontend' | 'backend
 	calculator: 'frontend',
 	get_time: 'frontend',
 	get_location: 'frontend',
-	sequential_thinking: 'frontend',
 	call_subagent: 'frontend',
 	list_skill: 'frontend',
 	read_skill: 'frontend',
@@ -140,7 +131,6 @@ export const BUILTIN_TOOL_SETTING_KEY_TARGET: Record<string, 'frontend' | 'backe
 	[SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_TIME]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_LOCATION]: 'frontend',
-	[SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_SKILLS]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS]: 'backend',

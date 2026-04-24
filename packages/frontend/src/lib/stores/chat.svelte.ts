@@ -47,7 +47,7 @@ import type {
 import type { ApiProcessingState, DatabaseMessage, DatabaseMessageExtra } from '$lib/types';
 import type { CompactSessionResponse } from '$lib/types/compact';
 import { ErrorDialogType, MessageRole, MessageType, AttachmentType } from '$lib/enums';
-import { sequentialThinkingStore } from '$lib/stores/sequential-thinking.svelte';
+
 import { serverEndpointStore } from './server-endpoint.svelte';
 import { loadingContext } from './loading-context.svelte';
 import { createModuleLogger } from '$lib/utils/logger';
@@ -1669,8 +1669,6 @@ class ChatStore {
 				if (firstChildOfRoot) {
 					await DatabaseService.deleteMessageCascading(convId, firstChildOfRoot.id);
 				}
-
-				sequentialThinkingStore.clearMessages(convId, deletedMessageIds);
 
 				conversationsStore.addMessageToActive(summaryMessage);
 

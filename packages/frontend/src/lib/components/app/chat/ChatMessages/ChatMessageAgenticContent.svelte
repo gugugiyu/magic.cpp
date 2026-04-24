@@ -1,14 +1,5 @@
 <script lang="ts">
-	import {
-		ChatMessageStatistics,
-		ChatMessageThinkingSteps,
-		MarkdownContent,
-		SyntaxHighlightedCode
-	} from '$lib/components/app';
-	import {
-		sequentialThinkingStore,
-		type ThoughtEntry
-	} from '$lib/stores/sequential-thinking.svelte';
+	import { ChatMessageStatistics, MarkdownContent, SyntaxHighlightedCode } from '$lib/components/app';
 	import { config } from '$lib/stores/settings.svelte';
 	import {
 		Loader2,
@@ -68,9 +59,6 @@
 	let expandedStates: Record<number, boolean> = $state({});
 	/** Track expanded state for tool call groups (keyed by first flat section index of the group). */
 	let toolGroupExpanded: Record<number, boolean> = $state({});
-	/** Track whether the sequential thinking header is expanded to show individual steps. */
-	let seqThinkingHeaderExpanded = $state(false);
-
 	// Per-section editing state
 	let editingSectionIndex = $state<number | null>(null);
 	let editingSectionText = $state('');
@@ -176,25 +164,9 @@
 
 	/**
 	 * Determines if a section is expanded.
-	 * For sequential_thinking sections: auto-expands during streaming, collapses when done.
-	 * For other sections: respects manual toggle state or default expansion rules.
+	 * Respects manual toggle state or default expansion rules.
 	 */
 	function isExpanded(index: number, section: AgenticSection): boolean {
-		// For sequential_thinking sections, use auto-expand logic
-		if (section.toolName === 'sequential_thinking') {
-			// Check if user manually toggled this specific index
-			if (expandedStates[index] !== undefined) {
-				return expandedStates[index];
-			}
-			// During streaming: expand all sequential_thinking sections
-			// After streaming: collapse all (user can re-expand manually)
-			if (isStreaming) {
-				return true;
-			}
-			return false;
-		}
-
-		// For all other sections, check manual toggle then defaults
 		if (expandedStates[index] !== undefined) {
 			return expandedStates[index];
 		}
@@ -218,10 +190,9 @@
 		while (i < sections.length) {
 			const section = sections[i];
 			const isGroupable =
-				(section.type === AgenticSectionType.TOOL_CALL ||
-					section.type === AgenticSectionType.TOOL_CALL_PENDING ||
-					section.type === AgenticSectionType.TOOL_CALL_STREAMING) &&
-				section.toolName !== 'sequential_thinking';
+				section.type === AgenticSectionType.TOOL_CALL ||
+				section.type === AgenticSectionType.TOOL_CALL_PENDING ||
+				section.type === AgenticSectionType.TOOL_CALL_STREAMING;
 
 			if (isGroupable) {
 				const groupSections: typeof sectionsParsed = [];
@@ -229,10 +200,9 @@
 				while (i < sections.length) {
 					const s = sections[i];
 					const isT =
-						(s.type === AgenticSectionType.TOOL_CALL ||
-							s.type === AgenticSectionType.TOOL_CALL_PENDING ||
-							s.type === AgenticSectionType.TOOL_CALL_STREAMING) &&
-						s.toolName !== 'sequential_thinking';
+						s.type === AgenticSectionType.TOOL_CALL ||
+						s.type === AgenticSectionType.TOOL_CALL_PENDING ||
+						s.type === AgenticSectionType.TOOL_CALL_STREAMING;
 					if (!isT) break;
 					groupSections.push(s);
 					groupIndices.push(indices[i]);
@@ -315,24 +285,6 @@
 		};
 	}
 
-	/** Parse a ThoughtEntry from a sequential_thinking tool section's toolArgs string. */
-	function parseThoughtFromSection(section: (typeof sectionsParsed)[number]): ThoughtEntry | null {
-		if (!section.toolArgs) return null;
-		try {
-			const raw =
-				typeof section.toolArgs === 'string' ? JSON.parse(section.toolArgs) : section.toolArgs;
-			return {
-				thoughtNumber: Number(raw.thoughtNumber ?? 0),
-				totalThoughts: Number(raw.totalThoughts ?? 0),
-				thought: String(raw.thought ?? ''),
-				nextThoughtNeeded: Boolean(raw.nextThoughtNeeded),
-				done: section.toolResult != null
-			};
-		} catch {
-			return null;
-		}
-	}
-
 	/** Safely extract the skill name from a read_skill section's toolArgs string. */
 	function parseReadSkillName(section: (typeof sectionsParsed)[number]): string {
 		if (!section.toolArgs) return '';
@@ -367,70 +319,6 @@
 
 	function isSessionApprovalError(result: string | undefined): boolean {
 		return !!result && result.includes('is not approved for this session');
-	}
-
-	/**
-	 * Check if this section is the first sequential_thinking section across ALL sections (global, not per-turn).
-	 * Used to determine where to render the single header-only stepper.
-	 */
-	function isFirstSeqThinkingGlobally(flatIndex: number): boolean {
-		const firstSeqThinkingIndex = sectionsParsed.findIndex(
-			(s: (typeof sectionsParsed)[number]) => s?.toolName === 'sequential_thinking'
-		);
-		return flatIndex === firstSeqThinkingIndex;
-	}
-
-	/** Get all sequential thinking thoughts across all turns. */
-	function getAllSeqThinkingThoughts(): ThoughtEntry[] {
-		const allThoughts: ThoughtEntry[] = [];
-		for (const turn of turnGroups) {
-			allThoughts.push(...getThoughtsForTurn(turn.flatIndices));
-		}
-		// Deduplicate by thoughtNumber (same thought might appear from multiple source messages)
-		const seen = new SvelteMap<number, ThoughtEntry>();
-		for (const thought of allThoughts) {
-			if (!seen.has(thought.thoughtNumber)) {
-				seen.set(thought.thoughtNumber, thought);
-			}
-		}
-		const result = Array.from(seen.values());
-		result.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
-		return result;
-	}
-
-	/** Get all thoughts for a specific turn group (by flat indices). */
-	function getThoughtsForTurn(turnFlatIndices: number[]): ThoughtEntry[] {
-		// Collect unique sourceMessageIds in this turn
-		const sourceIds = new SvelteSet<string>();
-		for (const idx of turnFlatIndices) {
-			const section = sectionsParsed[idx];
-			if (section?.toolName === 'sequential_thinking') {
-				sourceIds.add(section.sourceMessageId ?? message.id);
-			}
-		}
-		// Aggregate thoughts from all source messages in this turn
-		const allThoughts: ThoughtEntry[] = [];
-		for (const sourceId of sourceIds) {
-			const storeThoughts = sequentialThinkingStore.getThoughtsForMessage(message.convId, sourceId);
-			if (storeThoughts.length > 0) {
-				allThoughts.push(...storeThoughts);
-			} else {
-				// Fallback: parse from sections
-				for (const idx of turnFlatIndices) {
-					const section = sectionsParsed[idx];
-					if (
-						section?.toolName === 'sequential_thinking' &&
-						(section.sourceMessageId ?? message.id) === sourceId
-					) {
-						const parsed = parseThoughtFromSection(section);
-						if (parsed) allThoughts.push(parsed);
-					}
-				}
-			}
-		}
-		// Sort by thoughtNumber
-		allThoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
-		return allThoughts;
 	}
 
 	function buildTurnAgenticTimings(stats: ChatMessageAgenticTurnStats): ChatMessageAgenticTimings {
@@ -624,61 +512,7 @@
 {/snippet}
 
 {#snippet renderSection(section: (typeof sectionsParsed)[number], index: number)}
-	{#if section.toolName === 'sequential_thinking'}
-		{@const thought = parseThoughtFromSection(section)}
-		{@const isThisStepActive = isStreaming && thought != null && !thought.done}
-		{#if isFirstSeqThinkingGlobally(index)}
-			{@const allThoughts = getAllSeqThinkingThoughts()}
-			{#if allThoughts.length > 0 || isStreaming}
-				<div class="agentic-inline-block">
-					<button
-						type="button"
-						class="agentic-inline-trigger seq-thinking-header"
-						onclick={() => (seqThinkingHeaderExpanded = !seqThinkingHeaderExpanded)}
-						aria-expanded={seqThinkingHeaderExpanded}
-						title={seqThinkingHeaderExpanded ? 'Collapse thinking steps' : 'Expand thinking steps'}
-					>
-						<ChatMessageThinkingSteps
-							thoughts={allThoughts}
-							{isStreaming}
-							conversationId={message.convId}
-							headerOnly={true}
-						/>
-						<ChevronRight class={cn('agentic-chevron', seqThinkingHeaderExpanded && 'expanded')} />
-					</button>
-				</div>
-			{/if}
-		{/if}
-		{#if thought && seqThinkingHeaderExpanded}
-			<div class="agentic-inline-block">
-				<button
-					type="button"
-					class="agentic-inline-trigger"
-					onclick={() => toggleExpanded(index, section)}
-					aria-expanded={isExpanded(index, section)}
-				>
-					{#if isThisStepActive}
-						<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
-					{:else if thought.done}
-						<Check class="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
-					{:else}
-						<Brain class="h-3.5 w-3.5 shrink-0" />
-					{/if}
-					<span class="agentic-label">
-						Step {thought.thoughtNumber}{thought.totalThoughts ? ` / ${thought.totalThoughts}` : ''}
-					</span>
-					<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
-				</button>
-				{#if isExpanded(index, section)}
-					<div class="agentic-inline-content">
-						<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
-							{thought.thought}
-						</div>
-					</div>
-				{/if}
-			</div>
-		{/if}
-	{:else if section.type === AgenticSectionType.TEXT}
+	{#if section.type === AgenticSectionType.TEXT}
 		{@const displayContent = applyResponseFilters(section.content, filterOptions)}
 		<div class="agentic-text-group" class:editing={editingSectionIndex === index}>
 			{#if editingSectionIndex === index}
@@ -1250,19 +1084,6 @@
 
 	.agentic-inline-trigger:hover {
 		color: var(--foreground);
-		background: color-mix(in oklch, var(--muted) 50%, transparent);
-	}
-
-	:global(.seq-thinking-header) {
-		cursor: pointer;
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.25rem 0.5rem;
-	}
-
-	:global(.seq-thinking-header:hover) {
 		background: color-mix(in oklch, var(--muted) 50%, transparent);
 	}
 

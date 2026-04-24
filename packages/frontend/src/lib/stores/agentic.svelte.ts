@@ -39,7 +39,7 @@ import {
 	repairJsonObject,
 	sanitizeToolName
 } from '$lib/utils';
-import { sequentialThinkingStore, type ThoughtEntry } from '$lib/stores/sequential-thinking.svelte';
+
 import { runCommandSessionStore } from '$lib/stores/run-command-session.svelte';
 import {
 	DEFAULT_AGENTIC_CONFIG,
@@ -205,8 +205,6 @@ class AgenticStore {
 	private _subagentProgress = $state<Record<string, SubagentProgress | null>>({});
 	/** Persisted final stats shown in UI after subagent completes. */
 	private _subagentFinalStats = $state<Record<string, SubagentFinalStats | null>>({});
-	/** Tracks startedAt timestamps for sequential_thinking tool calls by tool call ID. */
-	private _sequentialThinkingStartedAt = $state<Map<string, number>>(new Map());
 	/** Tracks the last skill name read via read_skill, for associating with subsequent call_subagent. */
 	private _lastReadSkill = $state<Map<string, string>>(new Map());
 
@@ -285,18 +283,6 @@ class AgenticStore {
 
 	clearError(conversationId: string): void {
 		this.updateSession(conversationId, { lastError: null });
-	}
-
-	/** Record the startedAt timestamp for a sequential_thinking tool call. */
-	recordSequentialThinkingStartedAt(toolCallId: string, timestamp: number): void {
-		this._sequentialThinkingStartedAt.set(toolCallId, timestamp);
-	}
-
-	/** Retrieve and consume the startedAt timestamp for a sequential_thinking tool call. */
-	consumeSequentialThinkingStartedAt(toolCallId: string): number | undefined {
-		const val = this._sequentialThinkingStartedAt.get(toolCallId);
-		this._sequentialThinkingStartedAt.delete(toolCallId);
-		return val;
 	}
 
 	private setSubagentProgress(conversationId: string, progress: SubagentProgress | null): void {
@@ -586,14 +572,6 @@ class AgenticStore {
 											streamingToolCall: { name, arguments: args }
 										});
 
-										// Track startedAt for sequential_thinking tool calls
-										if (
-											name === 'sequential_thinking' &&
-											turnToolCalls[0].id &&
-											!this._sequentialThinkingStartedAt.has(turnToolCalls[0].id)
-										) {
-											this._sequentialThinkingStartedAt.set(turnToolCalls[0].id, Date.now());
-										}
 									}
 								}
 							} catch (e) {
@@ -1036,16 +1014,7 @@ class AgenticStore {
 				return { content: this._executeGetTimeTool(parsed) };
 			case 'get_location':
 				return { content: await this._executeGetLocationTool() };
-			case 'sequential_thinking':
-				return {
-					content: this._executeSequentialThinkingTool(
-						parsed,
-						conversationId,
-						messageId,
-						toolCallId
-					)
-				};
-			case 'call_subagent':
+		case 'call_subagent':
 				return {
 					content: await this._executeCallSubagentTool(
 						parsed,
@@ -1126,43 +1095,6 @@ class AgenticStore {
 		});
 	}
 
-	private _executeSequentialThinkingTool(
-		parsed: Record<string, unknown>,
-		conversationId: string,
-		messageId: string,
-		toolCallId?: string
-	): string {
-		const thought = String(parsed.thought ?? '');
-		const thoughtNumber = Number(parsed.thoughtNumber ?? 1);
-		const totalThoughts = Number(parsed.totalThoughts ?? 1);
-		const nextThoughtNeeded = Boolean(parsed.nextThoughtNeeded ?? false);
-		const done = !nextThoughtNeeded;
-		const completedAt = Date.now();
-
-		const startedAt = toolCallId ? this.consumeSequentialThinkingStartedAt(toolCallId) : undefined;
-
-		const entry: ThoughtEntry = {
-			thoughtNumber,
-			totalThoughts,
-			thought,
-			nextThoughtNeeded,
-			done,
-			startedAt: startedAt ?? completedAt,
-			completedAt
-		};
-
-		sequentialThinkingStore.completeLastThought(conversationId, messageId, completedAt);
-		sequentialThinkingStore.recordThought({ conversationId, messageId, thought: entry });
-
-		return JSON.stringify({
-			thoughtNumber,
-			totalThoughts,
-			nextThoughtNeeded,
-			comment:
-				'Thought recorded, you should brief the user with a small headup (e.g. Let me continue reasoning.) before registering next thoughts, or proceed with the agentic flow anyways.'
-		});
-	}
-
 	private async _executeCallSubagentTool(
 		parsed: Record<string, unknown>,
 		conversationId: string,
@@ -1194,7 +1126,7 @@ class AgenticStore {
 
 		const subagentTools = (allTools ?? []).filter((t: OpenAIToolDefinition) => {
 			const tName = t.function?.name;
-			return tName && tName !== 'call_subagent' && tName !== 'sequential_thinking';
+			return tName && tName !== 'call_subagent';
 		});
 		const builtinNameSet = getBuiltinToolNames();
 		builtinNameSet.delete('call_subagent');

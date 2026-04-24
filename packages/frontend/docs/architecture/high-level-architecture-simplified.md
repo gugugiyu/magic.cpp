@@ -35,7 +35,6 @@ flowchart TB
         S5["settingsStore<br/><i>User configuration incl. MCP, filters, skills</i>"]
         S6["mcpStore<br/><i>MCP servers, tools, prompts, health checks</i>"]
         S7["mcpResourceStore<br/><i>MCP resources & attachments</i>"]
-        S8["sequentialThinkingStore<br/><i>Ephemeral reasoning steps</i>"]
         S9["subagentConfigStore<br/><i>Subagent endpoint, model, API key</i>"]
         S10["skillsStore<br/><i>User-managed skill files (CRUD, enable/disable)</i>"]
         S11["modelCapabilityStore<br/><i>Per-model tool-calling override</i>"]
@@ -150,7 +149,7 @@ flowchart TB
     class C_Sidebar,C_Screen,C_Form,C_Messages,C_Message,C_ChatMessageAgenticContent,C_MessageEditForm,C_ModelsSelector,C_Settings componentStyle
     class C_McpSettings,C_McpResourceBrowser,C_McpServersSelector componentStyle
     class H1,H2 hookStyle
-    class S1,S2,S3,S4,S5,SA,S6,S7,S8,S9,S10,S11 storeStyle
+    class S1,S2,S3,S4,S5,SA,S6,S7,S9,S10,S11 storeStyle
     class SV1,SV2,SV3,SV4,SV5,SV6,SV7 serviceStyle
     class ST1,ST2 storageStyle
     class API1,API2,API3,API4 apiStyle

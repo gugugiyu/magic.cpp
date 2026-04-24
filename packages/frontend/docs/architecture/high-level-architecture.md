@@ -55,8 +55,8 @@ end
             SASession["<b>Session Management:</b><br/>getSession()<br/>updateSession()<br/>clearSession()<br/>getActiveSessions()<br/>isRunning()<br/>currentTurn()<br/>totalToolCalls()<br/>lastError()<br/>streamingToolCall()"]
             SAConfig["<b>Configuration:</b><br/>getConfig()<br/>getBuiltinTools()<br/>maxTurns, maxToolPreviewLines"]
             SAFlow["<b>Agentic Loop:</b><br/>runAgenticFlow()<br/>executeAgenticLoop()<br/>normalizeToolCalls()<br/>emitToolCallResult()<br/>extractBase64Attachments()"]
-            SATools["<b>Built-in Tool Execution:</b><br/>executeBuiltinTool()<br/>calculator, get_time, get_location<br/>sequential_thinking, call_subagent<br/>list_skill, read_skill"]
-            SASubagent["<b>Subagent Delegation:</b><br/>Independent agentic loop on subagent endpoint<br/>No recursion, no sequential_thinking<br/>Progress tracking via SubagentProgress"]
+            SATools["<b>Built-in Tool Execution:</b><br/>executeBuiltinTool()<br/>calculator, get_time, get_location<br/>call_subagent<br/>list_skill, read_skill"]
+            SASubagent["<b>Subagent Delegation:</b><br/>Independent agentic loop on subagent endpoint<br/>No recursion<br/>Progress tracking via SubagentProgress"]
         end
         subgraph S2["conversationsStore"]
             S2State["<b>State:</b><br/>conversations<br/>activeConversation<br/>activeMessages<br/>isInitialized<br/>pendingMcpServerOverrides<br/>titleUpdateConfirmationCallback"]
@@ -106,10 +106,6 @@ end
             S7Cache["<b>Caching:</b><br/>cacheResourceContent()<br/>getCachedContent()<br/>invalidateCache()<br/>clearCache()"]
             S7Subs["<b>Subscriptions:</b><br/>addSubscription()<br/>removeSubscription()<br/>isSubscribed()<br/>handleResourceUpdate()"]
             S7Attach["<b>Attachments:</b><br/>addAttachment()<br/>updateAttachmentContent()<br/>removeAttachment()<br/>clearAttachments()<br/>toMessageExtras()"]
-        end
-        subgraph S8["sequentialThinkingStore"]
-            S8State["<b>State:</b><br/>turns[] (memory only)"]
-            S8Ops["<b>Operations:</b><br/>recordThought()<br/>getTurn()<br/>getTurnsForConversation()<br/>clearConversation()"]
         end
         subgraph S9["subagentConfigStore"]
             S9State["<b>State:</b><br/>endpoint, apiKey, model<br/>enabled, summarizeEnabled"]
@@ -199,9 +195,6 @@ end
                 RES3["modelVisibleSkills()"]
                 RES4["isLoading()"]
                 RES5["error()"]
-            end
-            subgraph SequentialThinkingExports["sequentialThinkingStore"]
-                RESE1["turns"]
             end
         end
     end

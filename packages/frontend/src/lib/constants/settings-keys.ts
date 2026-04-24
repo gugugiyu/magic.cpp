@@ -59,7 +59,6 @@ export const SETTINGS_KEYS = {
 	BUILTIN_TOOL_CALCULATOR: 'builtinToolCalculator',
 	BUILTIN_TOOL_TIME: 'builtinToolTime',
 	BUILTIN_TOOL_LOCATION: 'builtinToolLocation',
-	BUILTIN_TOOL_SEQUENTIAL_THINKING: 'builtinToolSequentialThinking',
 	BUILTIN_TOOL_CALL_SUBAGENT: 'builtinToolCallSubagent',
 	BUILTIN_TOOL_SKILLS: 'builtinToolSkills',
 	BUILTIN_TOOL_SAFE_FILE_TOOLS: 'builtinToolSafeFileTools',

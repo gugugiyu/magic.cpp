@@ -476,14 +476,6 @@ export { default as ChatMessage } from './ChatMessages/ChatMessage.svelte';
 export { default as ChatMessageAgenticContent } from './ChatMessages/ChatMessageAgenticContent.svelte';
 
 /**
- * Vertical stepper display for sequential_thinking tool results. Shows each reasoning
- * step with done/active/pending states. Active step shows an animated spinner while
- * streaming; done steps show a green check. Pending placeholders are shown for
- * anticipated future steps when the model signals nextThoughtNeeded.
- */
-export { default as ChatMessageThinkingSteps } from './ChatMessages/ChatMessageThinkingSteps.svelte';
-
-/**
  * Action buttons toolbar for messages. Displays copy, edit, delete, and regenerate
  * buttons based on message role. Includes branching controls when message has siblings.
  * Shows delete confirmation dialog with cascade delete count. Handles raw output toggle

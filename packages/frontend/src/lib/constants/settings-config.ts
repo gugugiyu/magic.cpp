@@ -73,7 +73,6 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	builtinToolCalculator: false,
 	builtinToolTime: false,
 	builtinToolLocation: false,
-	builtinToolSequentialThinking: false,
 	builtinToolCallSubagent: false,
 	builtinToolSkills: false,
 	builtinToolSafeFileTools: false,
@@ -193,8 +192,6 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 		'Inject a get_time tool the model can call to retrieve the current date, time, and timezone (respects TZ env var, defaults to UTC).',
 	builtinToolLocation:
 		'Inject a get_location tool the model can call to retrieve your browser-reported geolocation (requires permission).',
-	builtinToolSequentialThinking:
-		'Inject a sequential_thinking tool that lets the model break problems into explicit reasoning steps before answering.',
 	builtinToolCallSubagent:
 		'Inject a call_subagent tool that delegates tasks to a separate subagent model on a different endpoint.',
 	builtinToolSkills:

@@ -6,7 +6,6 @@ sequenceDiagram
     participant Agentic as 🤖 agenticStore
     participant MCP as 🔌 mcpStore
     participant Subagent as 🤖 subagentConfigStore
-    participant SeqThink as 🧠 sequentialThinkingStore
     participant Skills as 🎯 skillsStore
     participant API as 🌐 llama-server
     participant SubAPI as 🌐 Subagent API
@@ -27,7 +26,7 @@ sequenceDiagram
 
         %% Built-in tools
         Agentic->>Agentic: getBuiltinTools(settings)
-        Note over Agentic: Conditionally add:<br/>calculator, get_time, get_location,<br/>sequential_thinking, call_subagent,<br/>list_skill, read_skill
+        Note over Agentic: Conditionally add:<br/>calculator, get_time, get_location,<br/>call_subagent,<br/>list_skill, read_skill
 
         %% MCP tools
         Agentic->>MCP: hasEnabledServers()
@@ -145,7 +144,6 @@ interface AgenticSession {
 | `calculator`          | `builtinToolCalculator`         | Evaluates JavaScript math expressions automatically with strict-mode sandbox |
 | `get_time`            | `builtinToolTime`               | Returns current UTC date/time as ISO 8601 string                             |
 | `get_location`        | `builtinToolLocation`           | Browser Geolocation API (requires user permission)                           |
-| `sequential_thinking` | `builtinToolSequentialThinking` | Structured reasoning steps with live stepper UI                              |
 | `call_subagent`       | `builtinToolCallSubagent`       | Delegate to separate model endpoint                                          |
 | `list_skill`          | `builtinToolSkills`             | List enabled user skills                                                     |
 | `read_skill`          | `builtinToolSkills`             | Read full skill content by name                                              |
@@ -189,21 +187,6 @@ return new Promise((resolve) => {
 		{ timeout: 10000 }
 	);
 });
-```
-
-**`sequential_thinking`**:
-
-```typescript
-// Records thought to sequentialThinkingStore (memory only)
-sequentialThinkingStore.recordThought({
-	thought,
-	thoughtNumber,
-	totalThoughts,
-	nextThoughtNeeded,
-	conversationId,
-	turnIndex
-});
-return { result: 'Thought recorded', guidance: nextThoughtNeeded ? 'Continue' : 'Done' };
 ```
 
 **`list_skill`** and **`read_skill`**:
@@ -259,7 +242,7 @@ sequenceDiagram
     participant SubMCP as Subagent MCP
 
     Agentic->>SubConfig: Get endpoint, apiKey, model
-    Note over Agentic: Build independent tool list<br/>(no call_subagent, no sequential_thinking)
+    Note over Agentic: Build independent tool list<br/>(no call_subagent)
 
     Agentic->>SubAPI: POST {endpoint}/v1/chat/completions
     Note over SubAPI: Subagent runs its own agentic loop<br/>max turns: SUBAGENT_MAX_TURNS (10)
@@ -277,7 +260,6 @@ sequenceDiagram
 **Key constraints:**
 
 - **No recursion** — Subagent does NOT get `call_subagent` tool
-- **No sequential thinking** — Subagent does NOT get `sequential_thinking` (writes to parent's reasoning store)
 - **MCP tools** — Subagent CAN use MCP tools if servers are configured
 - **Built-in tools** — Subagent gets calculator, time, location, list_skill, read_skill
 - **Max turns** — `SUBAGENT_MAX_TURNS = 10` (independent of main model's turn limit)
@@ -363,7 +345,6 @@ The compaction system uses `COMPACT_SUMMARIZER_BASE_PROMPT` and can incorporate 
 | ---------------------------------------------- | -------------------------------------------- |
 | `src/lib/stores/agentic.svelte.ts`             | Main agentic loop orchestration (1323 lines) |
 | `src/lib/stores/subagent-config.svelte.ts`     | Subagent endpoint configuration              |
-| `src/lib/stores/sequential-thinking.svelte.ts` | Ephemeral reasoning step tracking            |
-| `src/lib/stores/mcp.svelte.ts`                 | MCP connection management and tool execution |
+| `src/lib/stores/mcp.svelte.ts` | MCP connection management and tool execution |
 | `@shared/constants/prompts-and-tools.ts`       | Built-in tool definitions and prompts        |
 | `src/lib/services/chat.service.ts`             | Stateless API layer (sendMessage, streaming) |

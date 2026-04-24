@@ -428,7 +428,6 @@ Components are organized in `app/` (application-specific) and `ui/` (shadcn-svel
 | `settingsStore`           | User preferences, parameter sync with server defaults                         |
 | `mcpStore`                | MCP server connections, tool execution, health checks, prompt retrieval       |
 | `mcpResourceStore`        | MCP resource discovery, caching, subscriptions, attachments                   |
-| `sequentialThinkingStore` | Ephemeral reasoning step tracking for sequential thinking tool                |
 | `subagentConfigStore`     | Subagent endpoint, API key, model, and summarization settings                 |
 | `skillsStore`             | User-managed skill files (load, create, update, delete, enable/disable)       |
 | `modelCapabilityStore`    | Per-model tool-calling capability override                                    |

@@ -48,12 +48,6 @@ export const ACTIVITY_MESSAGES: Record<string, string[]> = {
 		'Finding our spot on the map…',
 		'Triangulating position…'
 	],
-	'tool-sequential_thinking': [
-		'Pondering deeply…',
-		'Connecting the dots…',
-		'Following the thread of thought…',
-		'Walking through the reasoning maze…'
-	],
 	'tool-call_subagent': [
 		'Summoning a helper…',
 		'Calling in backup…',

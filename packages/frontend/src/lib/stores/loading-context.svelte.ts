@@ -28,9 +28,6 @@ class LoadingContextStore {
 
 		const streamingTool = agenticStore.streamingToolCall(convId);
 		if (streamingTool) {
-			if (streamingTool.name === 'sequential_thinking') {
-				return { type: 'reasoning' };
-			}
 			return { type: 'tool', name: streamingTool.name };
 		}
 

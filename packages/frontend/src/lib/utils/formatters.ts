@@ -160,8 +160,7 @@ export function formatAttachmentText(
  * Each section is rendered in a readable text format:
  * - TEXT sections: verbatim content
  * - REASONING sections: wrapped in <thinking> tags
- * - sequential_thinking tool calls: wrapped in <thinking step="n/total"> tags
- * - Other tool calls: rendered as <tool_call name="..."> / <tool_result> blocks
+	 * - Other tool calls: rendered as <tool_call name="..."> / <tool_result> blocks
  *
  * @param message - The anchor assistant message
  * @param toolMessages - Tool result and continuation assistant messages
@@ -185,19 +184,6 @@ export function formatAgenticTurn(
 		) {
 			if (section.content?.trim()) {
 				parts.push(`<thinking>\n${section.content.trim()}\n</thinking>`);
-			}
-		} else if (section.toolName === 'sequential_thinking') {
-			/* Special parsing for sequential thinking tool */
-			try {
-				const args = section.toolArgs ? JSON.parse(repairJsonObject(section.toolArgs)) : null;
-				if (args?.thought) {
-					const n = args.thoughtNumber;
-					const total = args.totalThoughts;
-					const stepAttr = n && total ? ` step="${n}/${total}"` : '';
-					parts.push(`<thinking${stepAttr}>\n${String(args.thought).trim()}\n</thinking>`);
-				}
-			} catch {
-				// ignore malformed args
 			}
 		} else if (
 			section.type === AgenticSectionType.TOOL_CALL ||

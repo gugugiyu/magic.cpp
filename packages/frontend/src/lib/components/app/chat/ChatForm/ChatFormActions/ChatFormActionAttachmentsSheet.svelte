@@ -42,12 +42,7 @@
 		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR, label: 'Calculator', icon: '🧮' },
 		{ key: SETTINGS_KEYS.BUILTIN_TOOL_TIME, label: 'Get time', icon: '🕐' },
 		{ key: SETTINGS_KEYS.BUILTIN_TOOL_LOCATION, label: 'Get location', icon: '📍' },
-		{
-			key: SETTINGS_KEYS.BUILTIN_TOOL_SEQUENTIAL_THINKING,
-			label: 'Sequential thinking',
-			icon: '💭'
-		},
-		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent', icon: '🤖' },
+			{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent', icon: '🤖' },
 		{ key: SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND, label: 'Run command', icon: '⚡' }
 	] as const;
 

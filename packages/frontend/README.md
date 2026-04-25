@@ -148,7 +148,7 @@ cd packages/backend
 bun run dev
 ```
 
-This starts the backend API server (default port: 3001).
+This starts the backend API server (default port: 3000).
 
 ### 3. Start llama-server
 
@@ -174,16 +174,17 @@ This starts:
 - **Vite dev server** at `http://localhost:5173` - The main WebUI
 - **Storybook** at `http://localhost:6006` - Component documentation
 
-The Vite dev server proxies API requests to the backend and llama-server:
+The Vite dev server proxies API requests to the backend, which in turn routes to the configured upstreams:
 
 ```typescript
 // vite.config.ts proxy configuration
 proxy: {
-  '/api': 'http://localhost:3001',   // Backend API (SQLite, skills)
-  '/v1': 'http://localhost:8080',    // llama-server chat completions
-  '/props': 'http://localhost:8080', // llama-server properties
-  '/slots': 'http://localhost:8080', // llama-server slot status
-  '/models': 'http://localhost:8080' // llama-server model management
+  '/v1': 'http://localhost:3000',       // Backend handles chat completions & model list
+  '/props': 'http://localhost:3000',    // Backend proxies or synthesizes for OpenAI
+  '/models': 'http://localhost:3000',   // Backend proxy to upstream
+  '/cors-proxy': 'http://localhost:3000', // Backend CORS proxy
+  '/compact': 'http://localhost:3000',  // Backend context condenser
+  '/health': 'http://localhost:3000',   // Backend health check
 }
 ```
 

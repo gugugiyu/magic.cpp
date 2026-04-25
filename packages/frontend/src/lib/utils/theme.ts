@@ -8,7 +8,7 @@ const CUSTOM_THEMES = new Set<string>([ColorMode.TOKYO_NIGHT, ColorMode.EVERFORE
 /** Track the last theme we applied to avoid redundant work. */
 let lastAppliedTheme: string | undefined;
 
-const logger = createModuleLogger("Theme")
+const logger = createModuleLogger('Theme');
 
 /**
  * Apply a theme to the document.
@@ -27,32 +27,31 @@ const logger = createModuleLogger("Theme")
 export function applyTheme(theme: string): void {
 	if (!browser) return;
 	if (theme === lastAppliedTheme) return;
-	console.log(theme, lastAppliedTheme)
+	console.log(theme, lastAppliedTheme);
 	lastAppliedTheme = theme;
-
 
 	if (CUSTOM_THEMES.has(theme)) {
 		const desired = 'dark';
 		const currentMode = localStorage.getItem('mode-watcher-mode');
 		if (currentMode !== desired) {
-			logger.debug(`Mode set ${currentMode}`)
+			logger.debug(`Mode set ${currentMode}`);
 			setMode(desired);
 		}
 		const currentTheme = localStorage.getItem('mode-watcher-theme');
 		if (currentTheme !== theme) {
-			logger.debug(`Theme set ${currentTheme}`)
+			logger.debug(`Theme set ${currentTheme}`);
 			setTheme(theme);
 		}
 	} else {
 		const desired = theme as 'light' | 'dark' | 'system';
 		const currentMode = localStorage.getItem('mode-watcher-mode');
 		if (currentMode !== desired) {
-			logger.debug(`(No custom) Mode set ${currentMode}`)
+			logger.debug(`(No custom) Mode set ${currentMode}`);
 			setMode(desired);
 		}
 		const currentTheme = localStorage.getItem('mode-watcher-theme');
 		if (currentTheme !== '') {
-			logger.debug(`(No custom) Mode set ${currentMode}`)
+			logger.debug(`(No custom) Mode set ${currentMode}`);
 			setTheme('');
 		}
 	}

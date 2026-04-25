@@ -195,8 +195,24 @@ All routes accept and return JSON unless otherwise noted. CORS preflight (`OPTIO
 | `PUT` | `/api/messages/:id` | Update a message |
 | `DELETE` | `/api/messages/:id` | Delete a message |
 | `POST` | `/api/messages/:id/delete-cascading` | Delete a message and all its children |
+| `DELETE` | `/api/messages/:id` | Delete a message |
+| `POST` | `/api/messages/:id/delete-cascading` | Delete a message and all its children |
 | `POST` | `/api/conversations/import` | Import conversations from JSON |
 | `GET` | `/api/conversations/export` | Export all conversations as JSON |
+| `POST` | `/api/conversations/:id/fork` | Fork a conversation |
+| `GET` | `/api/skills` | List all skills |
+| `POST` | `/api/skills` | Create a skill |
+| `GET` | `/api/skills/:name` | Get a skill by name |
+| `PUT` | `/api/skills/:name` | Update a skill |
+| `DELETE` | `/api/skills/:name` | Delete a skill |
+| `GET` | `/api/presets` | List all presets |
+| `POST` | `/api/presets` | Create a preset |
+| `GET` | `/api/presets/:id` | Get a preset by ID |
+| `PUT` | `/api/presets/:id` | Update a preset |
+| `DELETE` | `/api/presets/:id` | Delete a preset |
+| `GET` | `/api/tools/allowed-commands` | List allowed shell commands |
+| `POST` | `/api/tools/execute` | Execute a shell command |
+| `POST` | `/compact` | Context condenser (condense conversation context) |
 | `GET` | `/*` | Static file serving with SPA fallback to `index.html` |
 
 ---

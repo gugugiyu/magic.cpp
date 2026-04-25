@@ -41,7 +41,7 @@
 	let sortMode = $state<SortMode>('default');
 
 	const sortLabels: Record<SortMode, string> = {
-		default: 'Recently Modified',
+		default: 'Default',
 		nameAsc: 'Name (A-Z)'
 	};
 
@@ -264,7 +264,7 @@
 				<span>{sortLabels[sortMode]}</span>
 			</SelectTrigger>
 			<SelectContent>
-				<SelectItem value="default">Recently Modified</SelectItem>
+				<SelectItem value="default">Default</SelectItem>
 				<SelectItem value="nameAsc">Name (A-Z)</SelectItem>
 			</SelectContent>
 		</Select>

@@ -62,7 +62,7 @@ export const builtinToolFields = [
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT,
 		label: 'Subagent',
-		description: 'Allow the main model to spawn a subagent to handle horizontal spanning tasks.'
+		description: 'Allow the main model to spawn a subagent to handle horizontal spanning tasks. (Must configured endpoint in Connections tab)'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_SKILLS,

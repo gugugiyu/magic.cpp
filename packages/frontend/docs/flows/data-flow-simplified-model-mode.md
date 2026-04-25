@@ -6,7 +6,7 @@ sequenceDiagram
     participant User as 👤 User
     participant UI as 🧩 UI
     participant Stores as 🗄️ Stores
-    participant DB as 💾 IndexedDB
+    participant DB as 💾 Backend API (SQLite)
     participant API as 🌐 llama-server
 
     Note over User,API: 🚀 Initialization (see: server-flow.mmd, models-flow.mmd)

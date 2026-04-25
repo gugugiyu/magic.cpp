@@ -164,11 +164,12 @@ export default defineConfig({
 
 	server: {
 		proxy: {
-			'/v1': 'http://localhost:8080',
-			'/props': 'http://localhost:8080',
-			'/models': 'http://localhost:8080',
-			'/cors-proxy': 'http://localhost:8080',
-			'/compact': 'http://localhost:8080'
+			'/v1': 'http://localhost:3000',
+			'/props': 'http://localhost:3000',
+			'/models': 'http://localhost:3000',
+			'/cors-proxy': 'http://localhost:3000',
+			'/compact': 'http://localhost:3000',
+			'/health': 'http://localhost:3000'
 		},
 		headers: {
 			'Cross-Origin-Embedder-Policy': 'require-corp',

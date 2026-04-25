@@ -47,6 +47,8 @@
 	import { fade } from 'svelte/transition';
 	import { tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { builtinToolFields } from '$lib/enums/builtin-tools';
+	import { presetsStore } from '$lib/stores/presets.svelte';
 
 	const SCROLL_CENTER_DELAY_MS = 50;
 	const SCROLL_UPDATE_DELAY_MS = 100;
@@ -439,7 +441,13 @@
 	function handleConfigChange(key: string, value: string | boolean) {
 		if (key === SETTINGS_KEYS.FILTER_NORMALIZE_MARKDOWN && value === true) {
 			localConfig[SETTINGS_KEYS.FILTER_CODEBLOCK_ONLY] = false;
+		} else if (key === SETTINGS_KEYS.SYSTEM_MESSAGE || (builtinToolFields.map(item => item.key) as string[]).includes(key)) {
+			// If system message, tool calls changed, reset presets entirely
+			presetsStore.clearActivePreset(false)
+			const toastMsg = `Preset is no longer active because ${SETTINGS_KEYS.SYSTEM_MESSAGE ? "system prompt" : "built in tools list"} has changed`
+			toast.info(toastMsg)
 		}
+
 		localConfig[key] = value;
 	}
 
@@ -503,7 +511,7 @@
 					class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors transition-transform duration-75 hover:bg-accent active:scale-[0.98] {activeSection ===
 					section.title
 						? 'bg-accent text-accent-foreground'
-						: 'hover:bg-muted text-muted-foreground'}"
+						: 'text-muted-foreground hover:bg-muted'}"
 					onclick={() => navigateToSection(section.title)}
 				>
 					<section.icon class="h-4 w-4" />

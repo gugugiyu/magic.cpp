@@ -96,10 +96,19 @@ class ServerStore {
 
 		const fetchPromise = (async () => {
 			try {
-				const props = await this.fetchWithRetry();
-				this.props = props;
-				this.error = null;
-				this.detectRole(props);
+				const isOpenAIOnly = await this.quickHealthCheck();
+
+				if (isOpenAIOnly) {
+					this.props = null;
+					this.error =
+						'Server does not support model metadata endpoint (/props) — running in compatibility mode';
+					this.role = ServerRole.MODEL;
+				} else {
+					const props = await this.fetchWithRetry();
+					this.props = props;
+					this.error = null;
+					this.detectRole(props);
+				}
 			} catch (error) {
 				this.error = this.getErrorMessage(error);
 				console.error('Error fetching server properties:', error);
@@ -111,6 +120,30 @@ class ServerStore {
 
 		this.fetchPromise = fetchPromise;
 		await fetchPromise;
+	}
+
+	/**
+	 * Lightweight health check to determine whether /props is needed.
+	 * If the backend reports that all upstreams are OpenAI-type, we skip
+	 * the /props fetch entirely (OpenAI endpoints don't have /props).
+	 * Falls back gracefully (returns false) on any failure, allowing
+	 * the normal /props flow to proceed.
+	 */
+	private async quickHealthCheck(): Promise<boolean> {
+		try {
+			const response = await fetch('./health');
+			if (!response.ok) return false;
+			const data = await response.json();
+			if (data.upstreams && Array.isArray(data.upstreams)) {
+				return (
+					data.upstreams.length > 0 &&
+					data.upstreams.every((u: { type: string }) => u.type === 'openai')
+				);
+			}
+			return false;
+		} catch {
+			return false;
+		}
 	}
 
 	/**

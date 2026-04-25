@@ -205,10 +205,11 @@ class PresetsStore {
 	/**
 	 * Clear the active preset and restore raw system prompt default.
 	 */
-	clearActivePreset(): void {
+	clearActivePreset(isRestoreSysPrompt: boolean = true): void {
 		this.#activePresetId = null;
 		this.#saveActiveId();
-		settingsStore.updateConfig(SETTINGS_KEYS.SYSTEM_MESSAGE, this.#previousSystemMessage);
+		if (isRestoreSysPrompt) 
+			settingsStore.updateConfig(SETTINGS_KEYS.SYSTEM_MESSAGE, this.#previousSystemMessage);
 	}
 }
 

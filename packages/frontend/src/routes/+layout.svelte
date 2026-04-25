@@ -172,7 +172,10 @@
 			err &&
 			!isOpenAICompatFallbackTriggered() &&
 			!serverStore.loading &&
-			(err.includes('not found') || err.includes('404') || err.includes('Failed to connect'))
+			(err.includes('not found') ||
+				err.includes('404') ||
+				err.includes('Failed to connect') ||
+				serverStore.isCompatibilityMode)
 		) {
 			setOpenAICompatFallbackTriggered();
 			untrack(() => {

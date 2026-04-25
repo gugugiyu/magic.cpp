@@ -443,7 +443,7 @@
 				<span>{sortLabels[sortMode]}</span>
 			</SelectTrigger>
 			<SelectContent>
-				<SelectItem value="default">Recently Modified</SelectItem>
+				<SelectItem value="default">Default</SelectItem>
 				<SelectItem value="nameAsc">Name (A-Z)</SelectItem>
 				<SelectItem value="enabledName">Enabled, then Name</SelectItem>
 			</SelectContent>

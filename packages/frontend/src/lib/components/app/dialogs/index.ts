@@ -128,6 +128,34 @@ export { default as DialogConversationTitleUpdate } from './DialogConversationTi
 export { default as DialogCodePreview } from './DialogCodePreview.svelte';
 
 /**
+ * **DialogDiagramFullscreen** - Full-screen SVG/Mermaid diagram viewer
+ *
+ * Full-screen dialog for viewing rendered SVG or Mermaid diagrams with
+ * zoom and pan interactions. Used by MarkdownContent when the user
+ * clicks the fullscreen button on a rendered diagram block.
+ *
+ * **Architecture:**
+ * - Uses ShadCN Dialog with full viewport layout
+ * - Reuses attachZoomPan for consistent zoom/pan behavior
+ * - Injects raw SVG HTML directly (already sanitized during render)
+ *
+ * **Features:**
+ * - Full viewport diagram preview
+ * - Mouse wheel zoom, drag pan, and pinch-to-zoom
+ * - Escape key to close
+ * - Automatic zoom/pan cleanup on close/unmount
+ *
+ * @example
+ * ```svelte
+ * <DialogDiagramFullscreen
+ *   bind:open={showFullscreen}
+ *   svgHtml={diagramSvgHtml}
+ * />
+ * ```
+ */
+export { default as DialogDiagramFullscreen } from './DialogDiagramFullscreen.svelte';
+
+/**
  *
  * ATTACHMENT DIALOGS
  *

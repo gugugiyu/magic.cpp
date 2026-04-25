@@ -263,7 +263,7 @@
 			</p>
 
 			<Button
-				class="text-destructive-foreground w-full justify-start justify-self-start bg-destructive hover:bg-destructive/80 md:w-auto"
+				class="w-full justify-start justify-self-start bg-destructive text-destructive-foreground hover:bg-destructive/80 md:w-auto"
 				onclick={handleDeleteAllClick}
 				variant="destructive"
 			>

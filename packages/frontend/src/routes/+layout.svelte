@@ -16,6 +16,7 @@
 	import { goto } from '$app/navigation';
 	import { modelsStore } from '$lib/stores/models.svelte';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
+	import { presetsStore } from '$lib/stores/presets.svelte';
 	import { TOOLTIP_DELAY_DURATION } from '$lib/constants';
 	import { KeyboardKey } from '$lib/enums';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte';
@@ -199,6 +200,23 @@
 				});
 			});
 		}
+	});
+
+	// Load presets on app startup and re-apply the active preset.
+	// Presets are only fetched when the PresetsManager mounts; without this
+	// the presets array stays empty on refresh and activePreset remains undefined.
+	let presetsInitRun = false;
+	$effect(() => {
+		if (!browser || presetsInitRun) return;
+		presetsInitRun = true;
+		untrack(() => {
+			presetsStore.loadPresetsIfStale(30_000).then(() => {
+				const activeId = presetsStore.activePresetId;
+				if (activeId) {
+					presetsStore.applyPreset(activeId);
+				}
+			});
+		});
 	});
 
 	// Monitor API key changes and redirect to error page if removed or changed when required

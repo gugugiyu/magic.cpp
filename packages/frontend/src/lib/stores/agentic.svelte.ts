@@ -970,12 +970,7 @@ class AgenticStore {
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						name,
-						args: {
-							...parsed,
-							...(name === 'run_command' && {
-								sessionApprovedCommands: runCommandSessionStore.getApprovedCommands()
-							})
-						}
+						args: parsed
 					}),
 					signal
 				});

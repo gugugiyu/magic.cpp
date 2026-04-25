@@ -62,6 +62,13 @@ allowedList   = ["ls", "cat", "grep", "find", "git", "bun"]  # Whitelist of allo
 shellEnabled  = false                                        # Enable full shell access (use with caution)
 
 # ---------------------------------------------------------------------------
+# Admin Key
+# ---------------------------------------------------------------------------
+# If set, the /api/tools/execute and /api/tools/allowed-commands endpoints
+# require an Authorization: Bearer <adminKey> header. Leave null to disable.
+adminKey = null
+
+# ---------------------------------------------------------------------------
 # Upstreams
 # ---------------------------------------------------------------------------
 # Define one or more upstream llama-server or OpenAI-compatible endpoints.

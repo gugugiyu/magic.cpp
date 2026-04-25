@@ -35,7 +35,8 @@ export class ModelsService {
 
 	/**
 	 * Fetch list of all models with detailed metadata (ROUTER mode).
-	 * Returns models with load status, paths, and other metadata
+	
+	 Returns models with load status, paths, and other metadata
 	 * beyond what the OpenAI-compatible endpoint provides.
 	 *
 	 * @returns List of models with detailed status and configuration info

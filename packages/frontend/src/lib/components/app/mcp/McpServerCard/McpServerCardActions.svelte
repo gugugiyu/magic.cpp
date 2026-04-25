@@ -31,7 +31,7 @@
 	<Button
 		variant="ghost"
 		size="icon"
-		class="hover:text-destructive-foreground h-7 w-7 text-destructive hover:bg-destructive/10"
+		class="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive-foreground"
 		onclick={onDelete}
 		aria-label="Delete"
 	>

@@ -409,10 +409,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					name: 'run_command',
-					args: {
-						...parsedArgs,
-						sessionApprovedCommands: runCommandSessionStore.getApprovedCommands()
-					}
+					args: parsedArgs
 				}),
 				signal: reExecutionAbortController.signal
 			});
@@ -882,7 +879,6 @@
 						<span class="agentic-preview"> — {reasoningPreview}…</span>
 					{/if}
 				</span>
-				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
 			</button>
 
 			{#if isExpanded(index, section)}
@@ -905,6 +901,7 @@
 				<span class="agentic-label" class:thinking-pulse={isStreaming}>
 					{isStreaming ? 'Thinking…' : 'Thought — incomplete'}
 				</span>
+				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
 			</button>
 
 			{#if isExpanded(index, section)}

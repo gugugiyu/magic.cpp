@@ -77,19 +77,14 @@
 	>
 		<DropdownMenu.Trigger
 			{disabled}
+			class="inline-flex cursor-pointer items-center rounded-sm py-1 disabled:cursor-not-allowed disabled:opacity-60"
 			onclick={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
 			}}
+			aria-label="MCP Servers"
 		>
-			<button
-				type="button"
-				class="inline-flex cursor-pointer items-center rounded-sm py-1 disabled:cursor-not-allowed disabled:opacity-60"
-				{disabled}
-				aria-label="MCP Servers"
-			>
-				<McpActiveServersAvatars class={className} />
-			</button>
+			<McpActiveServersAvatars class={className} />
 		</DropdownMenu.Trigger>
 
 		<DropdownMenu.Content align="start" class="w-72 pt-0">

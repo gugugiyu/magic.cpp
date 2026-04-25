@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Plus } from '@lucide/svelte';
+	import { flip } from 'svelte/animate';
+	import { Plus, Loader2 } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { uuid } from '$lib/utils';
@@ -32,6 +33,7 @@
 	});
 
 	let isAddingServer = $state(false);
+	let isSaving = $state(false);
 	let newServerUrl = $state('');
 	let newServerHeaders = $state('');
 	let newServerUrlError = $derived.by(() => {
@@ -57,8 +59,10 @@
 		newServerHeaders = '';
 	}
 
-	function saveNewServer() {
-		if (newServerUrlError) return;
+	async function saveNewServer() {
+		if (newServerUrlError || isSaving) return;
+
+		isSaving = true;
 
 		const newServerId = uuid() ?? `${MCP_SERVER_ID_PREFIX}-${Date.now()}`;
 
@@ -71,6 +75,7 @@
 
 		conversationsStore.setMcpServerOverride(newServerId, true);
 
+		isSaving = false;
 		isAddingServer = false;
 		newServerUrl = '';
 		newServerHeaders = '';
@@ -113,9 +118,12 @@
 						variant="default"
 						size="sm"
 						onclick={saveNewServer}
-						disabled={!!newServerUrlError}
+						disabled={!!newServerUrlError || isSaving}
 						aria-label="Save"
 					>
+						{#if isSaving}
+							<Loader2 class="h-4 w-4 animate-spin" />
+						{/if}
 						Add
 					</Button>
 				</div>
@@ -132,18 +140,20 @@
 	{#if servers.length > 0}
 		<div class="space-y-3">
 			{#each servers as server (server.id)}
-				{#if !initialLoadComplete}
-					<McpServerCardSkeleton />
-				{:else}
-					<McpServerCard
-						{server}
-						faviconUrl={mcpStore.getServerFavicon(server.id)}
-						enabled={conversationsStore.isMcpServerEnabledForChat(server.id)}
-						onToggle={async () => await conversationsStore.toggleMcpServerForChat(server.id)}
-						onUpdate={(updates) => mcpStore.updateServer(server.id, updates)}
-						onDelete={() => mcpStore.removeServer(server.id)}
-					/>
-				{/if}
+				<div animate:flip={{ duration: 200 }}>
+					{#if !initialLoadComplete}
+						<McpServerCardSkeleton />
+					{:else}
+						<McpServerCard
+							{server}
+							faviconUrl={mcpStore.getServerFavicon(server.id)}
+							enabled={conversationsStore.isMcpServerEnabledForChat(server.id)}
+							onToggle={async () => await conversationsStore.toggleMcpServerForChat(server.id)}
+							onUpdate={(updates) => mcpStore.updateServer(server.id, updates)}
+							onDelete={() => mcpStore.removeServer(server.id)}
+						/>
+					{/if}
+				</div>
 			{/each}
 		</div>
 	{/if}

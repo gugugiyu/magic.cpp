@@ -3,7 +3,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 </script>
 
-<Card.Root class="grid gap-3 p-4">
+<Card.Root class="!gap-3 bg-muted/30 p-4">
 	<div class="flex items-center justify-between gap-4">
 		<div class="flex items-center gap-2">
 			<Skeleton class="h-5 w-5 rounded" />

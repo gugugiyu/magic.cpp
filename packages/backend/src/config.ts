@@ -44,8 +44,9 @@ export type FilesystemConfig = z.infer<typeof FilesystemConfigSchema>;
 
 const CommandsConfigSchema = z.object({
 	allowedList: z.array(z.string()).default([]),
-	shellEnabled: z.boolean().default(false)
-}).default(() => ({ allowedList: [], shellEnabled: false }));
+	shellEnabled: z.boolean().default(false),
+	adminKey: z.string().nullable().default(null)
+}).default(() => ({ allowedList: [], shellEnabled: false, adminKey: null }));
 
 export type CommandsConfig = z.infer<typeof CommandsConfigSchema>;
 

@@ -49,10 +49,10 @@
 					</div>
 				{/if}
 
-				<p class="min-w-0 shrink-0 truncate leading-none font-medium">{displayName}</p>
+				<p class="min-w-0 truncate leading-none font-medium">{displayName}</p>
 
 				{#if serverInfo?.version}
-					<Badge variant="secondary" class="h-4 min-w-0 truncate px-1 text-[10px]">
+					<Badge variant="secondary" class="h-4 min-w-0 truncate px-1 text-2xs">
 						v{serverInfo.version}
 					</Badge>
 				{/if}
@@ -74,7 +74,7 @@
 				<div class="flex flex-wrap items-center gap-1">
 					{#if transportType}
 						{@const TransportIcon = MCP_TRANSPORT_ICONS[transportType]}
-						<Badge variant="outline" class="h-5 gap-1 px-1.5 text-[10px]">
+						<Badge variant="outline" class="h-5 gap-1 px-1.5 text-2xs">
 							{#if TransportIcon}
 								<TransportIcon class="h-3 w-3" />
 							{/if}

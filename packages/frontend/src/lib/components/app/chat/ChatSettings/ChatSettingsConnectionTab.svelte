@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { Plug, RotateCcw, RefreshCw, Loader2, ChevronDown } from '@lucide/svelte';
+	import { Plug, Check, X, RefreshCw, Loader2, ChevronDown } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Switch } from '$lib/components/ui/switch';
 	import { DialogConfirmation, SettingsSectionDivider } from '$lib/components/app';
 	import {
 		serverEndpointStore,
@@ -10,10 +12,16 @@
 		isUsingDefaultEndpoint
 	} from '$lib/stores/server-endpoint.svelte';
 	import { modelsStore, modelOptions, selectedModelId } from '$lib/stores/models.svelte';
-	import { serverStore, serverError } from '$lib/stores/server.svelte';
+	import {
+		serverStore,
+		serverError,
+		serverLoading,
+		serverRetryAttempt
+	} from '$lib/stores/server.svelte';
 	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 	import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
 	import { toast } from 'svelte-sonner';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		subagentEnabled?: boolean;
@@ -22,9 +30,27 @@
 	let { subagentEnabled = true }: Props = $props();
 
 	let endpointInput = $derived(serverEndpointConfig().baseUrl);
+
 	let showResetConfirm = $state(false);
 	let isRefreshing = $state(false);
 	let activeModelId = $derived(selectedModelId());
+	let dismissedError = $state<string | null>(null);
+
+	// ─── Connection health polling ────────────────────────────────────────────
+	$effect(() => {
+		const interval = setInterval(() => {
+			if (document.visibilityState === 'visible') {
+				serverStore.fetch();
+			}
+		}, 5000);
+		return () => clearInterval(interval);
+	});
+
+	$effect(() => {
+		if (!serverError()) {
+			dismissedError = null;
+		}
+	});
 
 	// ─── Capability override panel ────────────────────────────────────────────
 	let expandedModelId = $state<string | null>(null);
@@ -34,7 +60,9 @@
 	}
 
 	// ─── Subagent state ───────────────────────────────────────────────────────
-	let subagentEndpointInput = $derived(subagentConfigStore.config.endpoint || endpointInput);
+	let subagentEndpointInput = $derived(
+		subagentConfigStore.config.endpoint || serverEndpointConfig().baseUrl
+	);
 	let subagentSelectedModel = $derived(subagentConfigStore.config.model);
 	let subagentSummarizeEnabled = $derived(subagentConfigStore.config.summarizeEnabled);
 
@@ -44,6 +72,7 @@
 
 	async function handleRefreshModels() {
 		isRefreshing = true;
+		serverStore.error = null;
 		try {
 			modelsStore.clear();
 			await serverStore.fetch();
@@ -62,14 +91,21 @@
 		const trimmed = endpointInput.trim();
 		if (trimmed && trimmed !== serverEndpointStore.getBaseUrl()) {
 			serverEndpointStore.setBaseUrl(trimmed);
+			dismissedError = null;
 			toast.success('Server endpoint updated');
+		}
+	}
+
+	function handleEndpointInput() {
+		if (serverError()) {
+			dismissedError = serverError();
 		}
 	}
 
 	function handleReset() {
 		serverEndpointStore.setDefault();
-		endpointInput = serverEndpointConfig().baseUrl;
 		showResetConfirm = false;
+		dismissedError = null;
 		toast.info('Server endpoint reset to default');
 	}
 
@@ -86,7 +122,14 @@
 	// ─── Subagent handlers ────────────────────────────────────────────────────
 
 	function handleSubagentEndpointChange() {
-		subagentConfigStore.setEndpoint(subagentEndpointInput.trim());
+		const url = subagentEndpointInput.trim();
+		try {
+			new URL(url);
+			subagentConfigStore.setEndpoint(url);
+			toast.success('Subagent endpoint updated');
+		} catch {
+			toast.error('Invalid subagent endpoint URL');
+		}
 	}
 
 	function handleSubagentEndpointKeydown(e: KeyboardEvent) {
@@ -99,8 +142,8 @@
 		subagentConfigStore.setModel(modelId);
 	}
 
-	function handleSubagentSummarizeToggle() {
-		subagentConfigStore.setSummarizeEnabled(!subagentSummarizeEnabled);
+	function handleSubagentSummarizeToggle(checked: boolean) {
+		subagentConfigStore.setSummarizeEnabled(checked);
 	}
 </script>
 
@@ -115,22 +158,30 @@
 				bind:value={endpointInput}
 				onblur={handleEndpointChange}
 				onkeydown={handleEndpointKeydown}
+				oninput={handleEndpointInput}
 				placeholder="http://localhost:8080"
 				class="w-full"
 			/>
 
 			<Button variant="outline" size="icon" onclick={handleEndpointChange} title="Save endpoint">
-				<RotateCcw class="h-4 w-4" />
+				<Check class="h-4 w-4" />
 			</Button>
 		</div>
 
-		<p class="text-xs text-muted-foreground">
-			{#if isUsingDefaultEndpoint()}
-				Using default endpoint (localhost:8080)
-			{:else}
-				Using custom endpoint
+		<div class="flex items-center justify-between">
+			<p class="text-xs text-muted-foreground">
+				{#if isUsingDefaultEndpoint()}
+					Using default endpoint (localhost:8080)
+				{:else}
+					Using custom endpoint
+				{/if}
+			</p>
+			{#if serverLoading()}
+				<span class="animate-pulse text-xs text-muted-foreground">
+					Connecting… attempt {serverRetryAttempt() + 1}/3
+				</span>
 			{/if}
-		</p>
+		</div>
 	</div>
 
 	<SettingsSectionDivider class="flex gap-2">
@@ -154,9 +205,19 @@
 		</Button>
 	</SettingsSectionDivider>
 
-	{#if serverError()}
-		<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-			{serverError()}
+	{#if serverError() && serverError() !== dismissedError}
+		<div
+			class="flex items-start justify-between gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+		>
+			<span class="break-words">{serverError()}</span>
+			<Button
+				variant="ghost"
+				size="icon"
+				class="h-6 w-6 shrink-0"
+				onclick={() => (dismissedError = serverError())}
+			>
+				<X class="h-3.5 w-3.5" />
+			</Button>
 		</div>
 	{/if}
 
@@ -190,7 +251,7 @@
 								<span class="truncate text-sm">{model.name}</span>
 								<span class="ml-2 flex shrink-0 items-center gap-1.5">
 									{#if isActive}
-										<span class="text-xs text-muted-foreground">active</span>
+										<Badge variant="secondary" class="px-1.5 py-0 text-[10px]">active</Badge>
 									{:else if model.model}
 										<span class="truncate text-xs text-muted-foreground"
 											>{model.model.split('/').pop()}</span
@@ -212,7 +273,10 @@
 							</button>
 						</div>
 						{#if isExpanded}
-							<div class="space-y-2 border-t border-border/20 bg-muted/20 px-3 py-2.5">
+							<div
+								transition:slide={{ duration: 150 }}
+								class="space-y-2 border-t border-border/20 bg-muted/20 px-3 py-2.5"
+							>
 								<p class="text-xs font-medium text-muted-foreground">Capability overrides</p>
 								<label class="flex cursor-pointer items-center gap-2">
 									<Checkbox
@@ -226,7 +290,7 @@
 								</label>
 								<label
 									class="flex items-center gap-2 {serverVision
-										? 'cursor-default opacity-60'
+										? 'cursor-default opacity-50'
 										: 'cursor-pointer'}"
 								>
 									<Checkbox
@@ -243,7 +307,7 @@
 								</label>
 								<label
 									class="flex items-center gap-2 {serverAudio
-										? 'cursor-default opacity-60'
+										? 'cursor-default opacity-50'
 										: 'cursor-pointer'}"
 								>
 									<Checkbox
@@ -263,6 +327,8 @@
 					</div>
 				{/each}
 			</div>
+		{:else if modelsStore.error}
+			<p class="text-sm text-destructive">{modelsStore.error}</p>
 		{:else}
 			<p class="text-sm text-muted-foreground">
 				No models available. Click "Refresh Models" to fetch from server.
@@ -322,7 +388,9 @@
 								>
 									<span class="truncate text-sm">{model.name}</span>
 									{#if isActive}
-										<span class="ml-2 shrink-0 text-xs text-muted-foreground">active</span>
+										<Badge variant="secondary" class="ml-2 shrink-0 px-1.5 py-0 text-[10px]"
+											>active</Badge
+										>
 									{/if}
 								</button>
 								<button
@@ -354,22 +422,11 @@
 						Automatically summarize large context before sending to the main model.
 					</p>
 				</div>
-				<button
-					type="button"
-					role="switch"
-					aria-checked={subagentSummarizeEnabled}
+				<Switch
+					checked={subagentSummarizeEnabled}
+					onCheckedChange={handleSubagentSummarizeToggle}
 					aria-label="Summarize long text"
-					onclick={handleSubagentSummarizeToggle}
-					class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 {subagentSummarizeEnabled
-						? 'bg-primary'
-						: 'bg-input'}"
-				>
-					<span
-						class="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform {subagentSummarizeEnabled
-							? 'translate-x-4'
-							: 'translate-x-0'}"
-					></span>
-				</button>
+				/>
 			</div>
 		</SettingsSectionDivider>
 	{/if}

@@ -10,6 +10,7 @@ const logger = createModuleLogger('CodeBlockActions');
 export interface CodeBlockActionCallbacks {
 	onPreview: (code: string, language: string) => void;
 	onCopyError: (error: unknown) => void;
+	onFullscreen?: (svgHtml: string) => void;
 }
 
 export class CodeBlockActionManager {
@@ -76,6 +77,27 @@ export class CodeBlockActionManager {
 		this.callbacks.onPreview(info.rawCode, info.language);
 	};
 
+	private handleFullscreenClick = (event: Event) => {
+		event.preventDefault();
+		event.stopPropagation();
+
+		const target = event.currentTarget as HTMLButtonElement | null;
+		if (!target) return;
+
+		const wrapper = target.closest<HTMLElement>('.code-block-wrapper');
+		if (!wrapper) return;
+
+		const renderContainer =
+			wrapper.querySelector<HTMLElement>('.mermaid-render-container') ||
+			wrapper.querySelector<HTMLElement>('.svg-render-container');
+		if (!renderContainer) return;
+
+		const inner = renderContainer.querySelector<HTMLDivElement>('div');
+		if (!inner) return;
+
+		this.callbacks.onFullscreen?.(inner.innerHTML);
+	};
+
 	private handleMermaidRenderClick = async (event: Event) => {
 		event.preventDefault();
 		event.stopPropagation();
@@ -108,6 +130,8 @@ export class CodeBlockActionManager {
 			scrollContainer.style.display = '';
 			scrollContainer.scrollTop = savedScrollTop;
 			target.title = 'Render diagram';
+			const fullscreenBtn = wrapper.querySelector<HTMLButtonElement>('.fullscreen-diagram-btn');
+			if (fullscreenBtn) fullscreenBtn.style.display = 'none';
 			return;
 		}
 
@@ -123,6 +147,8 @@ export class CodeBlockActionManager {
 				mode.current === ColorMode.DARK
 			);
 			target.title = 'Show source';
+			const fullscreenBtn = wrapper.querySelector<HTMLButtonElement>('.fullscreen-diagram-btn');
+			if (fullscreenBtn) fullscreenBtn.style.display = '';
 		} catch (err) {
 			logger.error('Mermaid render failed', err);
 			toast.error('Mermaid render failed');
@@ -150,6 +176,8 @@ export class CodeBlockActionManager {
 			scrollContainer.style.display = '';
 			scrollContainer.scrollTop = savedScrollTop;
 			if (button) button.title = 'Render SVG';
+			const fullscreenBtn = wrapper.querySelector<HTMLButtonElement>('.fullscreen-diagram-btn');
+			if (fullscreenBtn) fullscreenBtn.style.display = 'none';
 			return;
 		}
 
@@ -165,6 +193,8 @@ export class CodeBlockActionManager {
 		try {
 			await renderSvgDiagram(wrapper, scrollContainer, rawCode);
 			if (button) button.title = 'Show source';
+			const fullscreenBtn = wrapper.querySelector<HTMLButtonElement>('.fullscreen-diagram-btn');
+			if (fullscreenBtn) fullscreenBtn.style.display = '';
 		} catch (err) {
 			logger.error('SVG render failed', err);
 			if (button) button.title = 'Render SVG';
@@ -204,6 +234,7 @@ export class CodeBlockActionManager {
 			const previewButton = wrapper.querySelector<HTMLButtonElement>('.preview-code-btn');
 			const mermaidButton = wrapper.querySelector<HTMLButtonElement>('.mermaid-render-btn');
 			const svgButton = wrapper.querySelector<HTMLButtonElement>('.svg-render-btn');
+			const fullscreenButton = wrapper.querySelector<HTMLButtonElement>('.fullscreen-diagram-btn');
 
 			if (copyButton && copyButton.dataset.listenerBound !== 'true') {
 				copyButton.dataset.listenerBound = 'true';
@@ -235,6 +266,14 @@ export class CodeBlockActionManager {
 					svgButton.dataset.pendingEnable = 'true';
 				}
 				svgButton.addEventListener('click', this.handleSvgRenderClick);
+			}
+
+			if (fullscreenButton && fullscreenButton.dataset.listenerBound !== 'true') {
+				fullscreenButton.dataset.listenerBound = 'true';
+				fullscreenButton.addEventListener('click', this.handleFullscreenClick);
+				// Show only if a render container already exists
+				const hasRender = wrapper.querySelector('.mermaid-render-container, .svg-render-container');
+				fullscreenButton.style.display = hasRender ? '' : 'none';
 			}
 
 			// Auto-render completed SVG blocks on first mount
@@ -274,6 +313,8 @@ export class CodeBlockActionManager {
 		const previewButtons = container.querySelectorAll<HTMLButtonElement>('.preview-code-btn');
 		const mermaidButtons = container.querySelectorAll<HTMLButtonElement>('.mermaid-render-btn');
 		const svgButtons = container.querySelectorAll<HTMLButtonElement>('.svg-render-btn');
+		const fullscreenButtons =
+			container.querySelectorAll<HTMLButtonElement>('.fullscreen-diagram-btn');
 
 		for (const button of copyButtons) {
 			button.removeEventListener('click', this.handleCopyClick);
@@ -295,6 +336,11 @@ export class CodeBlockActionManager {
 			button.removeEventListener('click', this.handleSvgRenderClick);
 			delete button.dataset.listenerBound;
 			delete button.dataset.pendingEnable;
+		}
+
+		for (const button of fullscreenButtons) {
+			button.removeEventListener('click', this.handleFullscreenClick);
+			delete button.dataset.listenerBound;
 		}
 
 		const renderContainers = container.querySelectorAll<

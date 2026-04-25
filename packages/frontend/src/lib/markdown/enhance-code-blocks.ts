@@ -23,12 +23,15 @@ import {
 	PREVIEW_CODE_BTN_CLASS,
 	MERMAID_RENDER_BTN_CLASS,
 	SVG_RENDER_BTN_CLASS,
+	FULLSCREEN_DIAGRAM_BTN_CLASS,
 	RELATIVE_CLASS
 } from '$lib/constants';
 
 const MERMAID_RENDER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="6 3 20 12 6 21 6 3"/></svg>`;
 
 const SVG_RENDER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`;
+
+const FULLSCREEN_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-maximize"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
 
 declare global {
 	interface Window {
@@ -125,6 +128,22 @@ function createSvgRenderButton(codeId: string): Element {
 	};
 }
 
+function createFullscreenButton(codeId: string): Element {
+	return {
+		type: 'element',
+		tagName: 'button',
+		properties: {
+			className: [FULLSCREEN_DIAGRAM_BTN_CLASS],
+			'data-code-id': codeId,
+			title: 'View fullscreen',
+			'aria-label': 'View fullscreen',
+			type: 'button',
+			style: 'display:none;'
+		},
+		children: [createRawHtmlElement(FULLSCREEN_ICON_SVG)]
+	};
+}
+
 function extractNodeText(node: ElementContent): string {
 	if (node.type === 'text') return node.value;
 	if (node.type === 'element') return node.children.map(extractNodeText).join('');
@@ -140,6 +159,7 @@ function createHeader(language: string, codeId: string, codeText = ''): Element 
 	const lang = language.toLowerCase();
 	// Use regex for more tolerant SVG detection in xml blocks
 	const isSvgContent = lang === 'svg' || (lang === 'xml' && /<svg[\s>]/.test(codeText));
+	const isDiagram = lang === 'mermaid' || isSvgContent;
 
 	if (lang === 'html') {
 		actions.push(createPreviewButton(codeId));
@@ -147,6 +167,10 @@ function createHeader(language: string, codeId: string, codeText = ''): Element 
 		actions.push(createMermaidRenderButton(codeId));
 	} else if (isSvgContent) {
 		actions.push(createSvgRenderButton(codeId));
+	}
+
+	if (isDiagram) {
+		actions.push(createFullscreenButton(codeId));
 	}
 
 	return {

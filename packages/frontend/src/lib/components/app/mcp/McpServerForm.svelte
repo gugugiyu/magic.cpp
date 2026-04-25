@@ -55,11 +55,15 @@
 			placeholder={MCP_SERVER_URL_PLACEHOLDER}
 			value={url}
 			oninput={(e) => onUrlChange(e.currentTarget.value)}
+			aria-invalid={urlError ? 'true' : 'false'}
+			aria-describedby={urlError ? `server-url-error-${id}` : undefined}
 			class={urlError ? 'border-destructive' : ''}
 		/>
 
 		{#if urlError}
-			<p class="mt-1.5 text-xs text-destructive">{urlError}</p>
+			<p id="server-url-error-{id}" class="mt-1.5 text-xs text-destructive" role="alert">
+				{urlError}
+			</p>
 		{/if}
 
 		{#if !isWebSocket && onUseProxyChange}
@@ -82,12 +86,12 @@
 					<br />
 
 					{#if !mcpStore.isProxyAvailable}
-						<span class="inline-flex gap-0.75 text-xs text-muted-foreground/60"
-							>(Run <pre>llama-server</pre>
+						<span class="text-xs text-muted-foreground/60">
+							(Run <code class="rounded bg-muted px-1 py-0.5 text-2xs">llama-server</code>
 							with
-							<pre>--webui-mcp-proxy</pre>
-							flag)</span
-						>
+							<code class="rounded bg-muted px-1 py-0.5 text-2xs">--webui-mcp-proxy</code>
+							flag)
+						</span>
 					{/if}
 				</span>
 			</label>

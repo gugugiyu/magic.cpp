@@ -16,8 +16,8 @@
 
 <Dialog.Root {open} onOpenChange={handleClose}>
 	<Dialog.Content
-		class="z-999999 flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] flex-col gap-0 rounded-none p-0
-			md:h-[80dvh] md:h-auto md:max-h-[80dvh] md:min-h-0 md:rounded-lg"
+		class="z-[var(--z-modal)] flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] flex-col gap-0 rounded-none p-0
+			md:h-[80dvh] md:max-h-[80dvh] md:min-h-0 md:rounded-lg"
 		style="max-width: 56rem;"
 	>
 		<div class="grid gap-2 border-b border-border/30 p-4 md:p-6">

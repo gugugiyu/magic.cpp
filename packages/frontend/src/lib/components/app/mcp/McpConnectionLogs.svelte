@@ -14,7 +14,7 @@
 
 	let { logs, connectionTimeMs, defaultExpanded = false, class: className }: Props = $props();
 
-	let isExpanded = $derived(defaultExpanded);
+	let isExpanded = $state(defaultExpanded);
 </script>
 
 {#if logs.length > 0}
@@ -39,7 +39,7 @@
 
 		<Collapsible.Content class="mt-2">
 			<div
-				class="max-h-64 space-y-0.5 overflow-y-auto rounded bg-muted/50 p-2 font-mono text-[10px]"
+				class="max-h-64 space-y-0.5 overflow-y-auto rounded-md bg-muted/50 p-2 font-mono text-2xs"
 			>
 				{#each logs as log (log.timestamp.getTime() + log.message)}
 					{@const Icon = getMcpLogLevelIcon(log.level)}

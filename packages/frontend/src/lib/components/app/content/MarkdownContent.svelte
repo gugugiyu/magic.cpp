@@ -6,7 +6,11 @@
 	import { SETTINGS_KEYS } from '$lib/constants';
 	import { fadeInView } from '$lib/actions/fade-in-view.svelte';
 	import { ArrowDown } from '@lucide/svelte';
-	import { ActionIconsCodeBlock, DialogCodePreview } from '$lib/components/app';
+	import {
+		ActionIconsCodeBlock,
+		DialogCodePreview,
+		DialogDiagramFullscreen
+	} from '$lib/components/app';
 	import { createAutoScrollController } from '$lib/hooks/use-auto-scroll.svelte';
 	import {
 		acquireHighlightTheme,
@@ -42,6 +46,8 @@
 	let previewDialogOpen = $state(false);
 	let previewCode = $state('');
 	let previewLanguage = $state('text');
+	let fullscreenDialogOpen = $state(false);
+	let fullscreenSvgHtml = $state('');
 	let streamingCodeScrollContainer = $state<HTMLDivElement>();
 	let showScrollToBottom = $state(false);
 	let isStreamingComplete = $state(false);
@@ -79,6 +85,14 @@
 		}
 	}
 
+	function handleFullscreenDialogOpenChange(open: boolean) {
+		fullscreenDialogOpen = open;
+
+		if (!open) {
+			fullscreenSvgHtml = '';
+		}
+	}
+
 	const codeBlockManager = new CodeBlockActionManager({
 		onPreview: (code, language) => {
 			previewCode = code;
@@ -87,6 +101,10 @@
 		},
 		onCopyError: (error) => {
 			logger.error('Failed to copy code:', error);
+		},
+		onFullscreen: (svgHtml) => {
+			fullscreenSvgHtml = svgHtml;
+			fullscreenDialogOpen = true;
 		}
 	});
 
@@ -288,4 +306,10 @@
 	code={previewCode}
 	language={previewLanguage}
 	onOpenChange={handlePreviewDialogOpenChange}
+/>
+
+<DialogDiagramFullscreen
+	open={fullscreenDialogOpen}
+	svgHtml={fullscreenSvgHtml}
+	onOpenChange={handleFullscreenDialogOpenChange}
 />

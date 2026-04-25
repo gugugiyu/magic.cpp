@@ -122,7 +122,7 @@
 							autoResizeTextarea(e.currentTarget);
 						}}
 						onblur={(e) => trimPairValue(index, e.currentTarget.value)}
-						class="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-5 placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+						class="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-5 placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 						rows="1"
 					></textarea>
 

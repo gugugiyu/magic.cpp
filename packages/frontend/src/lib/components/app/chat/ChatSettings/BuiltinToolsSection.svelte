@@ -96,6 +96,22 @@
 				<div class="text-xs text-destructive">
 					Failed to load server allow-list: {runCommandSessionStore.backendAllowedListError}
 				</div>
+			{:else if runCommandSessionStore.backendAllowedList.length > 0}
+				<div class="rounded-md border border-border bg-muted/30 p-3">
+					<div class="mb-1.5 flex items-center gap-2">
+						<Terminal class="h-3.5 w-3.5 text-muted-foreground" />
+						<span class="text-xs font-medium text-muted-foreground">Server allowed commands</span>
+					</div>
+					<div class="flex flex-wrap gap-1.5">
+						{#each runCommandSessionStore.backendAllowedList as cmd (cmd)}
+							<span
+								class="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
+							>
+								<span class="font-mono">{cmd}</span>
+							</span>
+						{/each}
+					</div>
+				</div>
 			{/if}
 
 			{#if runCommandSessionStore.count > 0}

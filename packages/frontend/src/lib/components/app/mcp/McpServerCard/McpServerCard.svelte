@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import * as Card from '$lib/components/ui/card';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import type { MCPServerSettingsEntry, HealthCheckState } from '$lib/types';
@@ -56,7 +57,7 @@
 	let connectionTimeMs = $derived(successState?.connectionTimeMs);
 	let instructions = $derived(successState?.instructions);
 
-	let isEditing = $derived(!server.url.trim());
+	let isEditing = $state(!server.url.trim());
 	let showDeleteDialog = $state(false);
 	let editFormRef: McpServerCardEditForm | null = $state(null);
 
@@ -130,7 +131,7 @@
 
 		<div class="grid gap-3">
 			{#if showSkeleton}
-				<div class="space-y-2">
+				<div class="space-y-2" transition:fade={{ duration: 150 }}>
 					<div class="flex items-center gap-2">
 						<Skeleton class="h-4 w-4 rounded" />
 						<Skeleton class="h-3 w-24" />
@@ -142,24 +143,26 @@
 					</div>
 				</div>
 
-				<div class="space-y-1.5">
+				<div class="space-y-1.5" transition:fade={{ duration: 150 }}>
 					<div class="flex items-center gap-2">
 						<Skeleton class="h-4 w-4 rounded" />
 						<Skeleton class="h-3 w-32" />
 					</div>
 				</div>
 			{:else}
-				{#if isConnected && instructions}
-					<McpServerInfo {instructions} />
-				{/if}
+				<div class="grid gap-3" transition:fade={{ duration: 150 }}>
+					{#if isConnected && instructions}
+						<McpServerInfo {instructions} />
+					{/if}
 
-				{#if tools.length > 0}
-					<McpServerCardToolsList {tools} />
-				{/if}
+					{#if tools.length > 0}
+						<McpServerCardToolsList {tools} />
+					{/if}
 
-				{#if connectionLogs.length > 0}
-					<McpConnectionLogs logs={connectionLogs} {connectionTimeMs} />
-				{/if}
+					{#if connectionLogs.length > 0}
+						<McpConnectionLogs logs={connectionLogs} {connectionTimeMs} />
+					{/if}
+				</div>
 			{/if}
 		</div>
 
@@ -168,7 +171,7 @@
 				<Skeleton class="h-3 w-28" />
 			{:else if protocolVersion}
 				<div class="flex flex-wrap items-center gap-1">
-					<span class="text-[10px] text-muted-foreground">
+					<span class="text-2xs text-muted-foreground">
 						Protocol version: {protocolVersion}
 					</span>
 				</div>

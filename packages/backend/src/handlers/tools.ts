@@ -1,5 +1,5 @@
 import { resolve, normalize, join, relative, basename, dirname } from 'path';
-import { readdir, stat, rename, mkdir } from 'node:fs/promises';
+import { readdir, stat, rename, mkdir, realpath } from 'node:fs/promises';
 import type { Config } from '../config.ts';
 
 interface BackendToolResult {
@@ -22,6 +22,46 @@ const BINARY_EXTENSIONS = new Set([
 	'.woff', '.woff2', '.ttf', '.otf',
 	'.db', '.sqlite', '.sqlite3',
 ]);
+
+/** Magic-number based binary detection for extensionless files. */
+function isBinaryByMagic(buffer: Uint8Array): boolean {
+	if (buffer.length < 4) return false;
+	// PNG
+	if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return true;
+	// JPEG
+	if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return true;
+	// GIF
+	if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return true;
+	// PDF
+	if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) return true;
+	// ZIP / Office docs
+	if (buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04) return true;
+	// ELF
+	if (buffer[0] === 0x7F && buffer[1] === 0x45 && buffer[2] === 0x4C && buffer[3] === 0x46) return true;
+	// Mach-O (32/64/bitcode)
+	if ((buffer[0] === 0xCF && buffer[1] === 0xFA) || (buffer[0] === 0xCA && buffer[1] === 0xFE)) return true;
+	// WebP (RIFF....WEBP)
+	if (buffer.length >= 12 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return true;
+	return false;
+}
+
+async function hasBinaryBytes(filePath: string): Promise<boolean> {
+	try {
+		const file = Bun.file(filePath);
+		const buffer = await file.arrayBuffer();
+		const view = new Uint8Array(buffer);
+		// Check null bytes in first 8KB
+		const limit = Math.min(view.length, 8192);
+		for (let i = 0; i < limit; i++) {
+			if (view[i] === 0) return true;
+		}
+		// Magic-number check for extensionless binaries
+		if (view.length >= 4 && isBinaryByMagic(view)) return true;
+		return false;
+	} catch {
+		return false;
+	}
+}
 
 function parseCommand(command: string): string[] {
 	const args: string[] = [];
@@ -52,36 +92,70 @@ function parseCommand(command: string): string[] {
 	return args;
 }
 
-function isCommandAllowed(
-	command: string,
-	allowedList: string[],
-	sessionApprovedCommands?: string[]
-): { allowed: boolean; baseCommand: string } {
-	const trimmed = command.trim();
-	const baseCommand = trimmed.split(/\s+/)[0];
+const SHELL_METACHARACTERS = /[;|&$()`<>]/;
 
-	if (allowedList.includes(trimmed)) return { allowed: true, baseCommand };
-	if (allowedList.includes(baseCommand)) return { allowed: true, baseCommand };
-	if (allowedList.includes('*')) return { allowed: true, baseCommand };
+const COMMAND_GUARDS: Record<string, { allowAll?: boolean; allowedSubcommands?: string[] }> = {
+	git: { allowedSubcommands: ['status', 'log', 'diff', 'branch', 'ls-files', 'show'] },
+};
 
-	if (sessionApprovedCommands) {
-		if (sessionApprovedCommands.includes(trimmed)) return { allowed: true, baseCommand };
-		if (sessionApprovedCommands.includes(baseCommand)) return { allowed: true, baseCommand };
+function validateCommandArgs(argv: string[]): boolean {
+	if (argv.some(arg => SHELL_METACHARACTERS.test(arg))) return false;
+	const base = argv[0];
+	const guard = COMMAND_GUARDS[base];
+	if (!guard) return true; // No guard = any args allowed (base command already whitelisted)
+	if (guard.allowAll) return true;
+	if (guard.allowedSubcommands && argv.length > 1) {
+		return guard.allowedSubcommands.includes(argv[1]);
 	}
-
-	return { allowed: false, baseCommand };
+	return true;
 }
 
-function sandboxPath(rawPath: string, rootPath: string): string {
+function isCommandAllowed(
+	command: string,
+	allowedList: string[]
+): { allowed: boolean; baseCommand: string; argv: string[] } {
+	const trimmed = command.trim();
+	const argv = parseCommand(trimmed);
+	const baseCommand = argv[0] || '';
+
+	if (allowedList.includes('*')) return { allowed: true, baseCommand, argv };
+	if (allowedList.includes(trimmed)) return { allowed: true, baseCommand, argv };
+	if (allowedList.includes(baseCommand)) {
+		if (!validateCommandArgs(argv)) {
+			return { allowed: false, baseCommand, argv };
+		}
+		return { allowed: true, baseCommand, argv };
+	}
+
+	return { allowed: false, baseCommand, argv };
+}
+
+async function sandboxPath(rawPath: string, rootPath: string): Promise<string> {
 	const normalized = normalize(rawPath.replace(/\\/g, '/'));
 	if (normalized.includes('..')) throw new Error('Path traversal is not allowed');
+	if (normalized.includes('\0')) throw new Error('Null bytes are not allowed in paths');
 	const full = resolve(rootPath, normalized);
+
+	// Resolve symlinks. If the path doesn't exist yet, resolve its parent directory.
+	let real: string;
+	try {
+		real = await realpath(full);
+	} catch {
+		const parent = dirname(full);
+		try {
+			const realParent = await realpath(parent);
+			real = join(realParent, basename(full));
+		} catch {
+			real = full;
+		}
+	}
+
 	// Ensure the resolved path is still inside rootPath
-	const rel = relative(rootPath, full);
+	const rel = relative(rootPath, real);
 	if (rel.startsWith('..') || resolve(rel) === resolve(rootPath, '..')) {
 		throw new Error('Path escapes sandbox root');
 	}
-	return full;
+	return real;
 }
 
 function isBinaryExtension(filePath: string): boolean {
@@ -89,28 +163,32 @@ function isBinaryExtension(filePath: string): boolean {
 	return BINARY_EXTENSIONS.has(ext);
 }
 
-function hasBinaryBytes(content: string): boolean {
-	for (let i = 0; i < Math.min(content.length, 8192); i++) {
-		if (content.charCodeAt(i) === 0) return true;
-	}
-	return false;
-}
-
 async function ensureParentDir(filePath: string): Promise<void> {
 	const parent = dirname(filePath);
 	await mkdir(parent, { recursive: true });
+}
+
+function requireAdminKey(req: Request, config: Config): Response | null {
+	const adminKey = config.commands.adminKey;
+	if (!adminKey) return null;
+	const auth = req.headers.get('Authorization') || '';
+	const match = auth.match(/^Bearer\s+(.+)$/);
+	if (!match || match[1] !== adminKey) {
+		return Response.json({ error: 'Unauthorized' }, { status: 401 });
+	}
+	return null;
 }
 
 const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 	async read_file(args, config) {
 		const path = String(args.path ?? '');
 		if (!path) return { result: 'Error: path is required' };
-		const full = sandboxPath(path, config.resolvedFilesystemRootPath);
+		const full = await sandboxPath(path, config.resolvedFilesystemRootPath);
 		if (isBinaryExtension(full)) return { result: `Error: refusing to read binary file: ${path}` };
 		const file = Bun.file(full);
 		if (!(await file.exists())) return { result: `Error: file not found: ${path}` };
+		if (await hasBinaryBytes(full)) return { result: `Error: file appears to be binary: ${path}` };
 		const content = await file.text();
-		if (hasBinaryBytes(content)) return { result: `Error: file appears to be binary: ${path}` };
 		const startLine = args.start_line != null ? Number(args.start_line) : undefined;
 		const endLine = args.end_line != null ? Number(args.end_line) : undefined;
 		if (startLine !== undefined || endLine !== undefined) {
@@ -126,7 +204,7 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 		const path = String(args.path ?? '');
 		const content = String(args.content ?? '');
 		if (!path) return { result: 'Error: path is required' };
-		const full = sandboxPath(path, config.resolvedFilesystemRootPath);
+		const full = await sandboxPath(path, config.resolvedFilesystemRootPath);
 		await ensureParentDir(full);
 		await Bun.write(full, content);
 		return { result: `Written ${content.length} chars to ${path}` };
@@ -139,9 +217,10 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 		const endLine = Number(args.end_line ?? 0);
 		const replacement = String(args.replacement ?? '');
 		if (!startLine || !endLine) return { result: 'Error: start_line and end_line are required' };
-		const full = sandboxPath(path, config.resolvedFilesystemRootPath);
+		const full = await sandboxPath(path, config.resolvedFilesystemRootPath);
 		const file = Bun.file(full);
 		if (!(await file.exists())) return { result: `Error: file not found: ${path}` };
+		if (await hasBinaryBytes(full)) return { result: `Error: file appears to be binary: ${path}` };
 		const existing = await file.text();
 		const lines = existing.split('\n');
 		const before = lines.slice(0, startLine - 1);
@@ -156,7 +235,7 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 
 	async list_directory(args, config) {
 		const path = String(args.path ?? '.');
-		const full = sandboxPath(path, config.resolvedFilesystemRootPath);
+		const full = await sandboxPath(path, config.resolvedFilesystemRootPath);
 		let entries: string[];
 		try {
 			entries = await readdir(full);
@@ -184,7 +263,7 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 		const useRegex = Boolean(args.regex ?? false);
 		const caseSensitive = Boolean(args.case_sensitive ?? false);
 		const maxResults = Math.min(Number(args.max_results ?? 50), 200);
-		const full = sandboxPath(path, config.resolvedFilesystemRootPath);
+		const full = await sandboxPath(path, config.resolvedFilesystemRootPath);
 
 		let pattern: RegExp;
 		try {
@@ -216,6 +295,7 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 				if (s.isDirectory()) {
 					await walkDir(entryPath);
 				} else if (s.isFile() && !isBinaryExtension(entryPath)) {
+					if (await hasBinaryBytes(entryPath)) continue;
 					const file = Bun.file(entryPath);
 					let content: string;
 					try {
@@ -223,7 +303,6 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 					} catch {
 						continue;
 					}
-					if (hasBinaryBytes(content)) continue;
 					const relPath = relative(config.resolvedFilesystemRootPath, entryPath);
 					const lines = content.split('\n');
 					for (let i = 0; i < lines.length && results.length < maxResults; i++) {
@@ -241,6 +320,7 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 		if (s.isDirectory()) {
 			await walkDir(full);
 		} else {
+			if (await hasBinaryBytes(full)) return { result: `Error: file appears to be binary: ${path}` };
 			const file = Bun.file(full);
 			const content = await file.text().catch(() => '');
 			const relPath = relative(config.resolvedFilesystemRootPath, full);
@@ -259,7 +339,7 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 	async delete_file(args, config) {
 		const path = String(args.path ?? '');
 		if (!path) return { result: 'Error: path is required' };
-		const full = sandboxPath(path, config.resolvedFilesystemRootPath);
+		const full = await sandboxPath(path, config.resolvedFilesystemRootPath);
 		const file = Bun.file(full);
 		if (!(await file.exists())) return { result: `Error: file not found: ${path}` };
 		await file.delete();
@@ -270,8 +350,8 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 		const srcPath = String(args.source ?? '');
 		const destPath = String(args.destination ?? '');
 		if (!srcPath || !destPath) return { result: 'Error: source and destination are required' };
-		const srcFull = sandboxPath(srcPath, config.resolvedFilesystemRootPath);
-		const destFull = sandboxPath(destPath, config.resolvedFilesystemRootPath);
+		const srcFull = await sandboxPath(srcPath, config.resolvedFilesystemRootPath);
+		const destFull = await sandboxPath(destPath, config.resolvedFilesystemRootPath);
 		const file = Bun.file(srcFull);
 		if (!(await file.exists())) return { result: `Error: source not found: ${srcPath}` };
 		await ensureParentDir(destFull);
@@ -285,18 +365,13 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 		const inShell = Boolean(args.inShell ?? false);
 
 		if (!command) return { result: 'Error: command is required' };
-		if (!rationale) return { result: 'Error: rationale is required' };
+		if (!rationale || rationale.trim().length < 10) {
+			return { result: 'Error: rationale is required and must be at least 10 characters' };
+		}
 
-		const sessionApprovedCommands = Array.isArray(args.sessionApprovedCommands)
-			? (args.sessionApprovedCommands as string[])
-			: [];
-		const { allowed, baseCommand } = isCommandAllowed(
-			command,
-			config.commands.allowedList,
-			sessionApprovedCommands
-		);
+		const { allowed, baseCommand, argv } = isCommandAllowed(command, config.commands.allowedList);
 		if (!allowed) {
-			return { result: `Error: command "${baseCommand}" is not in the allowed list` };
+			return { result: `Error: command "${baseCommand}" is not in the allowed list or uses disallowed arguments` };
 		}
 
 		if (inShell) {
@@ -313,7 +388,7 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 		try {
 			const timeoutMs = 30000;
 			const proc = Bun.spawn({
-				cmd: inShell ? ['sh', '-c', command] : parseCommand(command),
+				cmd: inShell ? ['sh', '-c', command] : argv,
 				cwd: config.resolvedFilesystemRootPath,
 				stdout: 'pipe',
 				stderr: 'pipe',
@@ -370,11 +445,16 @@ const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
 	},
 };
 
-export async function handleGetAllowedCommands(_req: Request, config: Config): Promise<Response> {
+export async function handleGetAllowedCommands(req: Request, config: Config): Promise<Response> {
+	const authError = requireAdminKey(req, config);
+	if (authError) return authError;
 	return Response.json({ allowedList: config.commands.allowedList });
 }
 
 export async function handleExecuteTool(req: Request, config: Config): Promise<Response> {
+	const authError = requireAdminKey(req, config);
+	if (authError) return authError;
+
 	let body: { name?: unknown; args?: unknown };
 	try {
 		body = await req.json();

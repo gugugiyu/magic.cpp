@@ -209,6 +209,13 @@ class RunCommandSessionStore {
 	}
 
 	/**
+	 * The hard-coded allowed list from the backend config.
+	 */
+	get backendAllowedList(): string[] {
+		return [...this.#backendAllowedList];
+	}
+
+	/**
 	 * Whether the backend allow-list is currently loading.
 	 */
 	get backendAllowedListLoading(): boolean {

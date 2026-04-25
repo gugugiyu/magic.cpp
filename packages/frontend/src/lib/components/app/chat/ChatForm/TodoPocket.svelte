@@ -110,7 +110,7 @@
 						{:else}
 							<button
 								type="button"
-								class="w-full text-left {isDone ? 'line-through opacity-40' : ''} {isCurrent
+								class="w-full text-left cursor-pointer {isDone ? 'line-through opacity-40' : ''} {isCurrent
 									? 'font-medium text-foreground'
 									: ''} {isUpcoming ? 'text-muted-foreground' : ''}"
 								onclick={() => startEdit(i, todo.text)}

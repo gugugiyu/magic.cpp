@@ -13,16 +13,16 @@ let currentConfigPath: string | null = null;
 let listeners: Set<ConfigListener> = new Set();
 
 /**
- * Watch the config.json file for changes and notify listeners.
+ * Watch the config.toml file for changes and notify listeners.
  * Uses native fs.watch with a 1-second debounce to avoid rapid successive reloads.
  *
- * @param configPath - Optional explicit path; defaults to ../config.json relative to src directory
+ * @param configPath - Optional explicit path; defaults to ../config.toml relative to src directory
  * @param onChange - Callback invoked with new Config when file changes and validates successfully
  * @returns Unsubscribe function that stops the watcher
  */
 export function watchConfig(configPath?: string, onChange?: ConfigListener): () => void {
 	// Resolve the config path
-	const path = configPath ?? resolve(__dirname, '..', 'config.json');
+	const path = configPath ?? resolve(__dirname, '..', 'config.toml');
 	currentConfigPath = path;
 
 	// Register listener if provided

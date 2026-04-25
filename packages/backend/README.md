@@ -6,7 +6,7 @@ A lightweight HTTP gateway that sits between the frontend and one or more llama-
 
 - The original llama.cpp WebUI is embedded in the C++ server binary. This decouples it entirely.
 - CORS: external upstreams (e.g. OpenAI) can't be called directly from the browser without a server-side proxy.
-- API key security: keys live in `config.json` (or environment variables) and are injected server-side. The frontend never sees them.
+- API key security: keys live in `config.toml` (or environment variables) and are injected server-side. The frontend never sees them.
 - Model pool centralization: multiple upstreams are merged into a single model list for the frontend.
 
 ---
@@ -39,7 +39,7 @@ bun install
 Copy and edit the example config:
 
 ```bash
-cp packages/backend/config.example.json packages/backend/config.json
+cp packages/backend/config.example.toml packages/backend/config.toml
 ```
 
 If any upstream uses `$ENV_VAR` placeholders for API keys, copy the `.env.example` file and fill in the actual values:
@@ -53,51 +53,47 @@ cp packages/backend/.env.example packages/backend/.env
 
 ### Configuration
 
-Config is loaded from `config.json` (adjacent to `src/`) at startup. Environment variables for API keys are loaded from `.env` (adjacent to `src/`). Placeholders like `$OPENAI_KEY` in `config.json` are resolved against the environment — if the variable is not set, the upstream will have no API key and requests to it will likely fail with an auth error.
+Config is loaded from `config.toml` (adjacent to `src/`) at startup. Environment variables for API keys are loaded from `.env` (adjacent to `src/`). Placeholders like `$OPENAI_KEY` in `config.toml` are resolved against the environment — if the variable is not set, the upstream will have no API key and requests to it will likely fail with an auth error.
 
-**Hot Reload**: The server watches `config.json` for changes and automatically reloads most settings without requiring a restart. Changes to `port`, `staticDir`, or `database.path` require a full server restart and will be logged as warnings.
+**Hot Reload**: The server watches `config.toml` for changes and automatically reloads most settings without requiring a restart. Changes to `port`, `staticDir`, or `database.path` require a full server restart and will be logged as warnings.
 
-```json
-{
-  "port": 3000,
-  "staticDir": "../frontend/public",
-  "heartbeatInterval": 30,
-  "database": {
-    "path": "data/chat.db"
-  },
-  "streaming": {
-    "enabled": true,
-    "bufferWords": 0
-  },
-  "upstreams": [
-    {
-      "id": "local-main",
-      "label": "Local (main model)",
-      "url": "http://localhost:8080",
-      "type": "llamacpp",
-      "apiKey": null,
-      "enabled": true
-    },
-    {
-      "id": "openai-subagent",
-      "label": "OpenAI (subagent)",
-      "url": "https://api.openai.com",
-      "type": "openai",
-      "apiKey": "$OPENAI_KEY",
-      "enabled": true,
-      "modelList": ["gpt-4o"]
-    }
-  ]
-}
+```toml
+port = 3000
+staticDir = "../frontend/public"
+heartbeatInterval = 30
+
+[database]
+path = "data/chat.db"
+
+[streaming]
+enabled = true
+bufferWords = 0
+
+[[upstreams]]
+id = "local-main"
+label = "Local (main model)"
+url = "http://localhost:8080"
+type = "llamacpp"
+apiKey = null
+enabled = true
+
+[[upstreams]]
+id = "openai-subagent"
+label = "OpenAI (subagent)"
+url = "https://api.openai.com"
+type = "openai"
+apiKey = "$OPENAI_KEY"
+enabled = true
+modelList = ["gpt-4o"]
 ```
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `port` | number | `3000` | Port to listen on |
-| `staticDir` | string | `../frontend/public` | Path to built frontend assets, relative to `config.json` |
+| `staticDir` | string | `../frontend/public` | Path to built frontend assets, relative to `config.toml` |
 | `heartbeatInterval` | number | `30` | Seconds between upstream health checks |
 | `database` | object | — | SQLite database configuration |
-| `database.path` | string | `data/chat.db` | Path to the SQLite database file, relative to `config.json` |
+| `database.path` | string | `data/chat.db` | Path to the SQLite database file, relative to `config.toml` |
 | `streaming` | object | — | Streaming configuration |
 | `streaming.enabled` | boolean | `true` | Enable/disable streaming mode |
 | `streaming.bufferWords` | number | `0` | Buffer words before streaming to frontend |
@@ -114,7 +110,7 @@ Config is loaded from `config.json` (adjacent to `src/`) at startup. Environment
 
 #### Hot-Reloadable Settings
 
-The following settings are automatically reloaded when `config.json` changes:
+The following settings are automatically reloaded when `config.toml` changes:
 
 | Field | Description |
 |---|---|
@@ -163,8 +159,8 @@ Startup errors display a formatted error message with actionable guidance instea
 
 | Error | Behavior |
 |---|---|
-| Missing `config.json` | Prints config path and shows `cp config.example.json config.json` command |
-| Invalid `config.json` | Shows which Zod validation field failed |
+| Missing `config.toml` | Prints config path and shows `cp config.example.toml config.toml` command |
+| Invalid `config.toml` | Shows which Zod validation field failed |
 | Missing `.env` variables | Warns at startup — upstream will have no API key |
 | Database directory missing | Shows database path and `mkdir -p` command to create it |
 | Upstream unreachable | Returns 502/503 with JSON error body, frontend shows graceful error |

@@ -2,6 +2,7 @@
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import { expect } from 'storybook/test';
 	import { MarkdownContent } from '$lib/components/app';
+	import { logger } from '$lib/utils/logger';
 	import { AI_TUTORIAL_MD } from './fixtures/ai-tutorial.js';
 	import { API_DOCS_MD } from './fixtures/api-docs.js';
 	import { BLOG_POST_MD } from './fixtures/blog-post.js';
@@ -127,6 +128,6 @@ All links should have \`target="_blank"\` and \`rel="noopener noreferrer"\` attr
 		);
 		expect(pythonDocsLink).toBeTruthy();
 
-		console.log(`✅ URL Links test passed - Found ${links.length} links with proper attributes`);
+		logger.info(`✅ URL Links test passed - Found ${links.length} links with proper attributes`);
 	}}
 />

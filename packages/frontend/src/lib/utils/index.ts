@@ -35,6 +35,15 @@ export {
 // Code
 export { highlightCode, detectIncompleteCodeBlock, type IncompleteCodeBlock } from './code';
 
+// Markdown processing
+export { MarkdownProcessor, type ProcessResult, type MarkdownBlock } from './markdown-processor';
+
+// Code block DOM actions
+export { CodeBlockActionManager, type CodeBlockActionCallbacks } from './code-block-actions';
+
+// Image error handling
+export { ImageErrorHandler } from './image-error-handler';
+
 // Config helpers
 export { setConfigValue, getConfigValue, configToParameterRecord } from './config-helpers';
 

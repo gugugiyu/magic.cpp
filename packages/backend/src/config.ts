@@ -95,11 +95,11 @@ function resolveEnvPlaceholder(value: string | null): string | null {
 }
 
 export function loadConfig(configPath?: string): Config {
-	const path = configPath ?? resolve(__dirname, '..', 'config.json');
+	const path = configPath ?? resolve(__dirname, '..', 'config.toml');
 
 	let raw: unknown;
 	try {
-		raw = JSON.parse(readFileSync(path, 'utf-8'));
+		raw = Bun.TOML.parse(readFileSync(path, 'utf-8'));
 	} catch (err) {
 		throw new Error(`[config] failed to read ${path}: ${(err as Error).message}`);
 	}

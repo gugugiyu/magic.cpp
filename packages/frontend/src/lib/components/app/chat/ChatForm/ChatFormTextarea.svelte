@@ -47,7 +47,7 @@
 	}
 </script>
 
-<div class="flex-1 {className}">
+<div class="flex-1 {className}" style="width: 100%">
 	<textarea
 		bind:this={textareaElement}
 		bind:value

@@ -1,0 +1,93 @@
+# =============================================================================
+# magic.cpp Backend Configuration
+# =============================================================================
+# Copy this file to `config.toml` and customize it for your environment.
+#
+#   cp config.example.toml config.toml
+#
+# The backend watches `config.toml` for changes and automatically reloads
+# most settings without requiring a restart. Changes to `port`, `staticDir`,
+# or `database.path` require a full server restart and will be logged as
+# warnings.
+#
+# Environment variable placeholders:
+#   Any string value starting with `$` (e.g. "$OPENAI_KEY") is resolved from
+#   the environment at startup. If the variable is not set, the upstream will
+#   have no API key and requests to it will likely fail with an auth error.
+#   Place API keys in a `.env` file (see `.env.example`) so they are never
+#   committed to version control.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Server
+# ---------------------------------------------------------------------------
+port              = 3000                          # HTTP port to listen on
+staticDir         = "../frontend/public"          # Path to built frontend assets, relative to this config file
+heartbeatInterval = 30                            # Seconds between upstream health checks
+
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+[database]
+path = "data/chat.db"                             # Path to SQLite file, relative to this config file
+
+# ---------------------------------------------------------------------------
+# Streaming
+# ---------------------------------------------------------------------------
+[streaming]
+enabled     = true                                # Enable/disable streaming mode
+bufferWords = 0                                   # Buffer N words before streaming to frontend
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+[cors]
+allowedOrigins   = []                             # Allowed origins for CORS; empty array allows all
+allowCredentials = true                           # Include credentials in CORS requests
+maxAge           = 86400                          # Preflight cache duration in seconds
+
+# ---------------------------------------------------------------------------
+# Filesystem Sandbox
+# ---------------------------------------------------------------------------
+[filesystem]
+rootPath = "data/sandbox"                         # Root path for filesystem operations, relative to this config file
+
+# ---------------------------------------------------------------------------
+# Shell Commands
+# ---------------------------------------------------------------------------
+[commands]
+allowedList   = ["ls", "cat", "grep", "find", "git", "bun"]  # Whitelist of allowed shell commands
+shellEnabled  = false                                        # Enable full shell access (use with caution)
+
+# ---------------------------------------------------------------------------
+# Upstreams
+# ---------------------------------------------------------------------------
+# Define one or more upstream llama-server or OpenAI-compatible endpoints.
+# Each upstream must have a unique `id`. The `type` field determines the
+# protocol variant: "llamacpp" or "openai".
+#
+# `modelList` is an optional per-upstream whitelist. When empty, all models
+# discovered from that upstream are exposed.
+#
+# `apiKey` can be:
+#   - null               → no authentication
+#   - a literal string   → used as Bearer token
+#   - "$ENV_VAR"        → read from environment at runtime
+# ---------------------------------------------------------------------------
+
+[[upstreams]]
+id       = "local-main"
+label    = "Local (main model)"
+url      = "http://localhost:8080"
+type     = "llamacpp"
+apiKey   = null
+enabled  = true
+
+[[upstreams]]
+id        = "openai-subagent"
+label     = "OpenAI (subagent)"
+url       = "https://api.openai.com"
+type      = "openai"
+apiKey    = "$OPENAI_KEY"
+enabled   = true
+modelList = ["gpt-4o", "gpt-4o-mini"]

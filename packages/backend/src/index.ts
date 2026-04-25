@@ -9,7 +9,7 @@ import { mkdir } from 'node:fs/promises';
 import { watchConfig } from './config-watcher.ts';
 
 // Resolve config path explicitly
-const configPath = resolvePath(__dirname, '..', 'config.json');
+const configPath = resolvePath(__dirname, '..', 'config.toml');
 
 // Load configuration with graceful error handling
 let config: Config;
@@ -23,10 +23,10 @@ try {
 	console.error('');
 	console.error(`  ${(err as Error).message}`);
 	console.error('');
-	console.error('  Make sure config.json exists and is valid.');
-	console.error('  Copy config.example.json to config.json and customize it:');
+	console.error('  Make sure config.toml exists and is valid.');
+	console.error('  Copy config.example.toml to config.toml and customize it:');
 	console.error('');
-	console.error('    cp config.example.json config.json');
+	console.error('    cp config.example.toml config.toml');
 	console.error('');
 	console.error('  If using .env variables for API keys, copy .env.example:');
 	console.error('');

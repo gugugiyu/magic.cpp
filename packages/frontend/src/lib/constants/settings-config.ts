@@ -78,6 +78,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	builtinToolSafeFileTools: false,
 	builtinToolMutatingFileTools: false,
 	builtinToolRunCommand: false,
+	builtinToolTodoList: false,
 	// experimental features
 	pyInterpreterEnabled: false,
 	enableContinueGeneration: false
@@ -198,6 +199,8 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 		'Inject skill tools that the model can invoke to access custom capabilities defined in skill files.',
 	builtinToolRunCommand:
 		'Enable the run_command tool that lets the model execute whitelisted commands inside the sandbox. Each command also requires per-session user approval.',
+	builtinToolTodoList:
+		'Enable todo list tools (create_todo, mark_todo) that let the model create and mark tasks for the current conversation.',
 	pyInterpreterEnabled:
 		'Enable Python interpreter using Pyodide. Allows running Python code in markdown code blocks.',
 	enableContinueGeneration:

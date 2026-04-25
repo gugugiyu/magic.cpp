@@ -418,19 +418,19 @@ Components are organized in `app/` (application-specific) and `ui/` (shadcn-svel
 
 #### Stores (`src/lib/stores/`)
 
-| Store                     | Responsibility                                                                |
-| ------------------------- | ----------------------------------------------------------------------------- |
-| `chatStore`               | Message sending, streaming, abort control, error handling                     |
-| `agenticStore`            | Multi-turn agentic loop orchestration, tool execution, subagent delegation    |
-| `conversationsStore`      | CRUD for conversations, message branching, navigation, MCP per-chat overrides |
-| `modelsStore`             | Model list, selection, loading/unloading (ROUTER), modality caching           |
-| `serverStore`             | Server properties, role detection, modalities                                 |
-| `settingsStore`           | User preferences, parameter sync with server defaults                         |
-| `mcpStore`                | MCP server connections, tool execution, health checks, prompt retrieval       |
-| `mcpResourceStore`        | MCP resource discovery, caching, subscriptions, attachments                   |
-| `subagentConfigStore`     | Subagent endpoint, API key, model, and summarization settings                 |
-| `skillsStore`             | User-managed skill files (load, create, update, delete, enable/disable)       |
-| `modelCapabilityStore`    | Per-model tool-calling capability override                                    |
+| Store                  | Responsibility                                                                |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `chatStore`            | Message sending, streaming, abort control, error handling                     |
+| `agenticStore`         | Multi-turn agentic loop orchestration, tool execution, subagent delegation    |
+| `conversationsStore`   | CRUD for conversations, message branching, navigation, MCP per-chat overrides |
+| `modelsStore`          | Model list, selection, loading/unloading (ROUTER), modality caching           |
+| `serverStore`          | Server properties, role detection, modalities                                 |
+| `settingsStore`        | User preferences, parameter sync with server defaults                         |
+| `mcpStore`             | MCP server connections, tool execution, health checks, prompt retrieval       |
+| `mcpResourceStore`     | MCP resource discovery, caching, subscriptions, attachments                   |
+| `subagentConfigStore`  | Subagent endpoint, API key, model, and summarization settings                 |
+| `skillsStore`          | User-managed skill files (load, create, update, delete, enable/disable)       |
+| `modelCapabilityStore` | Per-model tool-calling capability override                                    |
 
 #### Services (`src/lib/services/`)
 

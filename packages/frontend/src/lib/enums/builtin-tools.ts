@@ -9,7 +9,10 @@ import {
 	TOOL_DELETE_FILE,
 	TOOL_MOVE_FILE,
 	TOOL_LIST_SKILL,
-	TOOL_READ_SKILL
+	TOOL_READ_SKILL,
+	TOOL_CREATE_TODO,
+	TOOL_MARK_TODO,
+	TOOL_READ_TODO
 } from '@shared/constants/prompts-and-tools';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import type { SettingsConfigType } from '$lib/types';
@@ -29,7 +32,10 @@ export const BUILTIN_TOOL_NAMES = {
 	SEARCH_FILES: 'search_files',
 	DELETE_FILE: 'delete_file',
 	MOVE_FILE: 'move_file',
-	RUN_COMMAND: 'run_command'
+	RUN_COMMAND: 'run_command',
+	CREATE_TODO: 'create_todo',
+	MARK_TODO: 'mark_todo',
+	READ_TODO: 'read_todo'
 } as const;
 
 export type BuiltinToolName = (typeof BUILTIN_TOOL_NAMES)[keyof typeof BUILTIN_TOOL_NAMES];
@@ -80,6 +86,12 @@ export const builtinToolFields = [
 		label: 'Run command',
 		description:
 			'Enable the run_command tool that lets the model execute whitelisted commands inside the sandbox. Each command also requires per-session user approval.'
+	},
+	{
+		key: SETTINGS_KEYS.BUILTIN_TOOL_TODO_LIST,
+		label: 'Todo list',
+		description:
+			'Enable todo list tools (create_todo, mark_todo) that let the model create and mark tasks for the current conversation.'
 	}
 ] as const;
 
@@ -105,7 +117,8 @@ const SETTING_KEY_TO_TOOL_GROUP: Record<string, OpenAIToolDefinition[]> = {
 		TOOL_PATCH_FILE,
 		TOOL_DELETE_FILE,
 		TOOL_MOVE_FILE
-	]
+	],
+	[SETTINGS_KEYS.BUILTIN_TOOL_TODO_LIST]: [TOOL_CREATE_TODO, TOOL_MARK_TODO, TOOL_READ_TODO]
 };
 
 /** Routes tool execution: 'frontend' means browser-side switch, 'backend' means POST /api/tools/execute. */
@@ -123,7 +136,10 @@ export const BUILTIN_TOOL_EXECUTION_TARGET: Record<string, 'frontend' | 'backend
 	search_files: 'backend',
 	delete_file: 'backend',
 	move_file: 'backend',
-	run_command: 'backend'
+	run_command: 'backend',
+	create_todo: 'frontend',
+	mark_todo: 'frontend',
+	read_todo: 'frontend'
 };
 
 /** Maps settings keys to execution target (derived from the tools each key enables). */
@@ -135,7 +151,8 @@ export const BUILTIN_TOOL_SETTING_KEY_TARGET: Record<string, 'frontend' | 'backe
 	[SETTINGS_KEYS.BUILTIN_TOOL_SKILLS]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS]: 'backend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_MUTATING_FILE_TOOLS]: 'backend',
-	[SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND]: 'backend'
+	[SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND]: 'backend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_TODO_LIST]: 'frontend'
 };
 
 export function getActiveBuiltinTools(settings: SettingsConfigType): OpenAIToolDefinition[] {

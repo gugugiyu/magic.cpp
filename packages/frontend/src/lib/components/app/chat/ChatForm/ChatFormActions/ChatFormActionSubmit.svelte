@@ -36,7 +36,7 @@
 		{...props}
 	>
 		<span class="sr-only">Send</span>
-		<ArrowUp class="h-12 w-12" />
+		<ArrowUp class="h-5 w-5" />
 	</Button>
 {/snippet}
 

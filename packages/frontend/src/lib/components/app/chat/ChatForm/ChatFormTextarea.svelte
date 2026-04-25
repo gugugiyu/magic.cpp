@@ -51,7 +51,8 @@
 	<textarea
 		bind:this={textareaElement}
 		bind:value
-		class="text-md min-h-12 w-full resize-none border-0 bg-transparent p-0 leading-6 outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+		class="min-h-12 w-full resize-none border-0 bg-transparent p-0 text-base leading-6 outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+		aria-label="Message input"
 		class:cursor-not-allowed={disabled}
 		style="max-height: var(--max-message-height);"
 		{disabled}

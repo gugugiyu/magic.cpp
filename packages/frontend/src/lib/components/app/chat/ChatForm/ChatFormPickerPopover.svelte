@@ -29,7 +29,7 @@
 		}
 	}}
 >
-	<Popover.Trigger class="pointer-events-none absolute inset-0 opacity-0">
+	<Popover.Trigger class="pointer-events-none absolute inset-0 h-full w-full opacity-0">
 		<span class="sr-only">{srLabel}</span>
 	</Popover.Trigger>
 

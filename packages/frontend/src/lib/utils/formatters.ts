@@ -7,7 +7,6 @@ import {
 } from '$lib/constants';
 import { AgenticSectionType } from '$lib/enums/agentic';
 import { deriveAgenticSections } from './agentic';
-import { repairJsonObject } from './json-repair';
 
 /**
  * Formats file size in bytes to human readable format
@@ -160,7 +159,7 @@ export function formatAttachmentText(
  * Each section is rendered in a readable text format:
  * - TEXT sections: verbatim content
  * - REASONING sections: wrapped in <thinking> tags
-	 * - Other tool calls: rendered as <tool_call name="..."> / <tool_result> blocks
+ * - Other tool calls: rendered as <tool_call name="..."> / <tool_result> blocks
  *
  * @param message - The anchor assistant message
  * @param toolMessages - Tool result and continuation assistant messages

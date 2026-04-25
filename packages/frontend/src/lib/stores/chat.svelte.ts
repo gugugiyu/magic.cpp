@@ -1640,8 +1640,6 @@ class ChatStore {
 					throw new Error('Invalid compact response from server');
 				}
 
-				const deletedMessageIds = new Set(messagesToCompact.map((m) => m.id));
-
 				// Persist the summary BEFORE deleting the old branch so we can recover on failure
 				const summaryMessage = await DatabaseService.createMessageBranch(
 					{

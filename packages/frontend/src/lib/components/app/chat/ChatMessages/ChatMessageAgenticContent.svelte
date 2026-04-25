@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { ChatMessageStatistics, MarkdownContent, SyntaxHighlightedCode } from '$lib/components/app';
+	import {
+		ChatMessageStatistics,
+		MarkdownContent,
+		SyntaxHighlightedCode
+	} from '$lib/components/app';
 	import { config } from '$lib/stores/settings.svelte';
 	import {
 		Loader2,
@@ -44,7 +48,6 @@
 	import { conversationsStore } from '$lib/stores/conversations.svelte';
 	import { runCommandSessionStore } from '$lib/stores/run-command-session.svelte';
 	import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
-	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { onDestroy } from 'svelte';
 
 	interface Props {

@@ -3,7 +3,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { useSidebar } from '$lib/components/ui/sidebar';
 	import { goto } from '$app/navigation';
-	import { config } from '$lib/stores/settings.svelte';
 	const sidebar = useSidebar();
 </script>
 

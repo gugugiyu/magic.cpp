@@ -9,7 +9,8 @@ export const conversations = sqliteTable('conversations', {
 	mcpServerOverrides: text('mcp_server_overrides'),
 	forkedFromConversationId: text('forked_from_conversation_id'),
 	createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
-	pinned: integer('pinned', { mode: 'boolean' })
+	pinned: integer('pinned', { mode: 'boolean' }),
+	todos: text('todos')
 }, (table) => [
 	index('idx_conv_last_modified').on(table.lastModified),
 	index('idx_conv_forked').on(table.forkedFromConversationId)

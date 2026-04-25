@@ -42,8 +42,9 @@
 		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR, label: 'Calculator', icon: '🧮' },
 		{ key: SETTINGS_KEYS.BUILTIN_TOOL_TIME, label: 'Get time', icon: '🕐' },
 		{ key: SETTINGS_KEYS.BUILTIN_TOOL_LOCATION, label: 'Get location', icon: '📍' },
-			{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent', icon: '🤖' },
-		{ key: SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND, label: 'Run command', icon: '⚡' }
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT, label: 'Subagent', icon: '🤖' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND, label: 'Run command', icon: '⚡' },
+		{ key: SETTINGS_KEYS.BUILTIN_TOOL_TODO_LIST, label: 'Todo list', icon: '✅' }
 	] as const;
 
 	let currentConfig = $derived(config());

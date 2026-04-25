@@ -322,6 +322,64 @@ export const TOOL_RUN_COMMAND: OpenAIToolDefinition = {
 	}
 };
 
+export const TOOL_CREATE_TODO: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'create_todo',
+		description:
+			'Create or recreate a todo list for the current conversation. Pass an array of todo items. Set isRecreated to true when you are replacing an existing list.',
+		parameters: {
+			type: 'object',
+			properties: {
+				todos: {
+					type: 'array',
+					description: 'Array of todo item strings to create.',
+					items: { type: 'string' }
+				},
+				isRecreated: {
+					type: 'boolean',
+					description: 'Set to true if this replaces an existing todo list.'
+				}
+			},
+			required: ['todos']
+		}
+	}
+};
+
+export const TOOL_MARK_TODO: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'mark_todo',
+		description:
+			'Mark one or more todo items as completed by their 0-based index. The agent may finish multiple tasks at the same time.',
+		parameters: {
+			type: 'object',
+			properties: {
+				indices: {
+					type: 'array',
+					description: '0-based indices of todo items to mark as done.',
+					items: { type: 'integer' }
+				}
+			},
+			required: ['indices']
+		}
+	}
+};
+
+export const TOOL_READ_TODO: OpenAIToolDefinition = {
+	type: 'function',
+	function: {
+		name: 'read_todo',
+		description:
+			'Read the current todo list for this conversation, including any edits the user may have made. Use this to verify the latest state before updating or completing tasks.',
+		parameters: {
+			type: 'object',
+			properties: {},
+			required: []
+		}
+	}
+};
+
 export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_CALCULATOR,
 	TOOL_GET_TIME,
@@ -336,5 +394,8 @@ export const BUILTIN_TOOLS: OpenAIToolDefinition[] = [
 	TOOL_SEARCH_FILES,
 	TOOL_DELETE_FILE,
 	TOOL_MOVE_FILE,
-	TOOL_RUN_COMMAND
+	TOOL_RUN_COMMAND,
+	TOOL_CREATE_TODO,
+	TOOL_MARK_TODO,
+	TOOL_READ_TODO
 ];

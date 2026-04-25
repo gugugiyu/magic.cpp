@@ -22,6 +22,7 @@ import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { toast } from 'svelte-sonner';
 import { DatabaseService } from '$lib/services/database.service';
+import { todoStore } from '$lib/stores/todos.svelte';
 import { config } from '$lib/stores/settings.svelte';
 import {
 	filterByLeafNodeId,
@@ -336,6 +337,7 @@ class ConversationsStore {
 	async deleteConversation(convId: string, options?: { deleteWithForks?: boolean }): Promise<void> {
 		try {
 			await DatabaseService.deleteConversation(convId, options);
+			await todoStore.clearTodos(convId);
 
 			// Re-fetch from backend to ensure in-memory state is consistent
 			await this.loadConversations();
@@ -363,6 +365,11 @@ class ConversationsStore {
 			await DatabaseService.deleteAllConversations(deleteWithForks);
 
 			this.clearActiveConversation();
+			// Clear all in-memory todo state
+			for (const key of Array.from(todoStore.conversationTodos.keys())) {
+				todoStore.conversationTodos.delete(key);
+			}
+			todoStore.loadedConversations.clear();
 			await this.loadConversations();
 
 			toast.success('All conversations deleted');

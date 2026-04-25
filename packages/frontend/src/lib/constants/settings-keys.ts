@@ -64,6 +64,7 @@ export const SETTINGS_KEYS = {
 	BUILTIN_TOOL_SAFE_FILE_TOOLS: 'builtinToolSafeFileTools',
 	BUILTIN_TOOL_MUTATING_FILE_TOOLS: 'builtinToolMutatingFileTools',
 	BUILTIN_TOOL_RUN_COMMAND: 'builtinToolRunCommand',
+	BUILTIN_TOOL_TODO_LIST: 'builtinToolTodoList',
 	ALWAYS_SHOW_AGENTIC_TURNS: 'alwaysShowAgenticTurns',
 	AGENTIC_MAX_TOOL_PREVIEW_LINES: 'agenticMaxToolPreviewLines',
 	SHOW_TOOL_CALL_IN_PROGRESS: 'showToolCallInProgress',

@@ -94,6 +94,11 @@ export interface McpServerOverride {
 	enabled: boolean;
 }
 
+export interface TodoItem {
+	text: string;
+	done: boolean;
+}
+
 export interface DatabaseConversation {
 	currNode: string | null;
 	id: string;
@@ -102,6 +107,7 @@ export interface DatabaseConversation {
 	mcpServerOverrides?: McpServerOverride[];
 	forkedFromConversationId?: string | null;
 	pinned?: boolean | null;
+	todos?: TodoItem[];
 }
 
 // ========================

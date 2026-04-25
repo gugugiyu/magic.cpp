@@ -14,6 +14,7 @@
 	import { HealthCheckStatus } from '$lib/enums';
 	import type { MCPServerSettingsEntry } from '$lib/types';
 	import { builtinToolFields } from '$lib/enums/builtin-tools';
+	import { ListChecks } from '@lucide/svelte';
 
 	interface Props {
 		class?: string;

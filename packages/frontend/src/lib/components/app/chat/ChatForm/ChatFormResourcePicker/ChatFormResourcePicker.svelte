@@ -224,7 +224,7 @@
 		{#snippet footer()}
 			{#if onBrowse && resources.length > 3}
 				<Button
-					class="fixed right-3 bottom-3"
+					class="absolute right-3 bottom-3"
 					type="button"
 					onclick={onBrowse}
 					variant="secondary"

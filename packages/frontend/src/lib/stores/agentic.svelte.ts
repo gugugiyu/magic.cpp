@@ -50,6 +50,7 @@ import {
 } from '$lib/constants';
 import { SUBAGENT_DEFAULT_PROMPT } from '@shared/constants/prompts-and-tools';
 import { skillsStore } from '$lib/stores/skills.svelte';
+import { todoStore } from '$lib/stores/todos.svelte';
 import {
 	processToolOutput as processMcpToolOutput,
 	countLines,
@@ -571,7 +572,6 @@ class AgenticStore {
 										this.updateSession(conversationId, {
 											streamingToolCall: { name, arguments: args }
 										});
-
 									}
 								}
 							} catch (e) {
@@ -1014,7 +1014,7 @@ class AgenticStore {
 				return { content: this._executeGetTimeTool(parsed) };
 			case 'get_location':
 				return { content: await this._executeGetLocationTool() };
-		case 'call_subagent':
+			case 'call_subagent':
 				return {
 					content: await this._executeCallSubagentTool(
 						parsed,
@@ -1028,6 +1028,27 @@ class AgenticStore {
 				return { content: await this._executeListSkillTool() };
 			case 'read_skill':
 				return { content: await this._executeReadSkillTool(parsed, conversationId) };
+			case 'create_todo': {
+				const texts = Array.isArray(parsed.todos)
+					? parsed.todos.filter((t: unknown) => typeof t === 'string')
+					: [];
+				const isRecreated = Boolean(parsed.isRecreated);
+				const items = await todoStore.createTodos(conversationId, texts, isRecreated);
+				return { content: todoStore.formatMarkdownList(items) };
+			}
+			case 'mark_todo': {
+				const indices = Array.isArray(parsed.indices)
+					? parsed.indices.filter((i: unknown) => typeof i === 'number' && Number.isInteger(i))
+					: [];
+				await todoStore.markTodos(conversationId, indices);
+				return { content: 'Confirmed' };
+			}
+			case 'read_todo': {
+				const current = await todoStore
+					.loadTodos(conversationId)
+					.then(() => todoStore.getTodos(conversationId));
+				return { content: todoStore.formatMarkdownList(current) };
+			}
 			default:
 				return { content: `Error: unknown built-in tool "${name}"` };
 		}

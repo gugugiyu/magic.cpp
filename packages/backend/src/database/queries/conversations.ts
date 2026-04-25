@@ -18,7 +18,8 @@ export function createConversation(db: DrizzleDB, conversation: DatabaseConversa
 			? JSON.stringify(conversation.mcpServerOverrides)
 			: null,
 		forkedFromConversationId: conversation.forkedFromConversationId ?? null,
-		pinned: conversation.pinned ?? null
+		pinned: conversation.pinned ?? null,
+		todos: conversation.todos ? JSON.stringify(conversation.todos) : null
 	}).run();
 }
 
@@ -58,6 +59,9 @@ export function updateConversation(
 	}
 	if (updates.pinned !== undefined) {
 		set.pinned = updates.pinned ?? null;
+	}
+	if (updates.todos !== undefined) {
+		set.todos = updates.todos ? JSON.stringify(updates.todos) : null;
 	}
 
 	db.update(conversationsTable).set(set).where(eq(conversationsTable.id, id)).run();
@@ -115,6 +119,7 @@ function rowToConversation(row: Conversation): DatabaseConversation {
 			? JSON.parse(row.mcpServerOverrides)
 			: undefined,
 		forkedFromConversationId: row.forkedFromConversationId ?? null,
-		pinned: row.pinned ?? null
+		pinned: row.pinned ?? null,
+		todos: row.todos ? JSON.parse(row.todos) : undefined
 	};
 }

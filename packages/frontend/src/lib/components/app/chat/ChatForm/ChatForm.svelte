@@ -7,7 +7,8 @@
 		ChatFormPromptPicker,
 		ChatFormResourcePicker,
 		ChatFormTextarea,
-		ChatFormSkillPicker
+		ChatFormSkillPicker,
+		TodoPocket
 	} from '$lib/components/app';
 	import { DialogMcpResources } from '$lib/components/app/dialogs';
 	import {
@@ -124,6 +125,9 @@
 	// Skill Picker State
 	let isSkillPickerOpen = $state(false);
 	let skillSearchQuery = $state('');
+
+	// Todo Pocket State
+	let isTodoPocketOpen = $state(false);
 
 	/**
 	 *
@@ -645,15 +649,17 @@
 			activeModelId={activeModelId ?? undefined}
 		/>
 
+		<TodoPocket convId={conversationsStore.activeConversation?.id ?? ''} open={isTodoPocketOpen} />
+
 		<div
-			class="flex-column relative min-h-[48px] items-center rounded-3xl py-2 pb-2.25 shadow-sm transition-all focus-within:shadow-md md:!py-3"
-			onpaste={handlePaste}
+			class="relative flex min-h-[48px] flex-col items-center rounded-3xl py-2 pb-2.5 shadow-sm transition-shadow duration-150 focus-within:shadow-md md:!py-3"
 		>
 			<ChatFormTextarea
 				class="px-5 py-1.5 md:pt-0"
 				bind:this={textareaRef}
 				bind:value
 				onKeydown={handleKeydown}
+				onPaste={handlePaste}
 				onInput={() => {
 					handleInput();
 					onValueChange?.(value);
@@ -688,6 +694,7 @@
 				onSystemPromptClick={() => onSystemPromptClick?.({ message: value, files: uploadedFiles })}
 				onMcpPromptClick={showMcpPromptButton ? () => (isPromptPickerOpen = true) : undefined}
 				onMcpResourcesClick={() => (isResourceDialogOpen = true)}
+				onTodoPocketToggle={() => (isTodoPocketOpen = !isTodoPocketOpen)}
 			/>
 		</div>
 	</div>

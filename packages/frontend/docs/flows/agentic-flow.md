@@ -139,14 +139,14 @@ interface AgenticSession {
 
 #### Built-in Tools (Frontend-Only)
 
-| Tool                  | Setting Key                     | Description                                                                  |
-| --------------------- | ------------------------------- | ---------------------------------------------------------------------------- |
-| `calculator`          | `builtinToolCalculator`         | Evaluates JavaScript math expressions automatically with strict-mode sandbox |
-| `get_time`            | `builtinToolTime`               | Returns current UTC date/time as ISO 8601 string                             |
-| `get_location`        | `builtinToolLocation`           | Browser Geolocation API (requires user permission)                           |
-| `call_subagent`       | `builtinToolCallSubagent`       | Delegate to separate model endpoint                                          |
-| `list_skill`          | `builtinToolSkills`             | List enabled user skills                                                     |
-| `read_skill`          | `builtinToolSkills`             | Read full skill content by name                                              |
+| Tool            | Setting Key               | Description                                                                  |
+| --------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `calculator`    | `builtinToolCalculator`   | Evaluates JavaScript math expressions automatically with strict-mode sandbox |
+| `get_time`      | `builtinToolTime`         | Returns current UTC date/time as ISO 8601 string                             |
+| `get_location`  | `builtinToolLocation`     | Browser Geolocation API (requires user permission)                           |
+| `call_subagent` | `builtinToolCallSubagent` | Delegate to separate model endpoint                                          |
+| `list_skill`    | `builtinToolSkills`       | List enabled user skills                                                     |
+| `read_skill`    | `builtinToolSkills`       | Read full skill content by name                                              |
 
 Built-in tools are defined in `@shared/constants/prompts-and-tools.ts` and registered via `getBuiltinTools()` in `agenticStore`.
 
@@ -341,10 +341,10 @@ The compaction system uses `COMPACT_SUMMARIZER_BASE_PROMPT` and can incorporate 
 
 ## Files
 
-| File                                           | Purpose                                      |
-| ---------------------------------------------- | -------------------------------------------- |
-| `src/lib/stores/agentic.svelte.ts`             | Main agentic loop orchestration (1323 lines) |
-| `src/lib/stores/subagent-config.svelte.ts`     | Subagent endpoint configuration              |
-| `src/lib/stores/mcp.svelte.ts` | MCP connection management and tool execution |
-| `@shared/constants/prompts-and-tools.ts`       | Built-in tool definitions and prompts        |
-| `src/lib/services/chat.service.ts`             | Stateless API layer (sendMessage, streaming) |
+| File                                       | Purpose                                      |
+| ------------------------------------------ | -------------------------------------------- |
+| `src/lib/stores/agentic.svelte.ts`         | Main agentic loop orchestration (1323 lines) |
+| `src/lib/stores/subagent-config.svelte.ts` | Subagent endpoint configuration              |
+| `src/lib/stores/mcp.svelte.ts`             | MCP connection management and tool execution |
+| `@shared/constants/prompts-and-tools.ts`   | Built-in tool definitions and prompts        |
+| `src/lib/services/chat.service.ts`         | Stateless API layer (sendMessage, streaming) |

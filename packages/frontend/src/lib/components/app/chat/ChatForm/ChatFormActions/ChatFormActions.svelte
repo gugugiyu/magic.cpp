@@ -23,9 +23,15 @@
 	} from '$lib/stores/models.svelte';
 	import { isRouterMode, serverError } from '$lib/stores/server.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
-	import { activeMessages, conversationsStore } from '$lib/stores/conversations.svelte';
+	import {
+		activeMessages,
+		conversationsStore,
+		activeConversation
+	} from '$lib/stores/conversations.svelte';
+	import { todoStore } from '$lib/stores/todos.svelte';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte';
 	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
+	import { ListChecks } from '@lucide/svelte';
 
 	interface Props {
 		canSend?: boolean;
@@ -42,6 +48,7 @@
 		onSystemPromptClick?: () => void;
 		onMcpPromptClick?: () => void;
 		onMcpResourcesClick?: () => void;
+		onTodoPocketToggle?: () => void;
 	}
 
 	let {
@@ -58,7 +65,8 @@
 		onStop,
 		onSystemPromptClick,
 		onMcpPromptClick,
-		onMcpResourcesClick
+		onMcpResourcesClick,
+		onTodoPocketToggle
 	}: Props = $props();
 
 	let currentConfig = $derived(config());
@@ -156,6 +164,12 @@
 
 		return mcpStore.hasResourcesCapability(perChatOverrides);
 	});
+
+	let activeConvId = $derived(activeConversation()?.id ?? '');
+	let todos = $derived(activeConvId ? todoStore.getTodos(activeConvId) : []);
+	let todoCompleted = $derived(todos.filter((t) => t.done).length);
+	let todoTotal = $derived(todos.length);
+	let hasTodos = $derived(todoTotal > 0);
 </script>
 
 <div class="flex w-full items-center gap-3 {className}" style="container-type: inline-size">
@@ -189,6 +203,19 @@
 		{/if}
 
 		<McpServersSelector {disabled} onSettingsClick={() => goto('#/settings/mcp')} />
+
+		{#if hasTodos}
+			<button
+				type="button"
+				class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+				onclick={() => onTodoPocketToggle?.()}
+				title="Toggle todo list"
+			>
+				<ListChecks class="h-3 w-3" />
+				<span class="tabular-nums">{todoCompleted}/{todoTotal}</span>
+				<span class="hidden sm:inline">Todos</span>
+			</button>
+		{/if}
 	</div>
 
 	<div class="ml-auto flex items-center gap-1.5">

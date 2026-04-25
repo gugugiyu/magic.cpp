@@ -101,6 +101,9 @@ export async function handleCreateConversation(
     if (body.mcpServerOverrides) {
       conversation.mcpServerOverrides = body.mcpServerOverrides;
     }
+    if (body.todos) {
+      conversation.todos = body.todos;
+    }
 
     createConversation(db, conversation);
 
@@ -144,6 +147,7 @@ export async function handleUpdateConversation(
     if (body.lastModified !== undefined)
       updates.lastModified = body.lastModified;
     if (body.pinned !== undefined) updates.pinned = body.pinned;
+    if (body.todos !== undefined) updates.todos = body.todos;
 
     updateConversation(db, id, updates);
 

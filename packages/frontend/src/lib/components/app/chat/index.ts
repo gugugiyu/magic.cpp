@@ -209,6 +209,12 @@ export { default as ChatFormFileInputInvisible } from './ChatForm/ChatFormFileIn
 export { default as ChatFormHelperText } from './ChatForm/ChatFormHelperText.svelte';
 
 /**
+ * Todo pocket panel that rises above the chat form. Shows circular progress
+ * and a styled list of todo items (done, ongoing, upcoming).
+ */
+export { default as TodoPocket } from './ChatForm/TodoPocket.svelte';
+
+/**
  * Auto-resizing textarea with IME composition support. Automatically adjusts
  * height based on content. Handles IME input correctly (waits for composition
  * end before processing Enter key). Exposes focus() and resetHeight() methods.

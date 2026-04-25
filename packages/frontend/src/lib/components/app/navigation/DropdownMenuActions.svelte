@@ -12,6 +12,7 @@
 		disabled?: boolean;
 		shortcut?: string[];
 		separator?: boolean;
+		tooltip?: string;
 	}
 
 	interface Props {
@@ -63,6 +64,7 @@
 				onclick={action.onclick}
 				variant={action.variant}
 				disabled={action.disabled}
+				title={action.tooltip}
 				class="flex items-center justify-between hover:[&>kbd]:opacity-100"
 			>
 				<div class="flex items-center gap-2">

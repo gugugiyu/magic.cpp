@@ -13,7 +13,11 @@
 		isLoading?: boolean;
 		onFileRemove?: (fileId: string) => void;
 		onFileUpload?: (files: File[]) => void;
-		onSend?: (message: string, files?: ChatUploadedFile[]) => Promise<boolean>;
+		onSend?: (
+			message: string,
+			files?: ChatUploadedFile[],
+			mode?: 'followup' | 'steering'
+		) => Promise<boolean>;
 		onStop?: () => void;
 		onSystemPromptAdd?: (draft: { message: string; files: ChatUploadedFile[] }) => void;
 		showHelperText?: boolean;
@@ -57,7 +61,7 @@
 
 	let hasLoadingAttachments = $derived(uploadedFiles.some((f) => f.isLoading));
 
-	async function handleSubmit() {
+	async function handleSubmit(mode: 'followup' | 'steering' = 'followup') {
 		if (
 			(!message.trim() && uploadedFiles.length === 0) ||
 			disabled ||
@@ -88,7 +92,7 @@
 
 		chatFormRef?.resetTextareaHeight();
 
-		const success = await onSend?.(messageToSend, filesToSend);
+		const success = await onSend?.(messageToSend, filesToSend, mode);
 
 		if (!success) {
 			// Restore the shorthand, not the expanded content

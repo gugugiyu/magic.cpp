@@ -133,7 +133,7 @@
 	--secondary: #292e42;
 	--secondary-foreground: #a9b1d6;
 	--muted: #24283b;
-	--muted-foreground: #565f89;
+	--muted-foreground: #8a8faa;
 	--accent: #bb9af7;
 	--accent-foreground: #1a1b26;
 	--destructive: #f7768e;
@@ -185,7 +185,7 @@
 	--secondary: #4a555b;
 	--secondary-foreground: #d3c6aa;
 	--muted: #3a454a;
-	--muted-foreground: #859289;
+	--muted-foreground: #aeb5a5;
 	--accent: #e69875;
 	--accent-foreground: #2b3339;
 	--destructive: #e67e80;
@@ -331,7 +331,7 @@
 	}
 
 	*:hover {
-		scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+		scrollbar-color: color-mix(in oklch, var(--muted-foreground) 30%, transparent) transparent;
 	}
 
 	*::-webkit-scrollbar {
@@ -350,11 +350,11 @@
 	}
 
 	*:hover::-webkit-scrollbar-thumb {
-		background: hsl(var(--muted-foreground) / 0.3);
+		background: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
 	}
 
 	*::-webkit-scrollbar-thumb:hover {
-		background: hsl(var(--muted-foreground) / 0.5);
+		background: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
 	}
 }
 

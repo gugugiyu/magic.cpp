@@ -64,7 +64,7 @@ export {
 
 // File preview utilities
 export { getFileTypeLabel } from './file-preview';
-export { getPreviewText, generateConversationTitle } from './text';
+export { getPreviewText, generateConversationTitle, truncateToWords } from './text';
 
 // File type utilities
 export {

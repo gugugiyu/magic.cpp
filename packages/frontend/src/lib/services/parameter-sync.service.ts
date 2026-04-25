@@ -214,12 +214,6 @@ export const SYNCABLE_PARAMETERS: SyncableParameter[] = [
 		canSync: true
 	},
 	{
-		key: 'theme',
-		serverKey: 'theme',
-		type: SyncableParameterType.STRING,
-		canSync: true
-	},
-	{
 		key: 'copyTextAttachmentsAsPlainText',
 		serverKey: 'copyTextAttachmentsAsPlainText',
 		type: SyncableParameterType.BOOLEAN,

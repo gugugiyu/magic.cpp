@@ -430,7 +430,9 @@
 
 	function handleThemeChange(newTheme: string) {
 		localConfig.theme = newTheme;
-
+		// Theme is a display preference — persist immediately so config().theme
+		// stays authoritative and survives reload without needing an explicit Save.
+		settingsStore.updateConfig('theme', newTheme as SettingsConfigType['theme']);
 		applyTheme(newTheme);
 	}
 
@@ -501,7 +503,7 @@
 					class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors transition-transform duration-75 hover:bg-accent active:scale-[0.98] {activeSection ===
 					section.title
 						? 'bg-accent text-accent-foreground'
-						: 'text-muted-foreground'}"
+						: 'hover:bg-muted text-muted-foreground'}"
 					onclick={() => navigateToSection(section.title)}
 				>
 					<section.icon class="h-4 w-4" />

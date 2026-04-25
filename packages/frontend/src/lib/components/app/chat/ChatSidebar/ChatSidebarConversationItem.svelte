@@ -8,13 +8,16 @@
 		Square,
 		GitBranch,
 		Pin,
-		PinOff
+		PinOff,
+		Sparkles
 	} from '@lucide/svelte';
 	import { DropdownMenuActions } from '$lib/components/app';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { FORK_TREE_DEPTH_PADDING } from '$lib/constants';
 	import { getAllLoadingChats } from '$lib/stores/chat.svelte';
 	import { conversationsStore, conversations } from '$lib/stores/conversations.svelte';
+	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 
 	interface Props {
 		isActive?: boolean;
@@ -42,6 +45,10 @@
 	let dropdownOpen = $state(false);
 
 	let isLoading = $derived(getAllLoadingChats().includes(conversation.id));
+	let isSummarizing = $derived(conversationsStore.summarizingConversationIds.has(conversation.id));
+	let subagentAvailable = $derived(
+		subagentConfigStore.isConfigured && subagentConfigStore.isEnabled
+	);
 
 	let hasParentInList = $derived(
 		conversation.forkedFromConversationId
@@ -80,6 +87,11 @@
 
 	function handleTogglePin() {
 		conversationsStore.toggleConversationPin(conversation.id);
+	}
+
+	function handleSummarize(event: Event) {
+		event.stopPropagation();
+		conversationsStore.summarizeAndRenameConversation(conversation.id);
 	}
 
 	$effect(() => {
@@ -153,9 +165,13 @@
 
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<span class="truncate text-sm font-medium" onclick={handleMobileSidebarItemClick}>
-			{conversation.name}
-		</span>
+		{#if isSummarizing}
+			<Skeleton class="h-4 w-3/4" />
+		{:else}
+			<span class="truncate text-sm font-medium" onclick={handleMobileSidebarItemClick}>
+				{conversation.name}
+			</span>
+		{/if}
 	</div>
 
 	{#if renderActionsDropdown}
@@ -169,6 +185,15 @@
 						icon: conversation.pinned ? PinOff : Pin,
 						label: conversation.pinned ? 'Unpin' : 'Pin',
 						onclick: handleTogglePin
+					},
+					{
+						icon: Sparkles,
+						label: 'Summarize',
+						onclick: handleSummarize,
+						disabled: isLoading || isSummarizing || !subagentAvailable,
+						tooltip: subagentAvailable
+							? undefined
+							: 'Subagent is not configured. Please set it up in Settings → Connection.'
 					},
 					{
 						icon: Pencil,

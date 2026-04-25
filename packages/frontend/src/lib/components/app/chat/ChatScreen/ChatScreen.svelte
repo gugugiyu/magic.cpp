@@ -20,7 +20,9 @@
 		isLoading,
 		isChatStreaming,
 		isEditing,
-		getAddFilesHandler
+		getAddFilesHandler,
+		getMessageQueueLength,
+		hasSteeringRequest
 	} from '$lib/stores/chat.svelte';
 	import {
 		conversationsStore,
@@ -87,6 +89,12 @@
 	let hasPropsError = $derived(!!serverError() && !isCompatibilityMode());
 
 	let isCurrentConversationLoading = $derived(isLoading() || isChatStreaming());
+	let queuedMessageCount = $derived(
+		activeConversation() ? getMessageQueueLength(activeConversation()!.id) : 0
+	);
+	let hasSteering = $derived(
+		activeConversation() ? hasSteeringRequest(activeConversation()!.id) : false
+	);
 
 	let isRouter = $derived(isRouterMode());
 
@@ -244,7 +252,11 @@
 		autoScroll.handleScroll();
 	}
 
-	async function handleSendMessage(message: string, files?: ChatUploadedFile[]): Promise<boolean> {
+	async function handleSendMessage(
+		message: string,
+		files?: ChatUploadedFile[],
+		mode?: 'followup' | 'steering'
+	): Promise<boolean> {
 		const plainFiles = files ? $state.snapshot(files) : undefined;
 		const result = plainFiles
 			? await parseFilesToMessageExtras(plainFiles, activeModelId ?? undefined)
@@ -265,7 +277,7 @@
 
 		// Enable autoscroll for user-initiated message sending
 		autoScroll.enable();
-		await chatStore.sendMessage(message, extras);
+		await chatStore.sendMessage(message, extras, mode);
 		autoScroll.scrollToBottom();
 
 		return true;
@@ -403,6 +415,31 @@
 							</Alert.Title>
 							<Alert.Description>{serverError()}</Alert.Description>
 						</Alert.Root>
+					</div>
+				{/if}
+
+				{#if hasSteering}
+					<div
+						class="pointer-events-auto mx-auto mb-2 max-w-[48rem] px-1"
+						transition:slide={{ duration: 150, axis: 'y' }}
+					>
+						<div
+							class="rounded-lg bg-warning-bg px-3 py-1.5 text-center text-xs text-warning backdrop-blur-sm"
+						>
+							Steering message queued — will send after current turn
+						</div>
+					</div>
+				{:else if queuedMessageCount > 0}
+					<div
+						class="pointer-events-auto mx-auto mb-2 max-w-[48rem] px-1"
+						transition:slide={{ duration: 150, axis: 'y' }}
+					>
+						<div
+							class="rounded-lg bg-muted/80 px-3 py-1.5 text-center text-xs text-muted-foreground backdrop-blur-sm"
+						>
+							{queuedMessageCount} message{queuedMessageCount > 1 ? 's' : ''} queued — will send after
+							response
+						</div>
 					</div>
 				{/if}
 

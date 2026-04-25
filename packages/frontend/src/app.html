@@ -4,6 +4,32 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			(function () {
+				try {
+					var raw = localStorage.getItem('LlamaCppWebui.config');
+					if (!raw) return;
+					var config = JSON.parse(raw);
+					var theme = config.theme || 'system';
+
+					var isDark = false;
+					if (theme === 'dark') {
+						isDark = true;
+					} else if (theme === 'system') {
+						isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					} else if (theme === 'tokyo-night' || theme === 'everforest') {
+						isDark = true;
+						document.documentElement.dataset.theme = theme;
+					}
+
+					if (isDark) {
+						document.documentElement.classList.add('dark');
+					}
+				} catch (e) {
+					/* ignore parse errors */
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

@@ -1,5 +1,5 @@
 /**
- * settingsStore - Application configuration and theme management
+ * settingsStore - Application configuration management
  *
  * This store manages all application settings including AI model parameters, UI preferences,
  * and theme configuration. It provides persistent storage through localStorage with reactive
@@ -8,16 +8,16 @@
  * **Architecture & Relationships:**
  * - **settingsStore** (this class): Configuration state management
  *   - Manages AI model parameters (temperature, max tokens, etc.)
- *   - Handles theme switching and persistence
+ *   - Manages UI preferences including theme (stored in `config.theme`)
  *   - Provides localStorage synchronization
  *   - Offers reactive configuration access
  *
  * - **ChatService**: Reads model parameters for API requests
- * - **UI Components**: Subscribe to theme and configuration changes
+ * - **UI Components**: Subscribe to configuration changes
  *
  * **Key Features:**
  * - **Model Parameters**: Temperature, max tokens, top-p, top-k, repeat penalty
- * - **Theme Management**: Auto, light, dark theme switching
+ * - **Theme Management**: System, light, dark, and custom themes (tokyo-night, everforest)
  * - **Persistence**: Automatic localStorage synchronization
  * - **Reactive State**: Svelte 5 runes for automatic UI updates
  * - **Default Handling**: Graceful fallback to defaults for missing settings
@@ -39,6 +39,7 @@ import {
 } from '$lib/constants';
 import { ParameterSyncService } from '$lib/services/parameter-sync.service';
 import { serverStore } from '$lib/stores/server.svelte';
+import { builtinToolFields } from '$lib/enums/builtin-tools';
 import {
 	configToParameterRecord,
 	normalizeFloatingPoint,
@@ -56,7 +57,6 @@ class SettingsStore {
 	 */
 
 	config = $state<SettingsConfigType>({ ...SETTING_CONFIG_DEFAULT });
-	theme = $state<string>('auto');
 	isInitialized = $state(false);
 	userOverrides = $state<Set<string>>(new Set());
 
@@ -98,7 +98,6 @@ class SettingsStore {
 	initialize() {
 		try {
 			this.loadConfig();
-			this.loadTheme();
 			this.isInitialized = true;
 		} catch (error) {
 			console.error('Failed to initialize settings store:', error);
@@ -134,14 +133,6 @@ class SettingsStore {
 		}
 	}
 
-	/**
-	 * Load theme from localStorage
-	 */
-	private loadTheme() {
-		if (!browser) return;
-
-		this.theme = localStorage.getItem('theme') || 'auto';
-	}
 	/**
 	 *
 	 *
@@ -225,32 +216,6 @@ class SettingsStore {
 	}
 
 	/**
-	 * Update the theme setting
-	 * @param newTheme - The new theme value
-	 */
-	updateTheme(newTheme: string) {
-		this.theme = newTheme;
-		this.saveTheme();
-	}
-
-	/**
-	 * Save the current theme to localStorage
-	 */
-	private saveTheme() {
-		if (!browser) return;
-
-		try {
-			if (this.theme === 'auto') {
-				localStorage.removeItem('theme');
-			} else {
-				localStorage.setItem('theme', this.theme);
-			}
-		} catch (error) {
-			console.error('Failed to save theme to localStorage:', error);
-		}
-	}
-
-	/**
 	 *
 	 *
 	 * Reset
@@ -267,19 +232,10 @@ class SettingsStore {
 	}
 
 	/**
-	 * Reset theme to auto
-	 */
-	resetTheme() {
-		this.theme = 'auto';
-		this.saveTheme();
-	}
-
-	/**
 	 * Reset all settings to defaults
 	 */
 	resetAll() {
 		this.resetConfig();
-		this.resetTheme();
 	}
 
 	/**
@@ -472,8 +428,17 @@ class SettingsStore {
 	}
 }
 
+/**
+ * Approximate JSON payload character count for a built-in tool if enabled.
+ * Uses label + description + a small fixed overhead as a proxy.
+ */
+export function getBuiltinToolPayloadApproxChars(toolKey: string): number {
+	const tool = builtinToolFields.find((t) => t.key === toolKey);
+	if (!tool) return 0;
+	return tool.label.length + (tool.description?.length ?? 0) + 50;
+}
+
 export const settingsStore = new SettingsStore();
 
 export const config = () => settingsStore.config;
-export const theme = () => settingsStore.theme;
 export const isInitialized = () => settingsStore.isInitialized;

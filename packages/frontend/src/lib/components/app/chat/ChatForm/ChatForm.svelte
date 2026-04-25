@@ -31,6 +31,7 @@
 	import { selectedModelId, modelsStore } from '$lib/stores/models.svelte';
 	import { isRouterMode } from '$lib/stores/server.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
+	import { agenticStore } from '$lib/stores/agentic.svelte';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
 	import { mcpHasResourceAttachments } from '$lib/stores/mcp-resources.svelte';
 	import { conversationsStore, activeMessages } from '$lib/stores/conversations.svelte';
@@ -64,7 +65,7 @@
 		onAttachmentRemove?: (index: number) => void;
 		onFilesAdd?: (files: File[]) => void;
 		onStop?: () => void;
-		onSubmit?: () => void;
+		onSubmit?: (mode?: 'followup' | 'steering') => void;
 		onSystemPromptClick?: (draft: { message: string; files: ChatUploadedFile[] }) => void;
 		onUploadedFileRemove?: (fileId: string) => void;
 		onUploadedFilesChange?: (files: ChatUploadedFile[]) => void;
@@ -160,6 +161,21 @@
 		(attachments && attachments.length > 0) || (uploadedFiles && uploadedFiles.length > 0)
 	);
 	let canSubmit = $derived(value.trim().length > 0 || hasAttachments);
+
+	// Dynamic placeholder based on steering availability
+	let displayPlaceholder = $derived.by(() => {
+		if (!isLoading) return placeholder;
+		const currentCfg = config();
+		const perChatOverrides = conversationsStore.getAllMcpServerOverrides();
+		const agenticConfig = agenticStore.getConfig(currentCfg, perChatOverrides);
+		if (agenticConfig.enabled) {
+			const base =
+				'Type a message' +
+				(presetsStore.activePreset ? ` to ${presetsStore.activePreset?.name}` : '');
+			return `${base} (Alt+Enter to steer)`;
+		}
+		return placeholder;
+	});
 
 	/**
 	 *
@@ -324,7 +340,8 @@
 
 			if (!canSubmit || disabled || isLoading || hasLoadingAttachments) return;
 
-			onSubmit?.();
+			const mode = event.altKey ? 'steering' : 'followup';
+			onSubmit?.(mode);
 		}
 	}
 
@@ -605,7 +622,7 @@
 	onsubmit={(e) => {
 		e.preventDefault();
 		if (!canSubmit || disabled || isLoading || hasLoadingAttachments) return;
-		onSubmit?.();
+		onSubmit?.('followup');
 	}}
 >
 	<ChatFormPromptPicker
@@ -667,7 +684,7 @@
 					onValueChange?.(value);
 				}}
 				{disabled}
-				{placeholder}
+				placeholder={displayPlaceholder}
 			/>
 
 			{#if mcpHasResourceAttachments()}

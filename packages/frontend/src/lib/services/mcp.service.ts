@@ -45,8 +45,10 @@ import {
 	throwIfAborted,
 	isAbortError,
 	createBase64DataUrl,
-	createModuleLogger
+	createModuleLogger,
+	isLikelyTextFile
 } from '$lib/utils';
+import { MimeTypePrefix } from '$lib/enums';
 
 interface ToolResultContentItem {
 	type: string;
@@ -522,10 +524,23 @@ export class MCPService {
 		const content = result.content;
 		if (!Array.isArray(content)) return '';
 
-		return content
+		const formatted = content
 			.map((item) => this.formatSingleContent(item))
 			.filter(Boolean)
 			.join('\n');
+
+		return this.guardBinaryContent(formatted);
+	}
+
+	/**
+	 * Replaces content that appears to be raw binary data with a safe placeholder.
+	 * This prevents binary garbage from being fed into the LLM context.
+	 */
+	private static guardBinaryContent(content: string): string {
+		if (!content || isLikelyTextFile(content)) {
+			return content;
+		}
+		return '[Binary content detected; output omitted to prevent token waste]';
 	}
 
 	private static formatSingleContent(content: ToolResultContentItem): string {
@@ -541,7 +556,16 @@ export class MCPService {
 			const resource = content.resource;
 
 			if (resource.text) return resource.text;
-			if (resource.blob) return resource.blob;
+			if (resource.blob) {
+				const mimeType =
+					(resource as { mimeType?: string }).mimeType ??
+					content.mimeType ??
+					DEFAULT_IMAGE_MIME_TYPE;
+				if (mimeType.startsWith(MimeTypePrefix.IMAGE)) {
+					return createBase64DataUrl(mimeType, resource.blob);
+				}
+				return `[Binary content: ${mimeType}]`;
+			}
 
 			return JSON.stringify(resource);
 		}

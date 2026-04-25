@@ -51,6 +51,7 @@ import { ErrorDialogType, MessageRole, MessageType, AttachmentType } from '$lib/
 import { serverEndpointStore } from './server-endpoint.svelte';
 import { loadingContext } from './loading-context.svelte';
 import { createModuleLogger } from '$lib/utils/logger';
+import { toast } from 'svelte-sonner';
 
 const logger = createModuleLogger('chatStore');
 
@@ -68,6 +69,14 @@ class ChatStore {
 	private abortControllers = new SvelteMap<string, AbortController>();
 	private processingStates = new SvelteMap<string, ApiProcessingState | null>();
 	private conversationStateTimestamps = new SvelteMap<string, ConversationStateEntry>();
+	private messageQueues = new SvelteMap<
+		string,
+		Array<{ content: string; extras?: DatabaseMessageExtra[]; mode: 'followup' | 'steering' }>
+	>();
+	private steeringRequests = new SvelteMap<
+		string,
+		{ content: string; extras?: DatabaseMessageExtra[] }
+	>();
 	private activeConversationId = $state<string | null>(null);
 	private isStreamingActive = $state(false);
 	private isEditModeActive = $state(false);
@@ -107,6 +116,17 @@ class ChatStore {
 		this.currentResponse = s?.response || '';
 		this.isStreamingActive = s !== undefined;
 		this.setActiveProcessingConversation(convId);
+		if (!this.isLoading) {
+			const steering = this.steeringRequests.get(convId);
+			if (steering) {
+				this.steeringRequests.delete(convId);
+				this.sendMessage(steering.content, steering.extras, 'followup').catch((err) =>
+					logger.error('Failed to send steering message:', err)
+				);
+			} else if (this.hasQueuedMessages(convId)) {
+				this.drainQueue(convId).catch((err) => logger.error('Failed to drain queue:', err));
+			}
+		}
 		// Sync streaming content to activeMessages so UI displays current content
 		if (s?.response && s?.messageId) {
 			const idx = conversationsStore.findMessageIndex(s.messageId);
@@ -252,6 +272,40 @@ class ChatStore {
 		return this.chatLoadingStates.get(convId) || false;
 	}
 
+	private enqueueMessage(
+		convId: string,
+		content: string,
+		extras?: DatabaseMessageExtra[],
+		mode: 'followup' | 'steering' = 'followup'
+	): void {
+		const q = this.messageQueues.get(convId) || [];
+		q.push({ content, extras, mode });
+		this.messageQueues.set(convId, q);
+		this.touchConversationState(convId);
+	}
+
+	private async drainQueue(convId: string): Promise<void> {
+		const q = this.messageQueues.get(convId);
+		if (!q || q.length === 0) return;
+		const activeConv = conversationsStore.activeConversation;
+		if (activeConv?.id !== convId) return;
+		const next = q.shift()!;
+		if (q.length === 0) this.messageQueues.delete(convId);
+		await this.sendMessage(next.content, next.extras, next.mode);
+	}
+
+	getMessageQueueLength(convId: string): number {
+		return this.messageQueues.get(convId)?.length || 0;
+	}
+
+	hasQueuedMessages(convId: string): boolean {
+		return (this.messageQueues.get(convId)?.length || 0) > 0;
+	}
+
+	hasSteeringRequest(convId: string): boolean {
+		return this.steeringRequests.has(convId);
+	}
+
 	private touchConversationState(convId: string): void {
 		this.conversationStateTimestamps.set(convId, { lastAccessed: Date.now() });
 	}
@@ -300,6 +354,8 @@ class ChatStore {
 		this.abortControllers.delete(convId);
 		this.processingStates.delete(convId);
 		this.conversationStateTimestamps.delete(convId);
+		this.messageQueues.delete(convId);
+		this.steeringRequests.delete(convId);
 	}
 	getTrackedConversationCount(): number {
 		return new Set([
@@ -476,14 +532,39 @@ class ChatStore {
 		);
 	}
 
-	async sendMessage(content: string, extras?: DatabaseMessageExtra[]): Promise<void> {
+	async sendMessage(
+		content: string,
+		extras?: DatabaseMessageExtra[],
+		mode: 'followup' | 'steering' = 'followup'
+	): Promise<void> {
 		if (!content.trim() && (!extras || extras.length === 0)) return;
-		const activeConv = conversationsStore.activeConversation;
-		if (activeConv && this.isChatLoadingInternal(activeConv.id)) return;
 
 		// Consume MCP resource attachments - converts them to extras and clears the live store
 		const resourceExtras = mcpStore.consumeResourceAttachmentsAsExtras();
 		const allExtras = resourceExtras.length > 0 ? [...(extras || []), ...resourceExtras] : extras;
+
+		const activeConv = conversationsStore.activeConversation;
+		if (activeConv && this.isChatLoadingInternal(activeConv.id)) {
+			if (mode === 'steering') {
+				const convId = activeConv.id;
+				if (this.steeringRequests.has(convId)) {
+					toast.warning('A steering message is already queued');
+					return;
+				}
+				const currentConfig = config();
+				const perChatOverrides = activeConv.mcpServerOverrides;
+				const agenticConfig = agenticStore.getConfig(currentConfig, perChatOverrides);
+				if (!agenticConfig.enabled) {
+					this.enqueueMessage(convId, content, allExtras, 'followup');
+					return;
+				}
+				this.steeringRequests.set(convId, { content, extras: allExtras });
+				this.stopGenerationForChat(convId);
+				return;
+			}
+			this.enqueueMessage(activeConv.id, content, allExtras, 'followup');
+			return;
+		}
 
 		let isNewConversation = false;
 		if (!activeConv) {
@@ -735,6 +816,15 @@ class ChatStore {
 				}
 
 				cleanupStreamingState();
+				const steering = this.steeringRequests.get(convId);
+				if (steering) {
+					this.steeringRequests.delete(convId);
+					this.sendMessage(steering.content, steering.extras, 'followup').catch((err) =>
+						logger.error('Failed to send steering message:', err)
+					);
+				} else {
+					this.drainQueue(convId).catch((err) => logger.error('Failed to drain queue:', err));
+				}
 
 				if (onComplete) onComplete(streamedContent);
 				if (isRouterMode())
@@ -746,6 +836,13 @@ class ChatStore {
 				this.setStreamingActive(false);
 				if (isAbortError(error)) {
 					cleanupStreamingState();
+					const steering = this.steeringRequests.get(convId);
+					if (steering) {
+						this.steeringRequests.delete(convId);
+						this.sendMessage(steering.content, steering.extras, 'followup').catch((err) =>
+							logger.error('Failed to send steering message:', err)
+						);
+					}
 					return;
 				}
 				logger.error('Streaming error:', error);
@@ -824,6 +921,17 @@ class ChatStore {
 					);
 					await conversationsStore.updateCurrentNode(currentMessageId);
 					cleanupStreamingState();
+					const steering = this.steeringRequests.get(convId);
+					if (steering) {
+						this.steeringRequests.delete(convId);
+						await this.sendMessage(steering.content, steering.extras, 'followup').catch((err) =>
+							logger.error('Failed to send steering message:', err)
+						);
+					} else {
+						await this.drainQueue(convId).catch((err) =>
+							logger.error('Failed to drain queue:', err)
+						);
+					}
 					if (onComplete) await onComplete(content);
 					if (isRouterMode())
 						modelsStore
@@ -1827,4 +1935,7 @@ export const isChatLoading = (convId: string) => chatStore.isChatLoadingPublic(c
 export const isChatStreaming = () => chatStore.isStreaming();
 export const isEditing = () => chatStore.isEditing();
 export const isLoading = () => chatStore.isLoading;
+export const getMessageQueueLength = (convId: string) => chatStore.getMessageQueueLength(convId);
+export const hasQueuedMessages = (convId: string) => chatStore.hasQueuedMessages(convId);
+export const hasSteeringRequest = (convId: string) => chatStore.hasSteeringRequest(convId);
 export const pendingEditMessageId = () => chatStore.pendingEditMessageId;

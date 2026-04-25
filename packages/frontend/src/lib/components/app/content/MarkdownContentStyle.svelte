@@ -27,9 +27,9 @@
 			width: 2rem;
 			height: 2rem;
 			border-radius: 9999px;
-			border: 1px solid hsl(var(--border));
-			background: hsl(var(--background) / 0.9);
-			color: hsl(var(--foreground));
+			border: 1px solid var(--border);
+			background: color-mix(in oklch, var(--background) 90%, transparent);
+			color: var(--foreground);
 			cursor: pointer;
 			transition: all 0.15s ease;
 			backdrop-filter: blur(8px);
@@ -37,7 +37,7 @@
 		}
 
 		.markdown-content-root .scroll-to-bottom-btn:hover {
-			background: hsl(var(--muted));
+			background: var(--muted);
 			transform: scale(1.05);
 		}
 
@@ -221,7 +221,7 @@
 		}
 
 		.markdown-content-root th {
-			background: hsl(var(--muted) / 0.3);
+			background: color-mix(in oklch, var(--muted) 30%, transparent);
 			border: 1px solid var(--border);
 			padding: 0.5rem 0.75rem;
 			text-align: left;
@@ -234,7 +234,7 @@
 		}
 
 		.markdown-content-root tr:nth-child(even) {
-			background: hsl(var(--muted) / 0.1);
+			background: color-mix(in oklch, var(--muted) 10%, transparent);
 		}
 
 		/* User message markdown should keep table borders visible on light primary backgrounds */
@@ -363,7 +363,7 @@
 
 		/* Mentions and hashtags */
 		.markdown-content-root .mention {
-			color: hsl(var(--primary));
+			color: var(--primary);
 			font-weight: 500;
 			text-decoration: none;
 		}
@@ -373,7 +373,7 @@
 		}
 
 		.markdown-content-root .hashtag {
-			color: hsl(var(--primary));
+			color: var(--primary);
 			font-weight: 500;
 			text-decoration: none;
 		}

@@ -24,11 +24,13 @@ import { toast } from 'svelte-sonner';
 import { DatabaseService } from '$lib/services/database.service';
 import { todoStore } from '$lib/stores/todos.svelte';
 import { config } from '$lib/stores/settings.svelte';
+import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import {
 	filterByLeafNodeId,
 	findLeafNode,
 	runLegacyMigration,
-	generateConversationTitle
+	generateConversationTitle,
+	truncateToWords
 } from '$lib/utils';
 import type { McpServerOverride } from '$lib/types/database';
 import { MessageRole } from '$lib/enums';
@@ -81,6 +83,9 @@ class ConversationsStore {
 
 	/** Conversation ID currently being edited (replaces document.dispatchEvent pattern) */
 	editingConversationId = $state<string | null>(null);
+
+	/** IDs of conversations currently being summarized for renaming */
+	summarizingConversationIds = $state<SvelteSet<string>>(new SvelteSet());
 
 	/** Pending MCP server overrides for new conversations (before first message) */
 	pendingMcpServerOverrides = $state<McpServerOverride[]>(ConversationsStore.loadMcpDefaults());
@@ -484,6 +489,90 @@ class ConversationsStore {
 		} catch (error) {
 			console.error('Failed to update conversation title with confirmation:', error);
 			return false;
+		}
+	}
+
+	/**
+	 * Summarizes a conversation via the subagent and renames it.
+	 * @param convId - The conversation ID to summarize and rename
+	 */
+	async summarizeAndRenameConversation(convId: string): Promise<void> {
+		if (!subagentConfigStore.isConfigured || !subagentConfigStore.isEnabled) {
+			toast.warning(
+				'Subagent is not configured. Please set up the subagent in Settings → Connection.'
+			);
+			return;
+		}
+
+		try {
+			const messages = await DatabaseService.getConversationMessages(convId);
+			if (messages.length === 0) {
+				toast.warning('No messages to summarize.');
+				return;
+			}
+
+			this.summarizingConversationIds.add(convId);
+
+			const transcript = messages
+				.filter((m) => m.role === MessageRole.USER || m.role === MessageRole.ASSISTANT)
+				.map((m) => `${m.role === MessageRole.USER ? 'User' : 'Assistant'}: ${m.content}`)
+				.join('\n\n');
+
+			const systemPrompt =
+				'You are a helpful assistant that creates concise conversation titles. Respond with ONLY the title text in English, maximum 10 words. Do not use quotes or punctuation. Just the title.';
+			const userPrompt = `Summarize the following conversation into a concise title (max 10 words, English only):\n\n${transcript}`;
+
+			const subagentModelId = subagentConfigStore.getModel();
+			const endpoint = subagentConfigStore.getEndpoint();
+			const apiKey = subagentConfigStore.getApiKey();
+			const url = `${endpoint}/v1/chat/completions`;
+			const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+			if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+			const requestBody = {
+				model: subagentModelId,
+				messages: [
+					{ role: 'system', content: systemPrompt },
+					{ role: 'user', content: userPrompt }
+				],
+				stream: false
+			};
+
+			const response = await fetch(url, {
+				method: 'POST',
+				headers,
+				body: JSON.stringify(requestBody)
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text().catch(() => 'Unknown error');
+				console.error(`[SummarizeTitle] Failed (${response.status}): ${errorText}`);
+				toast.error('Failed to summarize conversation');
+				return;
+			}
+
+			const data = (await response.json()) as {
+				choices?: { message?: { content?: string | null } }[];
+			};
+
+			const content = data.choices?.[0]?.message?.content;
+			if (!content) {
+				toast.error('No summary returned from subagent');
+				return;
+			}
+
+			let title = content.trim().replace(/^["']|["']$/g, '');
+			title = truncateToWords(title, 10);
+
+			if (title) {
+				await this.updateConversationName(convId, title);
+				toast.success('Conversation renamed');
+			}
+		} catch (error) {
+			console.error('Failed to summarize conversation:', error);
+			toast.error('Failed to summarize conversation');
+		} finally {
+			this.summarizingConversationIds.delete(convId);
 		}
 	}
 

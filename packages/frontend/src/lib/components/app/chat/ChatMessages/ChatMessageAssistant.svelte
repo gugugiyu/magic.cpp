@@ -369,7 +369,7 @@
 		margin-top: 1.5rem;
 		padding: 1rem 1.25rem;
 		border-radius: 1rem;
-		background: hsl(var(--muted) / 0.3);
+		background: color-mix(in oklch, var(--muted) 30%, transparent);
 		color: var(--foreground);
 		font-family:
 			ui-monospace, SFMono-Regular, 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas,

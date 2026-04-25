@@ -18,7 +18,7 @@
 			onclick={() => goto('#/settings/general')}
 			class="rounded-full backdrop-blur-lg"
 		>
-			<Settings class="h-4 w-4" />
+			<Settings class="h-4 w-4 text-foreground" />
 		</Button>
 	</div>
 </header>

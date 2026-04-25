@@ -5,6 +5,7 @@
 	import { builtinToolFields } from '$lib/enums/builtin-tools';
 	import { BUILTIN_TOOL_SETTING_KEY_TARGET } from '$lib/enums/builtin-tools';
 	import { runCommandSessionStore } from '$lib/stores/run-command-session.svelte';
+	import { getBuiltinToolPayloadApproxChars } from '$lib/stores/settings.svelte';
 	import { Terminal, Trash2, Loader2, X } from '@lucide/svelte';
 
 	interface Props {
@@ -43,6 +44,9 @@
 							class="flex cursor-pointer items-center gap-1.5 pt-1 pb-0.5 text-sm leading-none font-medium"
 						>
 							{tool.label}
+							<span class="text-[10px] text-muted-foreground tabular-nums">
+								~{getBuiltinToolPayloadApproxChars(tool.key)} chars
+							</span>
 						</label>
 
 						{#if tool.description}
@@ -77,6 +81,9 @@
 								class="flex cursor-pointer items-center gap-1.5 pt-1 pb-0.5 text-sm leading-none font-medium"
 							>
 								{tool.label}
+								<span class="text-[10px] text-muted-foreground tabular-nums">
+									~{getBuiltinToolPayloadApproxChars(tool.key)} chars
+								</span>
 							</label>
 
 							{#if tool.description}

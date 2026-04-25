@@ -905,7 +905,6 @@
 				<span class="agentic-label" class:thinking-pulse={isStreaming}>
 					{isStreaming ? 'Thinking…' : 'Thought — incomplete'}
 				</span>
-				<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
 			</button>
 
 			{#if isExpanded(index, section)}
@@ -1069,7 +1068,7 @@
 	.agentic-inline-trigger {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.375rem;
+		gap: 0.5rem;
 		padding: 0.125rem 0.25rem;
 		border-radius: 0.25rem;
 		background: transparent;

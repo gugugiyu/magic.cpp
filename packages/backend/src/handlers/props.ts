@@ -1,5 +1,8 @@
 import type { ModelPool } from '../pool/model-pool.ts';
 import { proxyRequest } from '../utils/proxy.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('props');
 
 /** Timeout for /props requests — this is a metadata endpoint, not streaming */
 const PROPS_TIMEOUT_MS = 30_000; // 30 seconds
@@ -108,7 +111,7 @@ export async function handleProps(req: Request, pool: ModelPool): Promise<Respon
 			}
 			const resp = await proxyRequest(req, upstream, '/props', undefined, PROPS_TIMEOUT_MS);
 			if (!resp.ok) {
-				console.warn(`[props] upstream ${upstream.id} returned ${resp.status} for /props — falling back to synthetic props`);
+				log.warn(`upstream ${upstream.id} returned ${resp.status} for /props — falling back to synthetic props`);
 				return Response.json(SYNTHETIC_PROPS);
 			}
 			return resp;
@@ -119,7 +122,7 @@ export async function handleProps(req: Request, pool: ModelPool): Promise<Respon
 		if (llamacpp) {
 			const resp = await proxyRequest(req, llamacpp, '/props', undefined, PROPS_TIMEOUT_MS);
 			if (!resp.ok) {
-				console.warn(`[props] upstream ${llamacpp.id} returned ${resp.status} for /props — falling back to synthetic props`);
+				log.warn(`upstream ${llamacpp.id} returned ${resp.status} for /props — falling back to synthetic props`);
 				return Response.json(SYNTHETIC_PROPS);
 			}
 			return resp;
@@ -128,7 +131,7 @@ export async function handleProps(req: Request, pool: ModelPool): Promise<Respon
 		// All upstreams are openai-type
 		return Response.json(SYNTHETIC_PROPS);
 	} catch (err) {
-		console.error('[handlers/props] error handling /props:', err);
+		log.error('error handling /props:', err);
 		return Response.json(
 			{ error: 'Failed to fetch server props', detail: (err as Error).message },
 			{ status: 502 },

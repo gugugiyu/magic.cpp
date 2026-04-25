@@ -1,5 +1,8 @@
 import type { Upstream } from '../pool/types.ts';
 import { forwardHeaders } from './headers.ts';
+import { createLogger } from './logger.ts';
+
+const log = createLogger('proxy');
 
 /**
  * Forward a request to an upstream, returning the upstream's Response.
@@ -44,7 +47,7 @@ export async function proxyRequest(
 		clearTimeout(headerTimeout);
 		const elapsed = Date.now() - startTime;
 		if (import.meta.env.DEV) {
-			console.log(`[proxy] upstream ${upstream.id} responded in ${elapsed}ms, status=${resp.status}`);
+			log.debug(`upstream ${upstream.id} responded in ${elapsed}ms, status=${resp.status}`);
 		}
 	} catch (err) {
 		const error = err as Error;

@@ -1,6 +1,9 @@
 import type { ModelPool } from '../pool/model-pool.ts';
 import { getTokenCount } from '../utils/token-count.ts';
-import { buildCompactSystemMessage } from '#shared/constants/prompts-and-tools.ts'
+import { buildCompactSystemMessage } from '#shared/constants/prompts-and-tools.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('compact');
 
 interface CompactRequest {
   messages: Array<{
@@ -123,7 +126,7 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       stream: false,
     };
 
-    console.log('[compact] requesting summarization from:', upstream.id);
+    log.info('requesting summarization from:', upstream.id);
 
     // Use AbortController to avoid hanging requests — cap at 60s for summarization.
     const controller = new AbortController();
@@ -149,7 +152,7 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[compact] upstream error:', errorText);
+      log.error('upstream error:', errorText);
       return Response.json(
         { error: `Summarization failed: ${response.status}`, details: errorText },
         { status: response.status }
@@ -157,7 +160,7 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
     }
 
     const data = await response.json();
-    console.log(data.choices?.[0]?.message)
+    log.debug('upstream response message:', data.choices?.[0]?.message);
     let summary = data.choices?.[0]?.message?.content || '';
 
     if (!summary) {
@@ -181,12 +184,12 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       tokensSaved: Math.max(0, tokensSaved),
     };
 
-    console.log('[compact] tokens before:', tokensBefore, 'after:', tokensAfter, 'saved:', tokensSaved);
+    log.info('tokens before:', tokensBefore, 'after:', tokensAfter, 'saved:', tokensSaved);
 
     return Response.json(result);
 
   } catch (error) {
-    console.error('[compact] error:', error);
+    log.error('error:', error);
     return Response.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

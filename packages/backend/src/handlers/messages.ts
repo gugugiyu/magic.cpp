@@ -13,6 +13,9 @@ import {
 	buildMessageTree
 } from '../database/queries/messages.ts';
 import type { DatabaseMessage } from '../types/database';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('api');
 
 /**
  * GET /api/messages/:id
@@ -33,7 +36,7 @@ export function handleGetMessage(db: DrizzleDB, id: string): Response {
 
 		return Response.json(fullMessage || message);
 	} catch (error) {
-		console.error('[api] failed to get message:', error);
+		log.error('failed to get message:', error);
 		return Response.json(
 			{ error: 'Failed to retrieve message' },
 			{ status: 500 }
@@ -76,7 +79,7 @@ export async function handleUpdateMessage(req: Request, db: DrizzleDB, id: strin
 		const updated = getMessageById(db, id);
 		return Response.json(updated);
 	} catch (error) {
-		console.error('[api] failed to update message:', error);
+		log.error('failed to update message:', error);
 		return Response.json(
 			{ error: 'Failed to update message' },
 			{ status: 500 }
@@ -118,7 +121,7 @@ export function handleDeleteMessage(db: DrizzleDB, id: string, url: URL): Respon
 
 		return new Response(null, { status: 204 });
 	} catch (error) {
-		console.error('[api] failed to delete message:', error);
+		log.error('failed to delete message:', error);
 		return Response.json(
 			{ error: 'Failed to delete message' },
 			{ status: 500 }
@@ -178,7 +181,7 @@ export async function handleDeleteMessageCascading(
 
 		return Response.json(allToDelete);
 	} catch (error) {
-		console.error('[api] failed to delete message cascading:', error);
+		log.error('failed to delete message cascading:', error);
 		return Response.json(
 			{ error: 'Failed to delete message cascading' },
 			{ status: 500 }

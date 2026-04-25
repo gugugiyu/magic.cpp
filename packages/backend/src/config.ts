@@ -2,8 +2,14 @@ import { z } from 'zod';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import type { LogLevel } from './utils/logger.ts';
+import { createLogger } from './utils/logger.ts';
+
+const log = createLogger('config');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const LogLevelSchema = z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info');
 
 const StreamingConfigSchema = z.object({
 	enabled: z.boolean().default(true),
@@ -51,6 +57,7 @@ const ConfigFileSchema = z.object({
 	enabled: z.boolean().default(true),
 	modelList: z.array(z.string()).default([]),
 	debug: z.boolean().default(false),
+	logLevel: LogLevelSchema,
 	streaming: StreamingConfigSchema.default({ enabled: true, bufferWords: 0 }),
 	database: DatabaseConfigSchema.default(() => ({ path: 'data/chat.db' })),
 	cors: CorsConfigSchema,
@@ -78,6 +85,7 @@ export type Config = Omit<z.infer<typeof ConfigFileSchema>, 'upstreams'> & {
 	streaming: StreamingConfig;
 	cors: CorsConfig;
 	commands: CommandsConfig;
+	logLevel: LogLevel;
 };
 
 function resolveEnvPlaceholder(value: string | null): string | null {
@@ -86,7 +94,7 @@ function resolveEnvPlaceholder(value: string | null): string | null {
 		const envVar = value.slice(1);
 		const resolved = process.env[envVar];
 		if (!resolved) {
-			console.warn(`[config] env var ${envVar} is not set — upstream will have no API key`);
+			log.warn(`env var ${envVar} is not set — upstream will have no API key`);
 			return null;
 		}
 		return resolved;
@@ -118,6 +126,10 @@ export function loadConfig(configPath?: string): Config {
 		resolvedApiKey: resolveEnvPlaceholder(u.apiKey),
 	}));
 
+	// Backward compat: debug=true bumps logLevel to debug if not already stricter
+	const effectiveLogLevel: LogLevel =
+		data.debug && data.logLevel === 'info' ? 'debug' : data.logLevel;
+
 	return {
 		...data,
 		upstreams,
@@ -125,5 +137,6 @@ export function loadConfig(configPath?: string): Config {
 		resolvedDatabasePath: resolve(dirname(path), data.database.path),
 		resolvedFilesystemRootPath: resolve(dirname(path), data.filesystem.rootPath),
 		commands: data.commands,
+		logLevel: effectiveLogLevel,
 	};
 }

@@ -1,6 +1,9 @@
 import type { ModelPool } from '../pool/model-pool.ts';
 import type { Upstream } from '../pool/types.ts';
 import { proxyRequest } from '../utils/proxy.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('models');
 
 /**
  * GET /v1/models — returns merged model list from all upstreams.
@@ -38,10 +41,10 @@ export async function handleModels(req: Request, pool: ModelPool): Promise<Respo
 			}, { status: 503 });
 		}
 
-		console.log('[handlers/models] Proxying to:', upstream.url + '/models');
+		log.info('Proxying to:', upstream.url + '/models');
 		return await proxyRequest(req, upstream, '/models');
 	} catch (err) {
-		console.error('[handlers/models] error handling /models:', err);
+		log.error('error handling /models:', err);
 		return Response.json(
 			{ error: 'Failed to proxy model list', detail: (err as Error).message },
 			{ status: 502 },

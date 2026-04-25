@@ -1,5 +1,8 @@
 import type { ModelPool } from '../pool/model-pool.ts';
 import { proxyRequest } from '../utils/proxy.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('chat');
 
 /**
  * Count words in a string (handles both whitespace-separated and CJK characters)
@@ -42,9 +45,9 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 	try {
 		const body = JSON.parse(rawBody) as { model?: string; stream?: boolean };
 		modelId = body.model;
-		console.log('[chat] incoming request, model:', modelId);
+		log.info('incoming request, model:', modelId);
 	} catch (err) {
-		console.error('[chat] failed to parse request body:', err);
+		log.error('failed to parse request body:', err);
 		// body may not be JSON — proceed without model routing
 	}
 
@@ -52,7 +55,7 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 	const allUpstreams = pool.getAllUpstreams();
 
 	if (!modelId) {
-		console.log('[chat] no model in request, using fallback upstream');
+		log.info('no model in request, using fallback upstream');
 		const fallback = allUpstreams[0];
 		if (!fallback) {
 			return Response.json({ error: 'no upstreams configured' }, { status: 503 });
@@ -60,13 +63,13 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 		upstream = fallback;
 	} else {
 		upstream = pool.resolveUpstream(modelId);
-		console.log('[chat] resolved upstream for model:', modelId, '->', upstream?.id);
+		log.info('resolved upstream for model:', modelId, '->', upstream?.id);
 
 		if (!upstream) {
 			// DEBUG: Check available upstreams and their model lists
-			console.error('[chat] model not found in routing map');
-			console.error('[chat] available upstreams:', allUpstreams.map(u => ({ id: u.id, url: u.url, enabled: u.enabled })));
-			console.error('[chat] merged models from pool:', pool.getMergedModels().map(m => m.id));
+			log.error('model not found in routing map');
+			log.error('available upstreams:', allUpstreams.map(u => ({ id: u.id, url: u.url, enabled: u.enabled })));
+			log.error('merged models from pool:', pool.getMergedModels().map(m => m.id));
 
 			return Response.json(
 				{ error: `model '${modelId}' not found in any upstream` },
@@ -77,17 +80,17 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 
 	// Guard: ensure upstream is enabled and has API key
 	if (!upstream.enabled) {
-		console.error('[chat] upstream is disabled:', upstream.id);
+		log.error('upstream is disabled:', upstream.id);
 		return Response.json({ error: `upstream '${upstream.id}' is disabled` }, { status: 503 });
 	}
 	if (!upstream.resolvedApiKey) {
-		console.error('[chat] upstream has no API key:', upstream.id);
+		log.error('upstream has no API key:', upstream.id);
 		return Response.json({ error: `upstream '${upstream.id}' missing API key` }, { status: 503 });
 	}
 
-	console.log('[chat] using API key:', upstream.resolvedApiKey?.slice(0, 10) + '...');
+	log.info('using API key:', upstream.resolvedApiKey?.slice(0, 10) + '...');
 
-	console.log('[chat] proxying to upstream:', upstream.id, 'url:', upstream.url);
+	log.info('proxying to upstream:', upstream.id, 'url:', upstream.url);
 
 	const streamingConfig = pool.getStreamingConfig();
 	const shouldStream = streamingConfig.enabled;
@@ -171,7 +174,7 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 				if (err instanceof Error && err.name === 'AbortError') {
 					return;
 				}
-				console.error('[streaming] error:', err);
+				log.error('streaming error:', err);
 			} finally {
 				req.signal.removeEventListener('abort', abortHandler);
 				controller.close();

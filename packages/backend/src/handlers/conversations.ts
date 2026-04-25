@@ -31,6 +31,9 @@ import type {
   DatabaseMessage,
   McpServerOverride,
 } from "../types/database";
+import { createLogger } from "../utils/logger.ts";
+
+const log = createLogger("api");
 
 function uuid(): string {
   return crypto.randomUUID();
@@ -44,7 +47,7 @@ export function handleGetConversations(db: DrizzleDB): Response {
     const conversations = getAllConversations(db);
     return Response.json(conversations);
   } catch (error) {
-    console.error("[api] failed to get conversations:", error);
+    log.error("failed to get conversations:", error);
     return Response.json(
       { error: "Failed to retrieve conversations" },
       { status: 500 },
@@ -66,7 +69,7 @@ export function handleGetConversation(db: DrizzleDB, id: string): Response {
     }
     return Response.json(conversation);
   } catch (error) {
-    console.error("[api] failed to get conversation:", error);
+    log.error("failed to get conversation:", error);
     return Response.json(
       { error: "Failed to retrieve conversation" },
       { status: 500 },
@@ -109,7 +112,7 @@ export async function handleCreateConversation(
 
     return Response.json(conversation, { status: 201 });
   } catch (error) {
-    console.error("[api] failed to create conversation:", error);
+    log.error("failed to create conversation:", error);
     return Response.json(
       { error: "Failed to create conversation" },
       { status: 500 },
@@ -154,7 +157,7 @@ export async function handleUpdateConversation(
     const updated = getConversation(db, id);
     return Response.json(updated);
   } catch (error) {
-    console.error("[api] failed to update conversation:", error);
+    log.error("failed to update conversation:", error);
     return Response.json(
       { error: "Failed to update conversation" },
       { status: 500 },
@@ -202,7 +205,7 @@ export function handleDeleteConversation(
 
     return new Response(null, { status: 204 });
   } catch (error) {
-    console.error("[api] failed to delete conversation:", error);
+    log.error("failed to delete conversation:", error);
     return Response.json(
       { error: "Failed to delete conversation" },
       { status: 500 },
@@ -231,7 +234,7 @@ export function handleGetConversationMessages(
 
     return Response.json(messagesWithTree);
   } catch (error) {
-    console.error("[api] failed to get messages:", error);
+    log.error("failed to get messages:", error);
     return Response.json(
       { error: "Failed to retrieve messages" },
       { status: 500 },
@@ -349,7 +352,7 @@ export async function handleCreateMessage(
       return Response.json(fullMessage, { status: 201 });
     });
   } catch (error) {
-    console.error("[api] failed to create message:", error);
+    log.error("failed to create message:", error);
     return Response.json(
       { error: "Failed to create message" },
       { status: 500 },
@@ -458,7 +461,7 @@ export async function handleForkConversation(
       return Response.json(createdConv, { status: 201 });
     });
   } catch (error) {
-    console.error("[api] failed to fork conversation:", error);
+    log.error("failed to fork conversation:", error);
     return Response.json(
       { error: "Failed to fork conversation" },
       { status: 500 },
@@ -497,7 +500,7 @@ export async function handleImportConversations(
 
         const existing = getConversation(tx, conv.id);
         if (existing) {
-          console.warn(
+          log.warn(
             `Conversation "${conv.name}" already exists, skipping...`,
           );
           skippedCount++;
@@ -509,7 +512,7 @@ export async function handleImportConversations(
           conv.forkedFromConversationId &&
           !importableIds.has(conv.forkedFromConversationId)
         ) {
-          console.warn(
+          log.warn(
             `Conversation "${conv.name}" references external parent "${conv.forkedFromConversationId}", setting to null`,
           );
           conversationToInsert.forkedFromConversationId = null;
@@ -526,7 +529,7 @@ export async function handleImportConversations(
 
     return Response.json({ imported: importedCount, skipped: skippedCount });
   } catch (error) {
-    console.error("[api] failed to import conversations:", error);
+    log.error("failed to import conversations:", error);
     return Response.json(
       { error: "Failed to import conversations" },
       { status: 500 },
@@ -576,8 +579,8 @@ function topologicalSort(
   }
 
   if (sorted.length !== items.length) {
-    console.warn(
-      "[import] circular dependency detected, some conversations may be out of order",
+    log.warn(
+      "circular dependency detected, some conversations may be out of order",
     );
     const sortedIds = new Set(sorted.map((s) => s.conv.id));
     for (const item of items) {
@@ -616,7 +619,7 @@ export function handleDeleteAllConversations(
 
     return new Response(null, { status: 204 });
   } catch (error) {
-    console.error("[api] failed to delete all conversations:", error);
+    log.error("failed to delete all conversations:", error);
     return Response.json(
       { error: "Failed to delete conversations" },
       { status: 500 },
@@ -648,7 +651,7 @@ export function handleExportConversations(db: DrizzleDB, url: URL): Response {
 
     return Response.json(exportData);
   } catch (error) {
-    console.error("[api] failed to export conversations:", error);
+    log.error("failed to export conversations:", error);
     return Response.json(
       { error: "Failed to export conversations" },
       { status: 500 },

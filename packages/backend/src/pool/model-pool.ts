@@ -1,6 +1,9 @@
 import type { Config, StreamingConfig } from '../config.ts';
 import type { Upstream, PooledModel } from './types.ts';
 import { injectAuth } from '../utils/headers.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('model-pool');
 
 export class ModelPool {
 	private upstreams: Map<string, Upstream> = new Map();
@@ -97,7 +100,7 @@ export class ModelPool {
 				u.modelIds.clear();
 				const upstreamModelList = (upstream as unknown as { modelList?: string[] }).modelList || [];
 
-				console.log(`[model-pool] ${upstream.id}: fetched ${models.length} models, whitelist:`, upstreamModelList);
+				log.info(`${upstream.id}: fetched ${models.length} models, whitelist:`, upstreamModelList);
 
 				for (const m of models) {
 					if (!this.shouldIncludeModel(m.id, upstreamModelList)) {
@@ -110,7 +113,7 @@ export class ModelPool {
 			}
 		}
 
-		console.log('[model-pool] routing map built:', Array.from(freshRouting.keys()));
+		log.info('routing map built:', Array.from(freshRouting.keys()));
 		this.pooledModels = freshModels;
 		this.routingMap = freshRouting;
 		this._initialized = true;
@@ -142,7 +145,7 @@ export class ModelPool {
 
 		// Async refresh to fetch new model lists
 		this.refresh().catch((err) => {
-			console.error('[model-pool] config reload: refresh failed:', err);
+			log.error('config reload: refresh failed:', err);
 		});
 	}
 
@@ -150,11 +153,11 @@ export class ModelPool {
 		upstream: Upstream,
 	): Promise<{ upstream: Upstream; models: PooledModel[] }> {
 		if (upstream.enabled === false) {
-			console.log(`[model-pool] skipping disabled upstream: ${upstream.id}`);
+			log.info(`skipping disabled upstream: ${upstream.id}`);
 			return { upstream, models: [] };
 		}
 
-		console.log(`[model-pool] fetching models from upstream ${upstream.id}`)
+		log.info(`fetching models from upstream ${upstream.id}`)
 
 		const url = `${upstream.url}/v1/models`;
 		const headers: Record<string, string> = { Accept: 'application/json' };

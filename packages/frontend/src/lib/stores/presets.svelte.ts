@@ -17,13 +17,14 @@ import { builtinToolFields } from '$lib/enums/builtin-tools';
 import type { PresetView, PresetInput } from '@shared/types/presets';
 
 const ACTIVE_PRESET_LOCALSTORAGE_KEY = 'activePresetId';
+const PREVIOUS_SYSTEM_MESSAGE_LOCALSTORAGE_KEY = 'previousSystemMessage';
 
 class PresetsStore {
 	#presets = $state<PresetView[]>([]);
 	#isLoading = $state(false);
 	#error = $state<string | null>(null);
 	#activePresetId = $state<string | null>(this.#loadActiveId());
-	#previousSystemMessage = $state<string>('');
+	#previousSystemMessage = $state<string>(this.#loadPreviousSystemMessage());
 	#loadRequestId = 0;
 	#lastLoadTime = 0;
 
@@ -46,6 +47,24 @@ class PresetsStore {
 			} else {
 				localStorage.removeItem(ACTIVE_PRESET_LOCALSTORAGE_KEY);
 			}
+		} catch {
+			// ignore
+		}
+	}
+
+	#loadPreviousSystemMessage(): string {
+		if (!browser) return '';
+		try {
+			return localStorage.getItem(PREVIOUS_SYSTEM_MESSAGE_LOCALSTORAGE_KEY) ?? '';
+		} catch {
+			return '';
+		}
+	}
+
+	#savePreviousSystemMessage(): void {
+		if (!browser) return;
+		try {
+			localStorage.setItem(PREVIOUS_SYSTEM_MESSAGE_LOCALSTORAGE_KEY, this.#previousSystemMessage);
 		} catch {
 			// ignore
 		}
@@ -163,7 +182,12 @@ class PresetsStore {
 			return;
 		}
 
-		this.#previousSystemMessage = settingsStore.config[SETTINGS_KEYS.SYSTEM_MESSAGE] as string;
+		const isAlreadyActive = this.#activePresetId === id;
+		if (!isAlreadyActive) {
+			this.#previousSystemMessage = settingsStore.config[SETTINGS_KEYS.SYSTEM_MESSAGE] as string;
+			this.#savePreviousSystemMessage();
+		}
+
 		this.#activePresetId = id;
 		this.#saveActiveId();
 

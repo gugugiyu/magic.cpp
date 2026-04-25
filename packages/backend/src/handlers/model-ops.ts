@@ -1,5 +1,8 @@
 import type { ModelPool } from '../pool/model-pool.ts';
 import { proxyRequest } from '../utils/proxy.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('model-ops');
 
 /**
  * POST /models/load — route to the upstream that owns the model (llamacpp only).
@@ -54,7 +57,7 @@ async function routeModelOp(
 	try {
 		return await proxyRequest(req, upstream, path);
 	} catch (err) {
-		console.error(`[handlers/model-ops] error proxying ${path} to ${upstream.id}:`, err);
+		log.error(`error proxying ${path} to ${upstream.id}:`, err);
 		return Response.json(
 			{ error: `Failed to proxy ${path}`, detail: (err as Error).message },
 			{ status: 502 },

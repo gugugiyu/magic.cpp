@@ -17,6 +17,9 @@ import {
 	SKILL_DEFAULT_TITLE,
 	SKILL_DEFAULT_DESCRIPTION
 } from '#shared/constants/skills';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('skill-io');
 
 /** Regex for YAML frontmatter at the start of a file. */
 const FRONTMATTER_REGEX = /^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/;
@@ -188,18 +191,18 @@ export async function seedBuiltInSkills(): Promise<void> {
 			}
 			const file = Bun.file(filePath);
 			if (!(await file.exists())) {
-				console.warn(`[skill-io] built-in skill not found: ${filePath}`);
+				log.warn(`built-in skill not found: ${filePath}`);
 				continue;
 			}
 			const content = await file.text();
 			await createSkill(name, content);
-			console.log(`[skill-io] seeded built-in skill: ${name}`);
+			log.info(`seeded built-in skill: ${name}`);
 		} catch (err) {
 			// Already exists or other error — seed is best-effort
 			if ((err as Error).message.includes('already exists')) {
 				continue;
 			}
-			console.warn(`[skill-io] failed to seed skill "${name}":`, err);
+			log.warn(`failed to seed skill "${name}":`, err);
 		}
 	}
 }

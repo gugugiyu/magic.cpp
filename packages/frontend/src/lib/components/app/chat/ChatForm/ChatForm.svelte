@@ -45,6 +45,7 @@
 	} from '$lib/utils/browser-only';
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { presetsStore } from '$lib/stores/presets.svelte';
 
 	interface Props {
 		// Data
@@ -75,7 +76,8 @@
 		class: className = '',
 		disabled = false,
 		isLoading = false,
-		placeholder = 'Type a message...',
+		placeholder = 'Type a message' +
+			(presetsStore.activePreset ? ` to ${presetsStore.activePreset?.name}` : '...'),
 		showMcpPromptButton = false,
 		uploadedFiles = $bindable([]),
 		value = $bindable(''),

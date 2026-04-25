@@ -24,6 +24,8 @@
 port              = 3000                          # HTTP port to listen on
 staticDir         = "../frontend/public"          # Path to built frontend assets, relative to this config file
 heartbeatInterval = 30                            # Seconds between upstream health checks
+logLevel          = "info"                        # Logging verbosity: trace | debug | info | warn | error
+                                                  # (legacy `debug = true` still works and bumps this to debug)
 
 # ---------------------------------------------------------------------------
 # Database

@@ -197,9 +197,6 @@ export class CodeBlockActionManager {
 	};
 
 	bind(container: HTMLElement, isStreamingComplete: boolean): void {
-		if (this.boundContainers.has(container)) return;
-		this.boundContainers.add(container);
-
 		const wrappers = container.querySelectorAll<HTMLElement>('.code-block-wrapper');
 
 		for (const wrapper of wrappers) {

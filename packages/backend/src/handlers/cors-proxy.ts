@@ -1,4 +1,7 @@
 import { unwrapProxyHeaders } from '../utils/headers.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('cors-proxy');
 
 const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 
@@ -47,7 +50,7 @@ export async function handleCorsProxy(req: Request): Promise<Response> {
 			signal: AbortSignal.timeout(15_000),
 		});
 	} catch (err) {
-		console.error('[cors-proxy] fetch failed:', err);
+		log.error('fetch failed:', err);
 		return new Response('proxy fetch failed', { status: 502 });
 	}
 

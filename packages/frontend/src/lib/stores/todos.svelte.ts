@@ -46,7 +46,7 @@ class TodoStore {
 	}
 
 	/** Bulk create / recreate todo list for a conversation */
-	async createTodos(convId: string, texts: string[], isRecreated: boolean): Promise<TodoItem[]> {
+	async createTodos(convId: string, texts: string[], _isRecreated: boolean): Promise<TodoItem[]> {
 		await this.loadTodos(convId);
 		const items: TodoItem[] = texts.map((text) => ({ text, done: false }));
 		await this.setTodos(convId, items);

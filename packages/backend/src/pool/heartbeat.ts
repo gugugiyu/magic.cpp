@@ -1,6 +1,9 @@
 import type { ModelPool } from './model-pool.ts';
 import type { Config } from '../config.ts';
 import { injectAuth } from '../utils/headers.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('heartbeat');
 
 export class Heartbeat {
 	private timer: ReturnType<typeof setInterval> | null = null;
@@ -39,7 +42,7 @@ export class Heartbeat {
 		try {
 			await this.pool.refresh();
 		} catch (err) {
-			console.error('[heartbeat] model pool refresh failed:', err);
+			log.error('model pool refresh failed:', err);
 		}
 
 		// Check health of each upstream
@@ -63,6 +66,6 @@ export class Heartbeat {
 			upstream.health = 'degraded';
 		}
 
-		console.log(`[heartbeat] ${upstream.id} → ${upstream.health}`);
+		log.info(`${upstream.id} → ${upstream.health}`);
 	}
 }

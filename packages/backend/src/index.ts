@@ -7,6 +7,13 @@ import { initializeDatabase, closeDatabase } from './database/index.ts';
 import { dirname, resolve as resolvePath } from 'path';
 import { mkdir } from 'node:fs/promises';
 import { watchConfig } from './config-watcher.ts';
+import { createLogger, configureLogger, box } from './utils/logger.ts';
+
+const log = createLogger('server');
+const startupLog = createLogger('startup');
+const configLog = createLogger('config');
+const configWatcherLog = createLogger('config-watcher');
+const filesystemLog = createLogger('filesystem');
 
 // Resolve config path explicitly
 const configPath = resolvePath(__dirname, '..', 'config.toml');
@@ -16,59 +23,60 @@ let config: Config;
 try {
 	config = loadConfig(configPath);
 } catch (err) {
-	console.error('');
-	console.error('╔═══════════════════════════════════════════════════════════╗');
-	console.error('║  CONFIGURATION ERROR                                      ║');
-	console.error('╚═══════════════════════════════════════════════════════════╝');
-	console.error('');
-	console.error(`  ${(err as Error).message}`);
-	console.error('');
-	console.error('  Make sure config.toml exists and is valid.');
-	console.error('  Copy config.example.toml to config.toml and customize it:');
-	console.error('');
-	console.error('    cp config.example.toml config.toml');
-	console.error('');
-	console.error('  If using .env variables for API keys, copy .env.example:');
-	console.error('');
-	console.error('    cp .env.example .env');
-	console.error('');
+	box(
+		'CONFIGURATION ERROR',
+		[
+			(err as Error).message,
+			'',
+			'Make sure config.toml exists and is valid.',
+			'Copy config.example.toml to config.toml and customize it:',
+			'',
+			'  cp config.example.toml config.toml',
+			'',
+			'If using .env variables for API keys, copy .env.example:',
+			'',
+			'  cp .env.example .env',
+		],
+	);
 	process.exit(1);
 }
+
+// Configure logger from loaded config
+configureLogger({ level: config.logLevel });
 
 // Initialize SQLite database
 let db: ReturnType<typeof initializeDatabase>;
 try {
 	db = initializeDatabase(config);
 } catch (err) {
-	console.error('');
-	console.error('╔═══════════════════════════════════════════════════════════╗');
-	console.error('║  DATABASE INITIALIZATION ERROR                            ║');
-	console.error('╚═══════════════════════════════════════════════════════════╝');
-	console.error('');
-	console.error(`  ${(err as Error).message}`);
-	console.error('');
-	console.error(`  Database path: ${config.resolvedDatabasePath}`);
-	console.error('');
-	console.error('  Check that the directory is writable or create it:');
-	console.error('');
-	console.error(`    mkdir -p ${dirname(config.resolvedDatabasePath)}`);
-	console.error('');
+	box(
+		'DATABASE INITIALIZATION ERROR',
+		[
+			(err as Error).message,
+			'',
+			`Database path: ${config.resolvedDatabasePath}`,
+			'',
+			'Check that the directory is writable or create it:',
+			'',
+			`  mkdir -p ${dirname(config.resolvedDatabasePath)}`,
+		],
+	);
 	process.exit(1);
 }
 
 // Ensure filesystem sandbox directory exists
 try {
 	await mkdir(config.resolvedFilesystemRootPath, { recursive: true });
-	console.log(`[filesystem] sandbox ready at ${config.resolvedFilesystemRootPath}`);
+	filesystemLog.info(`sandbox ready at ${config.resolvedFilesystemRootPath}`);
 } catch (err) {
-	console.warn(`[filesystem] could not create sandbox directory: ${(err as Error).message}`);
+	filesystemLog.warn(`could not create sandbox directory: ${(err as Error).message}`);
 }
 
 // Core components (mutable so we can update them on config reload)
 const pool = new ModelPool(config);
 const heartbeat = new Heartbeat(pool, config);
 if (config.debug) {
-	console.log('[debug] DEBUG MODE ON, DO NOT USE IN PRODUCTION');
+	log.warn('DEBUG MODE ON, DO NOT USE IN PRODUCTION');
 }
 
 // Mutable router so we can recreate it when config changes
@@ -100,12 +108,12 @@ const server = Bun.serve({
 	},
 
 	error(err) {
-		console.error('[server] unhandled error:', err);
+		log.error('unhandled error:', err);
 		return new Response('Internal Server Error', { status: 500 });
 	},
 });
 
-console.log(`[server] listening on http://localhost:${server.port}`);
+log.info(`listening on http://localhost:${server.port}`);
 
 // Start background services
 heartbeat.start();
@@ -113,13 +121,13 @@ heartbeat.start();
 // Initial model list fetch in the background so the server begins serving
 // static assets immediately. The frontend has its own splash screen for
 // upstream-unavailable states.
-console.log('[startup] fetching initial model list...');
+startupLog.info('fetching initial model list...');
 pool.refresh()
 	.then(() => {
-		console.log(`[startup] ${pool.getMergedModels().length} model(s) discovered`);
+		startupLog.info(`${pool.getMergedModels().length} model(s) discovered`);
 	})
 	.catch((err) => {
-		console.warn('[startup] initial model fetch failed (upstreams may be offline):', err);
+		startupLog.warn('initial model fetch failed (upstreams may be offline):', err);
 	});
 
 // --- Hot Reload Watcher ---
@@ -127,25 +135,25 @@ let stopWatcher: (() => void) | null = null;
 
 try {
 	stopWatcher = watchConfig(configPath, (newConfig) => {
-		console.log('[config] reloading configuration...');
+		configLog.info('reloading configuration...');
 
 		// Check for settings that require restart
 		let needsRestart = false;
 		if (newConfig.port !== config.port) {
-			console.warn(`[config] port changed from ${config.port} to ${newConfig.port} — requires server restart`);
+			configLog.warn(`port changed from ${config.port} to ${newConfig.port} — requires server restart`);
 			needsRestart = true;
 		}
 		if (newConfig.staticDir !== config.staticDir) {
-			console.warn(`[config] staticDir changed from "${config.staticDir}" to "${newConfig.staticDir}" — requires server restart`);
+			configLog.warn(`staticDir changed from "${config.staticDir}" to "${newConfig.staticDir}" — requires server restart`);
 			needsRestart = true;
 		}
 		if (newConfig.database?.path !== config.database?.path) {
-			console.warn(`[config] database.path changed from "${config.database?.path}" to "${newConfig.database?.path}" — requires server restart`);
+			configLog.warn(`database.path changed from "${config.database?.path}" to "${newConfig.database?.path}" — requires server restart`);
 			needsRestart = true;
 		}
 
 		if (needsRestart) {
-			console.error('[config] Some settings cannot be hot-reloaded. Please restart the server manually.');
+			configLog.error('Some settings cannot be hot-reloaded. Please restart the server manually.');
 			// Still apply other changes (upstreams, CORS, etc.) but alert user
 		}
 
@@ -155,18 +163,18 @@ try {
 		router = createRouter(pool, newConfig);
 		config = newConfig;
 
-		console.log('[config] reload complete');
+		configLog.info('reload complete');
 	});
 
-	console.log(`[config-watcher] watching ${configPath} for changes`);
+	configWatcherLog.info(`watching ${configPath} for changes`);
 } catch (err) {
-	console.error('[config-watcher] failed to start watcher:', (err as Error).message);
+	configWatcherLog.error('failed to start watcher:', (err as Error).message);
 }
 
 // Graceful shutdown
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
 	process.on(sig, () => {
-		console.log(`\n[server] ${sig} received, shutting down`);
+		log.info(`${sig} received, shutting down`);
 		heartbeat.stop();
 		closeDatabase();
 		if (stopWatcher) {

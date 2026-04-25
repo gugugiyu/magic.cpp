@@ -2,6 +2,9 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { watch as fsWatch } from 'fs';
 import { loadConfig, type Config } from './config.ts';
+import { createLogger } from './utils/logger.ts';
+
+const log = createLogger('config-watcher');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -49,18 +52,18 @@ export function watchConfig(configPath?: string, onChange?: ConfigListener): () 
 		debounceTimer = setTimeout(async () => {
 			try {
 				const newConfig = loadConfig(path!);
-				console.log(`[config-watcher] config reloaded from ${path}`);
+				log.info(`config reloaded from ${path}`);
 
 				// Notify all listeners
 				for (const listener of listeners) {
 					try {
 						listener(newConfig);
 					} catch (err) {
-						console.error('[config-watcher] listener error:', err);
+						log.error('listener error:', err);
 					}
 				}
 			} catch (err) {
-				console.error('[config-watcher] failed to reload config:', (err as Error).message);
+				log.error('failed to reload config:', (err as Error).message);
 			} finally {
 				debounceTimer = null;
 			}
@@ -84,7 +87,7 @@ export function watchConfig(configPath?: string, onChange?: ConfigListener): () 
 		});
 
 		watcher = w;
-		console.log(`[config-watcher] watching ${path} for changes`);
+		log.info(`watching ${path} for changes`);
 
 		// Return unsubscribe function
 		return () => {
@@ -97,7 +100,7 @@ export function watchConfig(configPath?: string, onChange?: ConfigListener): () 
 			}
 		};
 	} catch (err) {
-		console.error('[config-watcher] failed to start watcher:', (err as Error).message);
+		log.error('failed to start watcher:', (err as Error).message);
 		// Return no-op unsubscribe on error
 		return () => {};
 	}

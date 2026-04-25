@@ -13,6 +13,9 @@ import * as messageHandlers from "./handlers/messages.ts";
 import * as skillHandlers from "./handlers/skills.ts";
 import * as presetHandlers from "./handlers/presets.ts";
 import { handleExecuteTool, handleGetAllowedCommands } from "./handlers/tools.ts";
+import { createLogger } from "./utils/logger.ts";
+
+const log = createLogger("router");
 
 type RouteHandler = (
   req: Request,
@@ -289,8 +292,8 @@ export function createRouter(pool: ModelPool, config: Config) {
     try {
       return await dispatchRoute(req, pool, config);
     } catch (err) {
-      console.error(
-        `[router] unhandled error in ${req.method} ${new URL(req.url).pathname}:`,
+      log.error(
+        `unhandled error in ${req.method} ${new URL(req.url).pathname}:`,
         err,
       );
       return Response.json(

@@ -11,6 +11,10 @@ import { dirname, resolve } from 'path';
 import * as schema from './schema-drizzle.ts';
 import type { Config } from '../config.ts';
 import { seedBuiltInSkills } from '../services/skill-io.ts';
+import { runSeeds } from './seeds/runner.ts';
+import { createLogger } from '../utils/logger.ts';
+
+const log = createLogger('database');
 
 export type DrizzleDB = BunSQLiteDatabase<typeof schema>;
 
@@ -18,29 +22,6 @@ const MIGRATIONS_FOLDER = resolve(__dirname, './migrations/drizzle');
 
 let rawDb: Database | null = null;
 let db: DrizzleDB | null = null;
-
-/**
- * Seed a default preset if the presets table is empty.
- * Called at database initialization time.
- */
-function seedDefaultPreset(db: DrizzleDB): void {
-	const existing = db.select().from(schema.presets).limit(1).get();
-	if (existing) return;
-
-	db.insert(schema.presets)
-		.values({
-			id: 'default',
-			name: 'Default',
-			systemPrompt: '',
-			enabledTools: '[]',
-			commonPrompts: '[]',
-			createdAt: Date.now(),
-			updatedAt: Date.now()
-		})
-		.run();
-
-	console.log('[database] seeded default preset');
-}
 
 /**
  * Initialize the SQLite database. Runs pending migrations automatically.
@@ -60,7 +41,7 @@ export function initializeDatabase(config: Config): DrizzleDB {
 		}
 	}
 
-	console.log(`[database] opening SQLite database at ${dbPath}`);
+	log.info(`opening SQLite database at ${dbPath}`);
 
 	rawDb = new Database(dbPath, { create: true, readwrite: true });
 
@@ -77,17 +58,15 @@ export function initializeDatabase(config: Config): DrizzleDB {
 
 	// Seed built-in skills (harmless re-seed if already exist)
 	seedBuiltInSkills().catch((err) => {
-		console.warn('[database] built-in skills seed failed:', err);
+		log.warn('built-in skills seed failed:', err);
 	});
 
-	// Seed a default preset if the table is empty
-	try {
-		seedDefaultPreset(db);
-	} catch (err) {
-		console.warn('[database] default preset seed failed:', err);
-	}
+	// Run database seeds (idempotent — skips existing records)
+	runSeeds(db).catch((err) => {
+		log.warn('database seeding failed:', err);
+	});
 
-	console.log('[database] SQLite database initialized successfully');
+	log.info('SQLite database initialized successfully');
 	return db;
 }
 
@@ -111,12 +90,12 @@ export function closeDatabase(): void {
 		try {
 			rawDb.run('PRAGMA wal_checkpoint(TRUNCATE);');
 		} catch (err) {
-			console.warn('[database] WAL checkpoint failed:', err);
+			log.warn('WAL checkpoint failed:', err);
 		}
 
 		rawDb.close();
 		rawDb = null;
 		db = null;
-		console.log('[database] SQLite database closed');
+		log.info('SQLite database closed');
 	}
 }

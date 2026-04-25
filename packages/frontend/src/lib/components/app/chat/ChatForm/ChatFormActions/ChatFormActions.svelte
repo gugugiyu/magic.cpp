@@ -207,7 +207,7 @@
 		{#if hasTodos}
 			<button
 				type="button"
-				class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+				class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-muted-foreground transition-colors transition-transform duration-75 hover:bg-accent hover:text-accent-foreground active:scale-[0.97]"
 				onclick={() => onTodoPocketToggle?.()}
 				title="Toggle todo list"
 			>
@@ -253,7 +253,7 @@
 			type="button"
 			variant="secondary"
 			onclick={onStop}
-			class="group h-8 w-8 rounded-full p-0 hover:bg-destructive/10!"
+			class="group h-8 w-8 rounded-full p-0 transition-transform duration-75 hover:bg-destructive/10! active:scale-[0.97]"
 		>
 			<span class="sr-only">Stop</span>
 

@@ -47,7 +47,7 @@
 	<!-- Header: Title + Actions -->
 	<div class="mb-2 flex items-start justify-between gap-2">
 		<div class="flex items-center gap-2">
-			<Sparkles class="h-4 w-4 text-muted-foreground" />
+			<Sparkles class="h-4 w-4 text-purple" />
 			<h3 class="text-sm leading-tight font-semibold">{preset.name}</h3>
 		</div>
 
@@ -140,7 +140,7 @@
 				type="button"
 				class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {isActive
 					? 'bg-primary text-primary-foreground hover:bg-primary/90'
-					: 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
+					: 'bg-info-bg text-info hover:bg-info-bg/80 hover:text-info/80'}"
 				onclick={isActive && onDeactivate ? onDeactivate : onActivate}
 			>
 				{isActive && onDeactivate ? 'Deactivate' : isActive ? 'Active' : 'Activate'}

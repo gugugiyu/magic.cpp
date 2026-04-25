@@ -203,7 +203,7 @@
 							class="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
 						></div>
 
-						<p class="text-muted-foreground">Converting PDF to images...</p>
+						<p class="text-info">Converting PDF to images...</p>
 					</div>
 				</div>
 			{:else if pdfImagesError}

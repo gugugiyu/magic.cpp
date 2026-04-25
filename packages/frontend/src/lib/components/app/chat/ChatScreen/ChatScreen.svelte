@@ -28,6 +28,7 @@
 		activeConversation
 	} from '$lib/stores/conversations.svelte';
 	import { config } from '$lib/stores/settings.svelte';
+	import { motionStore } from '$lib/stores/motion.svelte';
 	import {
 		serverLoading,
 		serverError,
@@ -345,7 +346,9 @@
 </script>
 
 {#if isDragOver}
-	<ChatScreenDragOverlay />
+	<div in:fade={motionStore.fade()} out:fade={motionStore.fade()}>
+		<ChatScreenDragOverlay />
+	</div>
 {/if}
 
 <svelte:window onkeydown={handleKeydown} />

@@ -26,7 +26,9 @@
 
 	<span
 		class={cn(
-			'inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium',
+			'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium',
+			modality === ModelModality.VISION && 'bg-info-bg text-info',
+			modality === ModelModality.AUDIO && 'bg-purple-bg text-purple',
 			className
 		)}
 	>

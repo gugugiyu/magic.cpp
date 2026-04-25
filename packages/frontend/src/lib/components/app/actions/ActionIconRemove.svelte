@@ -16,7 +16,7 @@
 	type="button"
 	variant="ghost"
 	size="icon-sm"
-	class="bg-white/20 p-0 hover:bg-white/30 {className}"
+	class="bg-background/20 p-0 hover:bg-background/30 {className}"
 	onclick={(e: MouseEvent) => {
 		e.stopPropagation();
 		onRemove?.(id);

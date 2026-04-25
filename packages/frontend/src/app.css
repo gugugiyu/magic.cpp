@@ -41,6 +41,7 @@
 	--code-background: oklch(0.985 0 0);
 	--code-foreground: oklch(0.145 0 0);
 	--layer-popover: 1000000;
+	--overlay: oklch(0 0 0);
 
 	/* Extended semantic palette */
 	--success: oklch(0.58 0.18 145);
@@ -117,6 +118,111 @@
 	--cyan-bg: oklch(0.2 0.08 195);
 	--pink: oklch(0.75 0.15 340);
 	--pink-bg: oklch(0.2 0.1 340);
+	--overlay: oklch(0 0 0);
+}
+
+[data-theme='tokyo-night'] {
+	--background: #1a1b26;
+	--foreground: #a9b1d6;
+	--card: #1f2335;
+	--card-foreground: #a9b1d6;
+	--popover: #1f2335;
+	--popover-foreground: #a9b1d6;
+	--primary: #7aa2f7;
+	--primary-foreground: #1a1b26;
+	--secondary: #292e42;
+	--secondary-foreground: #a9b1d6;
+	--muted: #24283b;
+	--muted-foreground: #565f89;
+	--accent: #bb9af7;
+	--accent-foreground: #1a1b26;
+	--destructive: #f7768e;
+	--destructive-foreground: #1a1b26;
+	--border: #3b4261;
+	--input: #292e42;
+	--ring: #7aa2f7;
+	--chart-1: #7aa2f7;
+	--chart-2: #bb9af7;
+	--chart-3: #9ece6a;
+	--chart-4: #e0af68;
+	--chart-5: #ff9e64;
+	--sidebar: #16161e;
+	--sidebar-foreground: #a9b1d6;
+	--sidebar-primary: #7aa2f7;
+	--sidebar-primary-foreground: #1a1b26;
+	--sidebar-accent: #292e42;
+	--sidebar-accent-foreground: #a9b1d6;
+	--sidebar-border: #3b4261;
+	--sidebar-ring: #7aa2f7;
+	--code-background: #1a1b26;
+	--code-foreground: #a9b1d6;
+
+	/* Extended semantic palette */
+	--success: #9ece6a;
+	--success-bg: #1e2235;
+	--info: #7aa2f7;
+	--info-bg: #1e2235;
+	--warning: #e0af68;
+	--warning-bg: #2a2520;
+	--purple: #bb9af7;
+	--purple-bg: #252035;
+	--cyan: #7dcfff;
+	--cyan-bg: #1e2a35;
+	--pink: #ff007c;
+	--pink-bg: #2a1e25;
+	--overlay: #000000;
+}
+
+[data-theme='everforest'] {
+	--background: #2b3339;
+	--foreground: #d3c6aa;
+	--card: #3a454a;
+	--card-foreground: #d3c6aa;
+	--popover: #3a454a;
+	--popover-foreground: #d3c6aa;
+	--primary: #a7c080;
+	--primary-foreground: #2b3339;
+	--secondary: #4a555b;
+	--secondary-foreground: #d3c6aa;
+	--muted: #3a454a;
+	--muted-foreground: #859289;
+	--accent: #e69875;
+	--accent-foreground: #2b3339;
+	--destructive: #e67e80;
+	--destructive-foreground: #2b3339;
+	--border: #5a656b;
+	--input: #4a555b;
+	--ring: #a7c080;
+	--chart-1: #a7c080;
+	--chart-2: #7fbbb3;
+	--chart-3: #dbbc7f;
+	--chart-4: #e69875;
+	--chart-5: #e67e80;
+	--sidebar: #272e33;
+	--sidebar-foreground: #d3c6aa;
+	--sidebar-primary: #a7c080;
+	--sidebar-primary-foreground: #2b3339;
+	--sidebar-accent: #4a555b;
+	--sidebar-accent-foreground: #d3c6aa;
+	--sidebar-border: #5a656b;
+	--sidebar-ring: #a7c080;
+	--code-background: #2b3339;
+	--code-foreground: #d3c6aa;
+
+	/* Extended semantic palette */
+	--success: #a7c080;
+	--success-bg: #323d36;
+	--info: #7fbbb3;
+	--info-bg: #323d3d;
+	--warning: #dbbc7f;
+	--warning-bg: #3d3a32;
+	--purple: #d699b6;
+	--purple-bg: #3d323a;
+	--cyan: #83c092;
+	--cyan-bg: #323d38;
+	--pink: #e67e80;
+	--pink-bg: #3d3232;
+	--overlay: #000000;
 }
 
 @theme inline {
@@ -170,6 +276,7 @@
 	--color-cyan-bg: var(--cyan-bg);
 	--color-pink: var(--pink);
 	--color-pink-bg: var(--pink-bg);
+	--color-overlay: var(--overlay);
 
 	--z-dropdown: 1000;
 	--z-dialog: 1050;
@@ -194,6 +301,26 @@
 		@apply bg-background text-foreground;
 		scrollbar-width: thin;
 		scrollbar-gutter: stable;
+	}
+
+	/* Respect system-level and manual reduced-motion preferences */
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+		}
+	}
+
+	.reduce-motion,
+	.reduce-motion *,
+	.reduce-motion *::before,
+	.reduce-motion *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
 	}
 
 	/* Global scrollbar styling - visible only on hover */

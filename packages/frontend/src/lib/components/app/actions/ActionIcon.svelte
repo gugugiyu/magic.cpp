@@ -35,7 +35,7 @@
 			{size}
 			{disabled}
 			{onclick}
-			class="h-6 w-6 p-0 {className} flex"
+			class="h-6 w-6 p-0 {className} flex transition-transform duration-75 active:scale-[0.97]"
 			aria-label={ariaLabel || tooltip}
 		>
 			{@const IconComponent = icon}

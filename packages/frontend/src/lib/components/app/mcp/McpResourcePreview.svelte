@@ -113,10 +113,10 @@
 		<div class="min-h-[200px] overflow-auto rounded-md border bg-muted/30 p-3 break-all">
 			{#if isLoading}
 				<div class="flex items-center justify-center py-8">
-					<Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+					<Loader2 class="h-6 w-6 animate-spin text-info" />
 				</div>
 			{:else if error}
-				<div class="flex flex-col items-center justify-center gap-2 py-8 text-red-500">
+				<div class="flex flex-col items-center justify-center gap-2 py-8 text-destructive">
 					<AlertCircle class="h-6 w-6" />
 
 					<span class="text-sm">{error}</span>

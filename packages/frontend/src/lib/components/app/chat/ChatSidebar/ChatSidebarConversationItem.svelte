@@ -132,7 +132,7 @@
 			<Tooltip.Root>
 				<Tooltip.Trigger>
 					<div
-						class="stop-button flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+						class="stop-button flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded text-info transition-colors hover:text-foreground"
 						onclick={handleStop}
 						onkeydown={(e) => e.key === 'Enter' && handleStop(e)}
 						role="button"

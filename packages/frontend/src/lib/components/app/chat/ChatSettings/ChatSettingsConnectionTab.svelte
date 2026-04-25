@@ -177,7 +177,7 @@
 				{/if}
 			</p>
 			{#if serverLoading()}
-				<span class="animate-pulse text-xs text-muted-foreground">
+				<span class="animate-pulse text-xs text-info">
 					Connecting… attempt {serverRetryAttempt() + 1}/3
 				</span>
 			{/if}

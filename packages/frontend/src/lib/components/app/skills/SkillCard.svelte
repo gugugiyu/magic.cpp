@@ -121,7 +121,7 @@
 			{/if}
 
 			{#if skill.frontmatter.disableModelInvocation}
-				<Badge variant="secondary" class="text-[10px]">user-only</Badge>
+				<Badge variant="outline" class="bg-warning-bg text-[10px] text-warning">user-only</Badge>
 			{/if}
 		{/if}
 

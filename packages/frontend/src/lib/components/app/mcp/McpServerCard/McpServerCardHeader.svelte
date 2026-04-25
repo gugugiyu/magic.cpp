@@ -44,8 +44,8 @@
 						}}
 					/>
 				{:else}
-					<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted">
-						<Cable class="h-3 w-3 text-muted-foreground" />
+					<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-info-bg">
+						<Cable class="h-3 w-3 text-info" />
 					</div>
 				{/if}
 

@@ -1,5 +1,15 @@
-import { ColorMode } from '$lib/enums/ui';
-import { Monitor, Moon, Sun } from '@lucide/svelte';
+import { AnimationSpeed, ColorMode } from '$lib/enums/ui';
+import {
+	Building2,
+	Monitor,
+	Moon,
+	Sun,
+	TreePine,
+	CircleOff,
+	Snail,
+	Rabbit,
+	Zap
+} from '@lucide/svelte';
 
 export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | undefined> = {
 	// Note: in order not to introduce breaking changes, please keep the same data type (number, string, etc) if you want to change the default value.
@@ -23,6 +33,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	renderUserContentAsMarkdown: false,
 	alwaysShowSidebarOnDesktop: false,
 	autoShowSidebarOnNewChat: true,
+	animationSpeed: AnimationSpeed.BASE,
 	autoMicOnEmpty: false,
 	fullHeightCodeBlocks: false,
 	showRawModelNames: false,
@@ -89,7 +100,7 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 	systemMessage: 'The starting message that defines how model should behave.',
 	showSystemMessage: 'Display the system message at the top of each conversation.',
 	theme:
-		'Choose the color theme for the interface. You can choose between System (follows your device settings), Light, or Dark.',
+		'Choose the color theme for the interface. You can choose between System (follows your device settings), Light, Dark, Tokyo Night, or Everforest.',
 	pasteLongTextToFileLen:
 		'On pasting long text to file, it will be converted to a file. You can control the file length by setting the value of this parameter. Value 0 means disable.',
 	copyTextAttachmentsAsPlainText:
@@ -204,11 +215,22 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 	pyInterpreterEnabled:
 		'Enable Python interpreter using Pyodide. Allows running Python code in markdown code blocks.',
 	enableContinueGeneration:
-		'Enable "Continue" button for assistant messages. Currently works only with non-reasoning models.'
+		'Enable "Continue" button for assistant messages. Currently works only with non-reasoning models.',
+	animationSpeed:
+		'Controls the speed of UI animations and transitions. "None" disables all animations for accessibility or performance. "Slow" reduces motion for a calmer experience. "Base" is the default balanced speed. "Fast" makes interactions feel snappier.'
 };
 
 export const SETTINGS_COLOR_MODES_CONFIG = [
 	{ value: ColorMode.SYSTEM, label: 'System', icon: Monitor },
 	{ value: ColorMode.LIGHT, label: 'Light', icon: Sun },
-	{ value: ColorMode.DARK, label: 'Dark', icon: Moon }
+	{ value: ColorMode.DARK, label: 'Dark', icon: Moon },
+	{ value: ColorMode.TOKYO_NIGHT, label: 'Tokyo Night', icon: Building2 },
+	{ value: ColorMode.EVERFOREST, label: 'Everforest', icon: TreePine }
+];
+
+export const SETTINGS_ANIMATION_SPEED_CONFIG = [
+	{ value: AnimationSpeed.NONE, label: 'None', icon: CircleOff },
+	{ value: AnimationSpeed.SLOW, label: 'Slow', icon: Snail },
+	{ value: AnimationSpeed.BASE, label: 'Base', icon: Rabbit },
+	{ value: AnimationSpeed.FAST, label: 'Fast', icon: Zap }
 ];

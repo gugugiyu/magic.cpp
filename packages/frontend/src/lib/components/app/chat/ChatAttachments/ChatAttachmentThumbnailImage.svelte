@@ -58,7 +58,7 @@
 		<div
 			class="absolute top-1 right-1 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
 		>
-			<ActionIconRemove {id} {onRemove} class="text-white" />
+			<ActionIconRemove {id} {onRemove} class="text-destructive-foreground" />
 		</div>
 	{/if}
 </div>

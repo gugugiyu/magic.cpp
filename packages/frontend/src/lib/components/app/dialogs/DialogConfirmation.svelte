@@ -81,7 +81,7 @@
 				onclick={onConfirm}
 				{disabled}
 				class="{variant === 'destructive'
-					? 'bg-destructive text-white hover:bg-destructive/80'
+					? 'bg-destructive text-destructive-foreground hover:bg-destructive/80'
 					: ''} {disabled ? 'cursor-not-allowed opacity-50' : ''}"
 			>
 				{confirmText}

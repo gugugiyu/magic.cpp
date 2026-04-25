@@ -167,11 +167,11 @@
 								</Table.Row>
 							{:else}
 								<Table.Row>
-									<Table.Cell class="h-10 align-middle font-medium text-red-500"
+									<Table.Cell class="h-10 align-middle font-medium text-destructive"
 										>Context Size</Table.Cell
 									>
 
-									<Table.Cell class="text-red-500">Not available</Table.Cell>
+									<Table.Cell class="text-destructive">Not available</Table.Cell>
 								</Table.Row>
 							{/if}
 

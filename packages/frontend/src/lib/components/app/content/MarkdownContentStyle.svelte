@@ -256,8 +256,8 @@
 		.markdown-content-root img {
 			border-radius: 0.5rem;
 			box-shadow:
-				0 1px 3px 0 rgb(0 0 0 / 0.1),
-				0 1px 2px -1px rgb(0 0 0 / 0.1);
+				0 1px 3px 0 color-mix(in oklch, var(--foreground) 10%, transparent),
+				0 1px 2px -1px color-mix(in oklch, var(--foreground) 10%, transparent);
 			margin: 1.5rem 0;
 			max-width: 100%;
 			height: auto;
@@ -271,7 +271,7 @@
 			overflow: hidden;
 			border: 1px solid color-mix(in oklch, var(--border) 30%, transparent);
 			background: var(--code-background);
-			box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+			box-shadow: 0 1px 2px 0 color-mix(in oklch, var(--foreground) 5%, transparent);
 			min-height: var(--min-message-height);
 			max-height: var(--max-message-height);
 		}
@@ -389,8 +389,8 @@
 
 		.markdown-content-root table:hover {
 			box-shadow:
-				0 4px 6px -1px rgb(0 0 0 / 0.1),
-				0 2px 4px -2px rgb(0 0 0 / 0.1);
+				0 4px 6px -1px color-mix(in oklch, var(--foreground) 10%, transparent),
+				0 2px 4px -2px color-mix(in oklch, var(--foreground) 10%, transparent);
 		}
 
 		.markdown-content-root th:hover,
@@ -445,8 +445,8 @@
 		.markdown-content-root img:hover {
 			transform: scale(1.02);
 			box-shadow:
-				0 10px 15px -3px rgb(0 0 0 / 0.1),
-				0 4px 6px -4px rgb(0 0 0 / 0.1);
+				0 10px 15px -3px color-mix(in oklch, var(--foreground) 10%, transparent),
+				0 4px 6px -4px color-mix(in oklch, var(--foreground) 10%, transparent);
 		}
 
 		/* Image zoom overlay */
@@ -456,7 +456,7 @@
 			left: 0;
 			right: 0;
 			bottom: 0;
-			background: rgba(0, 0, 0, 0.8);
+			background: color-mix(in oklch, var(--overlay) 80%, transparent);
 			display: flex;
 			align-items: center;
 			justify-content: center;
@@ -468,7 +468,7 @@
 			max-width: 90vw;
 			max-height: 90vh;
 			border-radius: 0.5rem;
-			box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+			box-shadow: 0 25px 50px -12px color-mix(in oklch, var(--foreground) 25%, transparent);
 		}
 
 		/* Enhanced horizontal rules */

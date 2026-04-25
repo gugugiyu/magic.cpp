@@ -11,6 +11,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { isRouterMode, serverStore } from '$lib/stores/server.svelte';
 	import { config, settingsStore } from '$lib/stores/settings.svelte';
+	import { applyTheme } from '$lib/utils/theme';
 	import { ModeWatcher } from 'mode-watcher';
 	import { Toaster } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
@@ -115,6 +116,21 @@
 		} else {
 			// Other routes follow default behavior
 			sidebarOpen = showSidebarByDefault;
+		}
+	});
+
+	// Sync custom theme classes on app load and when theme changes
+	$effect(() => {
+		applyTheme(config().theme);
+	});
+
+	// Sync reduce-motion class when animation speed changes
+	$effect(() => {
+		const speed = config().animationSpeed;
+		if (speed === 'none') {
+			document.documentElement.classList.add('reduce-motion');
+		} else {
+			document.documentElement.classList.remove('reduce-motion');
 		}
 	});
 

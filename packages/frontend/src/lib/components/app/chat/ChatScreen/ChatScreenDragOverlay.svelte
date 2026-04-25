@@ -3,7 +3,7 @@
 </script>
 
 <div
-	class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+	class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-overlay/50 backdrop-blur-sm"
 >
 	<div
 		class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-background p-12 shadow-lg"

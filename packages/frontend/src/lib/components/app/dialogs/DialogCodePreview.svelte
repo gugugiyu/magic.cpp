@@ -51,9 +51,13 @@
 
 <DialogPrimitive.Root {open} onOpenChange={handleOpenChange}>
 	<DialogPrimitive.Portal>
-		<DialogPrimitive.Overlay class="code-preview-overlay" />
+		<DialogPrimitive.Overlay
+			class="code-preview-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+		/>
 
-		<DialogPrimitive.Content class="code-preview-content">
+		<DialogPrimitive.Content
+			class="code-preview-content data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+		>
 			<div class="code-preview-header">
 				<span class="code-preview-language">{language}</span>
 				<div class="code-preview-header-actions">
@@ -79,7 +83,7 @@
 	:global(.code-preview-overlay) {
 		position: fixed;
 		inset: 0;
-		background-color: rgb(0 0 0 / 0.5);
+		background-color: color-mix(in oklch, var(--overlay) 50%, transparent);
 		z-index: 100000;
 	}
 
@@ -91,7 +95,7 @@
 		max-height: 90dvh;
 		border-radius: 0.75rem;
 		background-color: hsl(var(--background));
-		box-shadow: 0 20px 60px -15px rgb(0 0 0 / 0.3);
+		box-shadow: 0 20px 60px -15px color-mix(in oklch, var(--foreground) 30%, transparent);
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;

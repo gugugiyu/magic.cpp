@@ -140,7 +140,7 @@
 
 {#if currentRequest}
 	<Dialog.Root open={!!currentRequest} onOpenChange={handleDialogOpenChange}>
-		<Dialog.Overlay class="fixed inset-0 z-50 bg-black/30" />
+		<Dialog.Overlay class="fixed inset-0 z-50 bg-overlay/30" />
 		<Dialog.Content
 			class="fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg"
 		>
@@ -153,7 +153,7 @@
 					returned {lineCountLabel(currentRequest.lineCount)} (soft threshold: {threshold} lines, hard
 					cap: {currentRequest.hardCap >= 0 ? currentRequest.hardCap : 'disabled'} lines).
 					{#if hasMorePending}
-						<span class="ml-1 text-amber-600 dark:text-amber-400">
+						<span class="ml-1 text-warning">
 							({pendingCount - 1} more pending)
 						</span>
 					{/if}
@@ -188,7 +188,7 @@
 			<!-- Subagent warning if not configured -->
 			{#if !isSubagentConfigured}
 				<div
-					class="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-600 dark:text-amber-400"
+					class="flex items-start gap-2 rounded-md border border-warning/30 bg-warning-bg px-3 py-2.5 text-xs text-warning"
 				>
 					<AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0" />
 					<span>

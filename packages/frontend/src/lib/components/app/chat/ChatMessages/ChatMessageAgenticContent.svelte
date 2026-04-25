@@ -5,6 +5,8 @@
 		SyntaxHighlightedCode
 	} from '$lib/components/app';
 	import { config } from '$lib/stores/settings.svelte';
+	import { motionStore } from '$lib/stores/motion.svelte';
+	import { slide } from 'svelte/transition';
 	import {
 		Loader2,
 		ChevronRight,
@@ -493,7 +495,7 @@
 			{:else if hasAnyError}
 				<AlertCircle class="h-3.5 w-3.5 shrink-0 text-destructive" />
 			{:else}
-				<CheckCircle class="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
+				<CheckCircle class="h-3.5 w-3.5 shrink-0 text-success" />
 			{/if}
 			<span class="agentic-label">
 				{hasAnyPending ? 'Calling' : hasAnyError ? 'Error in' : 'Called'}
@@ -502,7 +504,7 @@
 			<ChevronRight class={cn('agentic-chevron', isOpen && 'expanded')} />
 		</button>
 		{#if isOpen}
-			<div class="agentic-tool-group-body">
+			<div class="agentic-tool-group-body" transition:slide={motionStore.slide()}>
 				{#each cluster.sections as section, sIdx (cluster.indices[sIdx])}
 					{@render renderSection(section, cluster.indices[sIdx])}
 				{/each}
@@ -583,7 +585,11 @@
 			</button>
 
 			{#if isExpanded(index, section)}
-				<div class="agentic-inline-content" use:autoScrollOnMutation={isStreaming}>
+				<div
+					class="agentic-inline-content"
+					use:autoScrollOnMutation={isStreaming}
+					transition:slide={motionStore.slide()}
+				>
 					<div class="mb-2 text-xs text-muted-foreground/60">Arguments</div>
 					{#if section.toolArgs}
 						<SyntaxHighlightedCode
@@ -595,9 +601,7 @@
 					{:else if isStreaming}
 						<p class="text-xs text-muted-foreground/60 italic">Receiving arguments…</p>
 					{:else}
-						<p class="text-xs text-yellow-600 italic dark:text-yellow-400">
-							Response was truncated
-						</p>
+						<p class="text-xs text-warning italic">Response was truncated</p>
 					{/if}
 				</div>
 			{/if}
@@ -647,11 +651,11 @@
 					{@const Icon = skillIcon}
 					<Icon class="h-3.5 w-3.5 shrink-0 text-primary" />
 				{:else if isFileTool}
-					<FolderOpen class="h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-amber-400" />
+					<FolderOpen class="h-3.5 w-3.5 shrink-0 text-warning" />
 				{:else if isRunCommand}
 					<Terminal class="h-3.5 w-3.5 shrink-0 text-primary" />
 				{:else}
-					<CheckCircle class="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
+					<CheckCircle class="h-3.5 w-3.5 shrink-0 text-success" />
 				{/if}
 				<span class="agentic-label">
 					{#if isListSkill}
@@ -736,7 +740,7 @@
 			{/if}
 
 			{#if isExpanded(index, section)}
-				<div class="agentic-inline-content">
+				<div class="agentic-inline-content" transition:slide={motionStore.slide()}>
 					{#if section.toolArgs && section.toolArgs !== '{}'}
 						<div class="mb-2 text-xs text-muted-foreground/60">Arguments</div>
 						<SyntaxHighlightedCode
@@ -752,7 +756,7 @@
 						{#if isPending && !isAwaitingApproval}<Loader2 class="h-3 w-3 animate-spin" />{/if}
 						{#if section.wasCropped}
 							<span
-								class="inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-500"
+								class="inline-flex items-center gap-1 rounded-md bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning"
 							>
 								<Scissors class="h-2.5 w-2.5" />
 								Trimmed
@@ -882,7 +886,7 @@
 			</button>
 
 			{#if isExpanded(index, section)}
-				<div class="agentic-inline-content">
+				<div class="agentic-inline-content" transition:slide={motionStore.slide()}>
 					<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
 						{section.content}
 					</div>
@@ -905,7 +909,11 @@
 			</button>
 
 			{#if isExpanded(index, section)}
-				<div class="agentic-inline-content" use:autoScrollOnMutation={isStreaming}>
+				<div
+					class="agentic-inline-content"
+					use:autoScrollOnMutation={isStreaming}
+					transition:slide={motionStore.slide()}
+				>
 					<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
 						{section.content}
 					</div>

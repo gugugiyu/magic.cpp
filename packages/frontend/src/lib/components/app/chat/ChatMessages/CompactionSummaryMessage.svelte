@@ -30,7 +30,7 @@
 		<div class="flex-1">
 			<div class="h-px bg-border/50"></div>
 		</div>
-		<div class="mx-3 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+		<div class="mx-3 flex items-center gap-1.5 text-xs text-info/80">
 			<Package class="h-3 w-3" />
 			<span>Compacted session, ~{tokensSaved.toLocaleString()} tokens saved</span>
 		</div>
@@ -40,7 +40,7 @@
 	</div>
 
 	<!-- Summary card -->
-	<div class="overflow-hidden rounded-lg border border-border/50 bg-muted/30">
+	<div class="overflow-hidden rounded-lg border border-border/50 bg-info-bg/30">
 		<!-- Header -->
 		<div
 			class="flex w-full cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
@@ -67,7 +67,7 @@
 					aria-label="Copy summary"
 				>
 					{#if copied}
-						<Check class="h-3.5 w-3.5 text-green-500" />
+						<Check class="h-3.5 w-3.5 text-success" />
 					{:else}
 						<Copy class="h-3.5 w-3.5" />
 					{/if}

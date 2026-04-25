@@ -27,7 +27,7 @@
 		<Tooltip.Trigger>
 			<Button
 				class="h-8 w-8 rounded-full p-0 {isRecording
-					? 'animate-pulse bg-red-500 text-white hover:bg-red-600'
+					? 'animate-pulse bg-destructive text-destructive-foreground hover:bg-destructive/90'
 					: ''}"
 				disabled={disabled || isLoading || !hasAudioModality}
 				onclick={onMicClick}
@@ -36,7 +36,7 @@
 				<span class="sr-only">{isRecording ? 'Stop recording' : 'Start recording'}</span>
 
 				{#if isRecording}
-					<Square class="h-4 w-4 animate-pulse fill-white" />
+					<Square class="h-4 w-4 animate-pulse fill-destructive-foreground" />
 				{:else}
 					<Mic class="h-4 w-4" />
 				{/if}

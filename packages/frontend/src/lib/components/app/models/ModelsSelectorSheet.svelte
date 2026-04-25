@@ -221,7 +221,7 @@
 				class={cn(
 					`inline-grid cursor-pointer grid-cols-[1fr_auto_1fr] items-center gap-1.5 rounded-sm bg-muted-foreground/10 px-1.5 py-1 text-xs transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60`,
 					!isCurrentModelInCache
-						? 'bg-red-400/10 !text-red-400 hover:bg-red-400/20 hover:text-red-400'
+						? 'bg-destructive/10 !text-destructive hover:bg-destructive/20 hover:text-destructive'
 						: forceForegroundText
 							? 'text-foreground'
 							: isHighlightedCurrentModelActive
@@ -263,7 +263,7 @@
 							{#if !isCurrentModelInCache && currentModel}
 								<button
 									type="button"
-									class="flex w-full cursor-not-allowed items-center rounded-md bg-red-400/10 px-3 py-2.5 text-left text-sm text-red-400"
+									class="flex w-full cursor-not-allowed items-center rounded-md bg-destructive/10 px-3 py-2.5 text-left text-sm text-destructive"
 									disabled
 								>
 									<span class="min-w-0 flex-1 truncate">
@@ -296,7 +296,7 @@
 				class={cn(
 					`inline-flex cursor-pointer items-center gap-1.5 rounded-sm bg-muted-foreground/10 px-1.5 py-1 text-xs transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60`,
 					!isCurrentModelInCache
-						? 'bg-red-400/10 !text-red-400 hover:bg-red-400/20 hover:text-red-400'
+						? 'bg-destructive/10 !text-destructive hover:bg-destructive/20 hover:text-destructive'
 						: forceForegroundText
 							? 'text-foreground'
 							: isHighlightedCurrentModelActive

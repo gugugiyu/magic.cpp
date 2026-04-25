@@ -28,9 +28,9 @@
 		type="submit"
 		disabled={isDisabled}
 		class={cn(
-			'h-8 w-8 rounded-full p-0',
+			'h-8 w-8 rounded-full p-0 transition-transform duration-75 active:scale-[0.97]',
 			showErrorState
-				? 'bg-red-400/10 text-red-400 hover:bg-red-400/20 hover:text-red-400 disabled:opacity-100'
+				? 'bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive disabled:opacity-100'
 				: ''
 		)}
 		{...props}

@@ -20,7 +20,7 @@
 
 <Collapsible.Root bind:open={isExpanded}>
 	<Collapsible.Trigger
-		class="flex w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+		class="flex w-full items-center gap-1 text-xs text-success hover:text-success/80"
 	>
 		{#if isExpanded}
 			<ChevronDown class="h-3.5 w-3.5" />
@@ -35,7 +35,9 @@
 		<div class="max-h-64 space-y-3 overflow-y-auto">
 			{#each tools as tool, i (tool.name || i)}
 				<div>
-					<Badge variant="secondary">{tool.name || '(unnamed)'}</Badge>
+					<Badge variant="outline" class="bg-success-bg text-success"
+						>{tool.name || '(unnamed)'}</Badge
+					>
 
 					{#if tool.description}
 						<p class="mt-1 text-xs text-muted-foreground">{tool.description}</p>

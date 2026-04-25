@@ -1,7 +1,16 @@
 export enum ColorMode {
 	LIGHT = 'light',
 	DARK = 'dark',
-	SYSTEM = 'system'
+	SYSTEM = 'system',
+	TOKYO_NIGHT = 'tokyo-night',
+	EVERFOREST = 'everforest'
+}
+
+export enum AnimationSpeed {
+	NONE = 'none',
+	SLOW = 'slow',
+	BASE = 'base',
+	FAST = 'fast'
 }
 
 /**

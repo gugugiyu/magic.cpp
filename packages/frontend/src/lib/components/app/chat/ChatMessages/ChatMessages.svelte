@@ -7,6 +7,8 @@
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { conversationsStore, activeConversation } from '$lib/stores/conversations.svelte';
 	import { config } from '$lib/stores/settings.svelte';
+	import { motionStore } from '$lib/stores/motion.svelte';
+	import { fly } from 'svelte/transition';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { DatabaseMessageExtra } from '$lib/types/database';
 	import {
@@ -269,6 +271,16 @@
 		{#if isCompactionSummary}
 			<div use:fadeInView>
 				<CompactionSummaryMessage content={message.content} tokensSaved={compactionTokens} />
+			</div>
+		{:else if message.role === MessageRole.ASSISTANT}
+			<div in:fly={motionStore.fly()} use:fadeInView>
+				<ChatMessage
+					class="mx-auto w-full max-w-[48rem]"
+					{message}
+					{toolMessages}
+					{isLastAssistantMessage}
+					{siblingInfo}
+				/>
 			</div>
 		{:else}
 			<div use:fadeInView>

@@ -24,12 +24,21 @@
 	let compatMode = $derived(isCompatibilityMode());
 
 	function getStatusColor() {
-		if (loading) return 'bg-yellow-500';
-		if (compatMode) return 'bg-amber-500'; // amber = working but limited
-		if (error) return 'bg-red-500';
-		if (serverData) return 'bg-green-500';
+		if (loading) return 'bg-warning';
+		if (compatMode) return 'bg-warning'; // amber = working but limited
+		if (error) return 'bg-destructive';
+		if (serverData) return 'bg-success';
 
-		return 'bg-gray-500';
+		return 'bg-muted-foreground';
+	}
+
+	function getStatusTextColor() {
+		if (loading) return 'text-warning';
+		if (compatMode) return 'text-warning';
+		if (error) return 'text-destructive';
+		if (serverData) return 'text-success';
+
+		return 'text-muted-foreground';
 	}
 
 	function getStatusText() {
@@ -46,7 +55,7 @@
 	<div class="flex items-center space-x-2">
 		<div class="h-2 w-2 rounded-full {getStatusColor()}"></div>
 
-		<span class="text-sm text-muted-foreground">{getStatusText()}</span>
+		<span class="text-sm {getStatusTextColor()}">{getStatusText()}</span>
 	</div>
 
 	{#if serverData && !error}

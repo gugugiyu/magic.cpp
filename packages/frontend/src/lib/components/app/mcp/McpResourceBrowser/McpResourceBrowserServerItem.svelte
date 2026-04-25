@@ -181,14 +181,14 @@
 		</span>
 
 		{#if serverRes.loading}
-			<Loader2 class="ml-auto h-3 w-3 animate-spin text-muted-foreground" />
+			<Loader2 class="ml-auto h-3 w-3 animate-spin text-info" />
 		{/if}
 	</Collapsible.Trigger>
 
 	<Collapsible.Content>
 		<div class="ml-4 flex flex-col gap-0.5 border-l border-border/50 pl-2">
 			{#if serverRes.error}
-				<div class="py-1 text-xs text-red-500">
+				<div class="py-1 text-xs text-destructive">
 					Error: {serverRes.error}
 				</div>
 			{:else if !hasContent}

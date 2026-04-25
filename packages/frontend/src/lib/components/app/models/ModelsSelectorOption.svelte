@@ -115,10 +115,10 @@
 		</div>
 
 		{#if isLoading}
-			<Loader2 class="h-4 w-4 animate-spin text-muted-foreground" />
+			<Loader2 class="h-4 w-4 animate-spin text-info" />
 		{:else if isFailed}
 			<div class="flex w-4 items-center justify-center">
-				<CircleAlert class="h-3.5 w-3.5 text-red-500 group-hover:hidden" />
+				<CircleAlert class="h-3.5 w-3.5 text-destructive group-hover:hidden" />
 
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -127,21 +127,21 @@
 						iconSize="h-2.5 w-2.5"
 						icon={RotateCw}
 						tooltip="Retry loading model"
-						class="h-3 w-3 text-red-500 hover:text-foreground"
+						class="h-3 w-3 text-destructive hover:text-foreground"
 						onclick={() => modelsStore.loadModel(option.model)}
 					/>
 				</div>
 			</div>
 		{:else if isSleeping}
 			<div class="flex w-4 items-center justify-center">
-				<span class="h-2 w-2 rounded-full bg-orange-400 group-hover:hidden"></span>
+				<span class="h-2 w-2 rounded-full bg-warning group-hover:hidden"></span>
 
 				<div class="hidden group-hover:flex">
 					<ActionIcon
 						iconSize="h-2.5 w-2.5"
 						icon={PowerOff}
 						tooltip="Unload model"
-						class="h-3 w-3 text-red-500 hover:text-red-600"
+						class="h-3 w-3 text-destructive hover:text-destructive/80"
 						onclick={(e) => {
 							e?.stopPropagation();
 							modelsStore.unloadModel(option.model);
@@ -151,7 +151,7 @@
 			</div>
 		{:else if isLoaded}
 			<div class="flex w-4 items-center justify-center">
-				<span class="h-2 w-2 rounded-full bg-green-500 group-hover:hidden"></span>
+				<span class="h-2 w-2 rounded-full bg-success group-hover:hidden"></span>
 
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -160,7 +160,7 @@
 						iconSize="h-2.5 w-2.5"
 						icon={PowerOff}
 						tooltip="Unload model"
-						class="h-3 w-3 text-red-500 hover:text-red-600"
+						class="h-3 w-3 text-destructive hover:text-destructive/80"
 						onclick={() => modelsStore.unloadModel(option.model)}
 					/>
 				</div>

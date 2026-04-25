@@ -150,7 +150,7 @@
 			</span>
 
 			{#if pdfProcessingMode}
-				<span class="text-left text-xs text-muted-foreground">{pdfProcessingMode}</span>
+				<span class="text-left text-xs text-info">{pdfProcessingMode}</span>
 			{:else if size}
 				<span class="text-left text-xs text-muted-foreground">{formatFileSize(size)}</span>
 			{/if}

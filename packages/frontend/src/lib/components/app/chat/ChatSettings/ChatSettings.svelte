@@ -34,10 +34,10 @@
 		NUMERIC_FIELDS,
 		POSITIVE_INTEGER_FIELDS,
 		SETTINGS_COLOR_MODES_CONFIG,
+		SETTINGS_ANIMATION_SPEED_CONFIG,
 		SETTINGS_KEYS
 	} from '$lib/constants';
-	import { setMode } from 'mode-watcher';
-	import { ColorMode } from '$lib/enums/ui';
+	import { applyTheme } from '$lib/utils/theme';
 	import { SettingsFieldType } from '$lib/enums/settings';
 	import type { Component } from 'svelte';
 	import { page } from '$app/state';
@@ -109,6 +109,12 @@
 			title: SETTINGS_SECTION_TITLES.DISPLAY,
 			icon: Monitor,
 			fields: [
+				{
+					key: SETTINGS_KEYS.ANIMATION_SPEED,
+					label: 'Animation speed',
+					type: SettingsFieldType.SELECT,
+					options: SETTINGS_ANIMATION_SPEED_CONFIG
+				},
 				{
 					key: SETTINGS_KEYS.SHOW_MESSAGE_STATS,
 					label: 'Show message generation statistics',
@@ -425,7 +431,7 @@
 	function handleThemeChange(newTheme: string) {
 		localConfig.theme = newTheme;
 
-		setMode(newTheme as ColorMode);
+		applyTheme(newTheme);
 	}
 
 	function handleConfigChange(key: string, value: string | boolean) {
@@ -438,7 +444,7 @@
 	function handleReset() {
 		localConfig = { ...config() };
 
-		setMode(localConfig.theme as ColorMode);
+		applyTheme(localConfig.theme as string);
 	}
 
 	function handleSave() {
@@ -492,7 +498,7 @@
 			{#each settingSections as section (section.title)}
 				<button
 					aria-current={activeSection === section.title ? 'page' : undefined}
-					class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent {activeSection ===
+					class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors transition-transform duration-75 hover:bg-accent active:scale-[0.98] {activeSection ===
 					section.title
 						? 'bg-accent text-accent-foreground'
 						: 'text-muted-foreground'}"

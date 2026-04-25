@@ -163,7 +163,7 @@
 							class="w-full pr-10 {apiKeyState === 'error'
 								? 'border-destructive'
 								: apiKeyState === 'success'
-									? 'border-green-500'
+									? 'border-success'
 									: ''}"
 							disabled={apiKeyState === 'validating'}
 						/>
@@ -176,7 +176,7 @@
 								class="absolute top-1/2 right-3 -translate-y-1/2"
 								in:scale={{ duration: 200, start: 0.8 }}
 							>
-								<CheckCircle class="h-4 w-4 text-green-500" />
+								<CheckCircle class="h-4 w-4 text-success" />
 							</div>
 						{:else if apiKeyState === 'error'}
 							<div
@@ -193,7 +193,7 @@
 						</p>
 					{/if}
 					{#if apiKeyState === 'success'}
-						<p class="text-sm text-green-600" in:fly={{ y: -10, duration: 200 }}>
+						<p class="text-sm text-success" in:fly={{ y: -10, duration: 200 }}>
 							✓ API key validated successfully! Connecting...
 						</p>
 					{/if}

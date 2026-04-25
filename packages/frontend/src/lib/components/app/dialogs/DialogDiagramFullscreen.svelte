@@ -56,9 +56,13 @@
 
 <DialogPrimitive.Root {open} onOpenChange={handleOpenChange}>
 	<DialogPrimitive.Portal>
-		<DialogPrimitive.Overlay class="diagram-fullscreen-overlay" />
+		<DialogPrimitive.Overlay
+			class="diagram-fullscreen-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+		/>
 
-		<DialogPrimitive.Content class="diagram-fullscreen-content">
+		<DialogPrimitive.Content
+			class="diagram-fullscreen-content data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+		>
 			<div class="diagram-fullscreen-header">
 				<span class="diagram-fullscreen-title">Diagram</span>
 				<DialogPrimitive.Close class="diagram-fullscreen-close-btn" aria-label="Close preview">
@@ -79,7 +83,7 @@
 	:global(.diagram-fullscreen-overlay) {
 		position: fixed;
 		inset: 0;
-		background-color: rgb(0 0 0 / 0.75);
+		background-color: color-mix(in oklch, var(--overlay) 75%, transparent);
 		backdrop-filter: blur(4px);
 		-webkit-backdrop-filter: blur(4px);
 		z-index: 100000;
@@ -93,7 +97,7 @@
 		max-height: 95dvh;
 		border-radius: 0.75rem;
 		background-color: hsl(var(--background));
-		box-shadow: 0 20px 60px -15px rgb(0 0 0 / 0.3);
+		box-shadow: 0 20px 60px -15px color-mix(in oklch, var(--foreground) 30%, transparent);
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;

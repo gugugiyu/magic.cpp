@@ -6,7 +6,7 @@
 		getAllPendingRequests,
 		summarizeToolOutput,
 		type PendingSummarizeRequest
-	} from '$lib/services/mcp-summarize-harness';
+	} from '$lib/services/mcp/mcp-summarize-harness';
 	import {
 		FileText,
 		Sparkles,
@@ -40,7 +40,7 @@
 	let hasMorePending = $derived(pendingRequests.length > 1);
 
 	$effect(() => {
-		return subscribePendingRequest((req) => {
+		return subscribePendingRequest((req : PendingSummarizeRequest | null) => {
 			untrack(() => {
 				if (req) {
 					const existingIds = new Set(pendingRequests.map((r) => r.id));

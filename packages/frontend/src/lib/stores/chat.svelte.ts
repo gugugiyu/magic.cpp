@@ -13,7 +13,10 @@
 
 import { SvelteMap } from 'svelte/reactivity';
 import { DatabaseService } from '$lib/services/database.service';
-import { ChatService } from '$lib/services/chat.service';
+import { ChatService } from '$lib/services/chat/chat.service';
+import { ChatProcessingService } from '$lib/services/chat/chat-processing.service';
+import { ChatApiOptionsService, MessageUtilsService } from '$lib/services';
+import type { TimingData } from '$lib/services/chat/chat-processing.service';
 import { conversationsStore } from '$lib/stores/conversations.svelte';
 import { config } from '$lib/stores/settings.svelte';
 import { agenticStore } from '$lib/stores/agentic.svelte';
@@ -1152,59 +1155,16 @@ class ChatStore {
 		messageTypes: string[];
 	}> {
 		const activeConv = conversationsStore.activeConversation;
-		if (!activeConv)
-			return {
-				totalCount: 0,
-				userMessages: 0,
-				assistantMessages: 0,
-				messageTypes: []
-			};
+		if (!activeConv) {
+			return { totalCount: 0, userMessages: 0, assistantMessages: 0, messageTypes: [] };
+		}
 		const allMessages = await conversationsStore.getConversationMessages(activeConv.id);
-		const messageToDelete = findMessageById(allMessages, messageId);
-
-		// For system messages, don't count descendants as they will be preserved (reparented to root)
-		if (messageToDelete?.role === MessageRole.SYSTEM) {
-			const messagesToDelete = allMessages.filter((m) => m.id === messageId);
-			let userMessages = 0,
-				assistantMessages = 0;
-			const messageTypes: string[] = [];
-
-			for (const msg of messagesToDelete) {
-				if (msg.role === MessageRole.USER) {
-					userMessages++;
-					if (!messageTypes.includes('user message')) messageTypes.push('user message');
-				} else if (msg.role === MessageRole.ASSISTANT) {
-					assistantMessages++;
-					if (!messageTypes.includes('assistant response')) messageTypes.push('assistant response');
-				}
-			}
-
-			return { totalCount: 1, userMessages, assistantMessages, messageTypes };
-		}
-
-		const descendants = findDescendantMessages(allMessages, messageId);
-		const allToDelete = [messageId, ...descendants];
-		const messagesToDelete = allMessages.filter((m) => allToDelete.includes(m.id));
-		let userMessages = 0,
-			assistantMessages = 0;
-		const messageTypes: string[] = [];
-
-		for (const msg of messagesToDelete) {
-			if (msg.role === MessageRole.USER) {
-				userMessages++;
-				if (!messageTypes.includes('user message')) messageTypes.push('user message');
-			} else if (msg.role === MessageRole.ASSISTANT) {
-				assistantMessages++;
-				if (!messageTypes.includes('assistant response')) messageTypes.push('assistant response');
-			}
-		}
-
-		return {
-			totalCount: allToDelete.length,
-			userMessages,
-			assistantMessages,
-			messageTypes
-		};
+		return MessageUtilsService.getDeletionInfo(
+			allMessages,
+			messageId,
+			findMessageById,
+			findDescendantMessages
+		);
 	}
 
 	async deleteMessage(messageId: string): Promise<void> {
@@ -1630,78 +1590,36 @@ class ChatStore {
 		}
 	}
 
-	private parseTimingData(timingData: Record<string, unknown>): ApiProcessingState | null {
-		const promptTokens = (timingData.prompt_n as number) || 0,
-			promptMs = (timingData.prompt_ms as number) || undefined,
-			predictedTokens = (timingData.predicted_n as number) || 0,
-			tokensPerSecond = (timingData.predicted_per_second as number) || 0,
-			cacheTokens = (timingData.cache_n as number) || 0;
-		const promptProgress = timingData.prompt_progress as
-			| { total: number; cache: number; processed: number; time_ms: number }
-			| undefined;
-		const contextTotal = this.getContextTotal();
+	private parseTimingData(timingData: TimingData): ApiProcessingState {
 		const currentConfig = config();
+		const contextTotal = this.getContextTotal();
 		const outputTokensMax = currentConfig.max_tokens || -1;
-		const contextUsed = promptTokens + cacheTokens + predictedTokens,
-			outputTokensUsed = predictedTokens;
-		const progressCache = promptProgress?.cache || 0,
-			progressActualDone = (promptProgress?.processed ?? 0) - progressCache,
-			progressActualTotal = (promptProgress?.total ?? 0) - progressCache;
-		const progressPercent = promptProgress
-			? Math.round((progressActualDone / progressActualTotal) * 100)
-			: undefined;
-		return {
-			status: predictedTokens > 0 ? 'generating' : promptProgress ? 'preparing' : 'idle',
-			tokensDecoded: predictedTokens,
-			tokensRemaining: outputTokensMax - predictedTokens,
-			contextUsed,
+		const temperature = currentConfig.temperature ?? 0.8;
+		const topP = currentConfig.top_p ?? 0.95;
+
+		return ChatProcessingService.parseTimingData(timingData, {
 			contextTotal,
-			outputTokensUsed,
 			outputTokensMax,
-			hasNextToken: predictedTokens > 0,
-			tokensPerSecond,
-			temperature: currentConfig.temperature ?? 0.8,
-			topP: currentConfig.top_p ?? 0.95,
-			speculative: false,
-			progressPercent,
-			promptProgress,
-			promptTokens,
-			promptMs,
-			cacheTokens
-		};
+			temperature,
+			topP
+		});
 	}
 
 	restoreProcessingStateFromMessages(messages: DatabaseMessage[], conversationId: string): void {
-		// Iterate from first message to last (chronological order) to find the first assistant
-		// message with timings. onFlowComplete writes cumulative timings to the FIRST assistant
-		// message, so we must read from the first one, not the last.
 		for (let i = 0; i < messages.length; i++) {
 			const message = messages[i];
 			if (message.role === MessageRole.ASSISTANT && message.timings) {
-				const restoredState = this.parseTimingData({
-					prompt_n: message.timings.prompt_n || 0,
-					prompt_ms: message.timings.prompt_ms,
-					predicted_n: message.timings.predicted_n || 0,
-					predicted_per_second:
-						message.timings.predicted_n && message.timings.predicted_ms
-							? (message.timings.predicted_n / message.timings.predicted_ms) * 1000
-							: 0,
-					cache_n: message.timings.cache_n || 0
-				});
-				if (restoredState) {
-					this.setProcessingState(conversationId, restoredState);
-					return;
-				}
+				const restoredState = this.parseTimingData(
+					ChatProcessingService.buildTimingDataFromMessage(message)
+				);
+				this.setProcessingState(conversationId, restoredState);
+				return;
 			}
 		}
 	}
 
 	getConversationModel(messages: DatabaseMessage[]): string | null {
-		for (let i = messages.length - 1; i >= 0; i--) {
-			const message = messages[i];
-			if (message.role === MessageRole.ASSISTANT && message.model) return message.model;
-		}
-		return null;
+		return MessageUtilsService.getConversationModel(messages);
 	}
 
 	async compactSession(): Promise<void> {
@@ -1828,13 +1746,7 @@ class ChatStore {
 	}
 
 	private findPreviousCompactionSummary(allMessages: DatabaseMessage[]): string | null {
-		const summaryMessage = [...allMessages]
-			.reverse()
-			.find((m) => m.extra?.some((e) => e.type === AttachmentType.COMPACTION_SUMMARY));
-		if (summaryMessage) {
-			return summaryMessage.content || null;
-		}
-		return null;
+		return MessageUtilsService.findPreviousCompactionSummary(allMessages);
 	}
 
 	private async persistAssistantUpdate(
@@ -1872,73 +1784,17 @@ class ChatStore {
 		promptProgress: ChatMessagePromptProgress | undefined,
 		conversationId: string
 	): void {
-		const tokensPerSecond =
-			timings?.predicted_ms && timings?.predicted_n
-				? (timings.predicted_n / timings.predicted_ms) * 1000
-				: 0;
 		this.updateProcessingStateFromTimings(
-			{
-				prompt_n: timings?.prompt_n || 0,
-				prompt_ms: timings?.prompt_ms,
-				predicted_n: timings?.predicted_n || 0,
-				predicted_per_second: tokensPerSecond,
-				cache_n: timings?.cache_n || 0,
-				prompt_progress: promptProgress
-			},
+			ChatProcessingService.buildTimingDataFromMessageTimings(timings, promptProgress),
 			conversationId
 		);
 	}
 
 	private getApiOptions(): Record<string, unknown> {
-		const currentConfig = config();
-		const hasValue = (value: unknown): boolean =>
-			value !== undefined && value !== null && value !== '';
-		const apiOptions: Record<string, unknown> = {
-			stream: true,
-			timings_per_token: true
-		};
-
-		const modelName = selectedModelName();
-		if (modelName) apiOptions.model = modelName;
-
-		if (currentConfig.systemMessage) apiOptions.systemMessage = currentConfig.systemMessage;
-		if (currentConfig.disableReasoningParsing) apiOptions.disableReasoningParsing = true;
-		if (currentConfig.excludeReasoningFromContext) apiOptions.excludeReasoningFromContext = true;
-
-		const numericKeys = [
-			'temperature',
-			'max_tokens',
-			'dynatemp_range',
-			'dynatemp_exponent',
-			'top_k',
-			'top_p',
-			'min_p',
-			'xtc_probability',
-			'xtc_threshold',
-			'typ_p',
-			'repeat_last_n',
-			'repeat_penalty',
-			'presence_penalty',
-			'frequency_penalty',
-			'dry_multiplier',
-			'dry_base',
-			'dry_allowed_length',
-			'dry_penalty_last_n'
-		] as const;
-
-		for (const key of numericKeys) {
-			const value = currentConfig[key];
-			if (hasValue(value)) {
-				apiOptions[key] = Number(value);
-			}
-		}
-
-		if (currentConfig.samplers) apiOptions.samplers = currentConfig.samplers;
-		if (currentConfig.backend_sampling)
-			apiOptions.backend_sampling = currentConfig.backend_sampling;
-		if (currentConfig.custom) apiOptions.custom = currentConfig.custom;
-
-		return apiOptions;
+		return ChatApiOptionsService.buildApiOptions({
+			config: config(),
+			modelName: selectedModelName()
+		});
 	}
 }
 

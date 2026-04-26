@@ -57,7 +57,7 @@
  * @see agenticStore in stores/agentic.svelte.ts — uses ChatService for agentic loop streaming
  * @see conversationsStore in stores/conversations.svelte.ts — provides message context
  */
-export { ChatService } from './chat.service';
+export { ChatService } from './chat/chat.service';
 
 /**
  * **DatabaseService** - IndexedDB persistence layer via Dexie ORM
@@ -259,4 +259,133 @@ export { ParameterSyncService } from './parameter-sync.service';
  * @see agenticStore in stores/agentic.svelte.ts — uses MCPService (via mcpStore) for tool execution
  * @see MCP Protocol Specification: https://modelcontextprotocol.io/specification/2025-06-18
  */
-export { MCPService } from './mcp.service';
+export { MCPService } from './mcp/mcp.service';
+
+/**
+ * **McpConfigService** - MCP server configuration building and parsing
+ *
+ * Stateless utilities for parsing server settings, building connection configs,
+ * and managing MCP client configuration from user settings.
+ *
+ * @see mcpStore in stores/mcp.svelte.ts — uses McpConfigService for config building
+ */
+export { McpConfigService, McpIconService } from './mcp/mcp-config.service';
+
+/**
+ * **McpSchemaService** - JSON schema normalization for MCP tool definitions
+ *
+ * Normalizes JSON schema properties for tool input schemas, inferring types
+ * from defaults and recursively processing nested structures.
+ *
+ * @see mcpStore in stores/mcp.svelte.ts — uses McpSchemaService for schema normalization
+ */
+export { McpSchemaService } from './mcp/mcp-schema.service';
+
+/**
+ * **McpReconnectService** - MCP server reconnection with exponential backoff
+ *
+ * Handles automatic reconnection to MCP servers when connections are lost,
+ * with exponential backoff, timeout handling, and race-condition safety.
+ *
+ * @see mcpStore in stores/mcp.svelte.ts — uses McpReconnectService for reconnection logic
+ */
+export { McpReconnectService } from './mcp/mcp-reconnect.service';
+
+/**
+ * **ChatProcessingService** - Chat processing state and timing parsing
+ *
+ * Parses timing data from streaming responses into processing state objects
+ * for display in the UI (tokens/sec, context usage, progress).
+ *
+ * @see chatStore in stores/chat.svelte.ts — uses ChatProcessingService for state parsing
+ */
+export { ChatProcessingService } from './chat/chat-processing.service';
+
+/**
+ * **AgenticBuiltinToolsService** - Built-in tool execution for agentic flows
+ *
+ * Executes built-in tools (calculator, time, location, subagent, skills, todos,
+ * run_command) without requiring MCP server connections.
+ *
+ * @see agenticStore in stores/agentic.svelte.ts — uses AgenticBuiltinToolsService for tool execution
+ */
+export { AgenticBuiltinToolsService } from './agentic/agentic-builtin-tools.service';
+
+/**
+ * **AgenticToolUtils** - Tool call normalization and attachment extraction
+ *
+ * Normalizes tool calls from API responses, deduplicates identical calls,
+ * and extracts base64 image attachments from tool results.
+ *
+ * @see agenticStore in stores/agentic.svelte.ts — uses AgenticToolUtils for tool processing
+ */
+export { AgenticToolUtils } from './agentic/agentic-tool-utils.service';
+
+/**
+ * **ChatApiOptionsService** - API options building from user config
+ *
+ * Builds API request options from user settings, filtering null values
+ * and casting numeric parameters.
+ *
+ * @see chatStore in stores/chat.svelte.ts — uses ChatApiOptionsService for request options
+ */
+export { ChatApiOptionsService } from './chat/chat-api-options.service';
+
+/**
+ * **MessageUtilsService** - Message tree operations and deletion info
+ *
+ * Provides utilities for finding models in message history, locating
+ * compaction summaries, and computing deletion impact (message counts by role).
+ *
+ * @see chatStore in stores/chat.svelte.ts — uses MessageUtilsService for message operations
+ */
+export { MessageUtilsService } from './message-utils.service';
+
+/**
+ * **McpCapabilitiesService** - MCP capabilities info building
+ *
+ * Transforms server and client capabilities into structured info objects
+ * for display in the MCP connection UI.
+ *
+ * @see mcpStore in stores/mcp.svelte.ts — uses McpCapabilitiesService for capabilities display
+ */
+export { McpCapabilitiesService } from './mcp/mcp-capabilities.service';
+
+/**
+ * **McpToolParserService** - Tool argument parsing and repair
+ *
+ * Parses and repairs malformed JSON tool arguments from MCP tool calls.
+ *
+ * @see mcpStore in stores/mcp.svelte.ts — uses McpToolParserService for argument parsing
+ */
+export { McpToolParserService } from './mcp/mcp-tool-parser.service';
+
+/**
+ * **McpServerInfoService** - MCP server status and instructions aggregation
+ *
+ * Extracts server status, instructions, and health check information
+ * from connection maps and health check state.
+ *
+ * @see mcpStore in stores/mcp.svelte.ts — uses McpServerInfoService for server info
+ */
+export { McpServerInfoService } from './mcp/mcp-server-info.service';
+
+/**
+ * **AgenticTimingService** - Agentic timing data merging
+ *
+ * Merges per-turn LLM timings with cumulative agentic timings
+ * for accurate token statistics display.
+ *
+ * @see agenticStore in stores/agentic.svelte.ts — uses AgenticTimingService for final timings
+ */
+export { AgenticTimingService } from './agentic/agentic-timing.service';
+
+/**
+ * **AgenticAttachmentService** - Base64 attachment extraction from tool results
+ *
+ * Extracts and replaces base64 image data URIs in tool results with
+ * attachment placeholders, building proper DatabaseMessageExtra entries.
+ *
+ * @see agenticStore in stores/agentic.svelte.ts — uses AgenticAttachmentService for attachment processing
+ */
+export { AgenticAttachmentService } from './agentic/agentic-attachment.service';

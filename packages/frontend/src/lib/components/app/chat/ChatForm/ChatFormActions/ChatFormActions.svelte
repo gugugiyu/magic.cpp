@@ -32,6 +32,11 @@
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte';
 	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 	import { ListChecks } from '@lucide/svelte';
+	import TokenCounter from '../TokenCounter.svelte';
+	import TokenPocket from '../TokenPocket.svelte';
+	import { estimateTokenCount, estimateMessagesTokenCount } from '@shared/utils/token-estimator';
+	import { MessageRole } from '$lib/enums';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 
 	interface Props {
 		canSend?: boolean;
@@ -170,6 +175,63 @@
 	let todoCompleted = $derived(todos.filter((t) => t.done).length);
 	let todoTotal = $derived(todos.length);
 	let hasTodos = $derived(todoTotal > 0);
+
+	let isTokenPocketOpen = $state(false);
+
+	let tokenBreakdown = $derived.by(() => {
+		const msgs = activeMessages();
+		let userChars = 0;
+		let assistantChars = 0;
+		let toolChars = 0;
+		let userTokens = 0;
+		let assistantTokens = 0;
+		let toolTokens = 0;
+
+		for (const m of msgs) {
+			if (m.role === MessageRole.USER) {
+				userChars += m.content.length;
+				userTokens += estimateTokenCount(m.content);
+			} else if (m.role === MessageRole.ASSISTANT) {
+				const text = m.content + (m.toolCalls || '');
+				assistantChars += text.length;
+				assistantTokens += estimateTokenCount(text);
+			} else if (m.role === MessageRole.TOOL) {
+				toolChars += m.content.length;
+				toolTokens += estimateTokenCount(m.content);
+			}
+		}
+
+		const totalTokens = estimateMessagesTokenCount(
+			msgs.map((m) => {
+				let content = m.content;
+				if (m.role === MessageRole.ASSISTANT && m.toolCalls) {
+					content += m.toolCalls;
+				}
+				return { content };
+			})
+		);
+
+		return {
+			userChars,
+			assistantChars,
+			toolChars,
+			userTokens,
+			assistantTokens,
+			toolTokens,
+			totalTokens
+		};
+	});
+
+	let donutBreakdown = $derived.by(() => {
+		const { userTokens, assistantTokens, toolTokens } = tokenBreakdown;
+		const total = userTokens + assistantTokens + toolTokens;
+		return {
+			user: userTokens,
+			assistant: assistantTokens,
+			tool: toolTokens,
+			total
+		};
+	});
 </script>
 
 <div class="flex w-full items-center gap-3 {className}" style="container-type: inline-size">
@@ -246,6 +308,33 @@
 				useGlobalSelection
 			/>
 		{/if}
+	</div>
+
+	<div class="relative">
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				class="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-75 hover:bg-accent active:scale-[0.97]"
+				onclick={() => (isTokenPocketOpen = !isTokenPocketOpen)}
+			>
+				<span class="sr-only">Token breakdown</span>
+				<TokenCounter breakdown={donutBreakdown} class="hover:bg-muted" />
+			</Tooltip.Trigger>
+			<Tooltip.Content side="top" class="bg-muted">
+				<p class="text-muted-foreground">
+					Total conversation: ~{tokenBreakdown.totalTokens.toLocaleString()} tokens
+				</p>
+				<p class="text-xs text-muted-foreground/60">
+					User: {tokenBreakdown.userTokens.toLocaleString()} · Assistant: {tokenBreakdown.assistantTokens.toLocaleString()}
+					· Tool: {tokenBreakdown.toolTokens.toLocaleString()}
+				</p>
+			</Tooltip.Content>
+		</Tooltip.Root>
+
+		<TokenPocket
+			isOpen={isTokenPocketOpen}
+			breakdown={tokenBreakdown}
+			onClose={() => (isTokenPocketOpen = false)}
+		/>
 	</div>
 
 	{#if isLoading}

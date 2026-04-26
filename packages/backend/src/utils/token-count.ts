@@ -6,7 +6,7 @@
  */
 
 import type { ModelPool } from '../pool/model-pool.ts';
-import { estimateTokenCount } from './token-estimator.ts';
+import { estimateTokenCount } from '#shared/utils/token-estimator.ts';
 
 const TOKENIZE_TIMEOUT = 5_000;
 

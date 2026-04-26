@@ -1,6 +1,6 @@
 /**
  * Heuristic-based token estimation utility.
- * 
+ *
  * Uses character-to-token ratios based on content type:
  * - ASCII-only text: ~4 chars/token
  * - Unicode (Vietnamese, accented Latin): ~3 chars/token
@@ -14,11 +14,11 @@ export function estimateTokenCount(text: string): number {
   // 1. Fast global matches instead of a character loop
   const cjk = (text.match(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
   const emoji = (text.match(/\p{Extended_Pictographic}/gu) || []).length;
-  
+
   // Non-ASCII count (subtracting CJK and Emoji to prevent double counting)
   const allNonAscii = (text.match(/[^\x00-\x7F]/g) || []).length;
   const nonAscii = Math.max(0, allNonAscii - cjk - emoji);
-  
+
   const ascii = Math.max(0, text.length - cjk - emoji - nonAscii);
 
   // 2. Combine structural checks

@@ -12,7 +12,16 @@
 	import { presetsStore } from '$lib/stores/presets.svelte';
 	import { builtinToolFields } from '$lib/enums/builtin-tools';
 	import { PresetCard } from '$lib/components/app';
-	import { Sparkles, Plus, Search, Loader2, X, FileText, ArrowUpDown, RefreshCw } from '@lucide/svelte';
+	import {
+		Sparkles,
+		Plus,
+		Search,
+		Loader2,
+		X,
+		FileText,
+		ArrowUpDown,
+		RefreshCw
+	} from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { toast } from 'svelte-sonner';
@@ -238,12 +247,12 @@
 	</div>
 
 	<!-- Toolbar -->
-	<div class="flex min-h-[3.25rem] items-center gap-3 overflow-x-auto overflow-y-hidden border-b border-border/30 p-3 md:px-6">
+	<div
+		class="flex min-h-[3.25rem] items-center gap-3 overflow-x-auto overflow-y-hidden border-b border-border/30 p-3 md:px-6"
+	>
 		<!-- Search (collapsible on mobile) -->
-		<div class="relative flex h-9 items-center shrink-0">
-			<div
-				class="flex items-center gap-2 {searchExpanded ? 'flex' : 'hidden'} md:flex"
-			>
+		<div class="relative flex h-9 shrink-0 items-center">
+			<div class="flex items-center gap-2 {searchExpanded ? 'flex' : 'hidden'} md:flex">
 				<div class="relative w-[200px] shrink-0 sm:w-[250px]">
 					<Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
 					<Input bind:value={searchQuery} placeholder="Search presets..." class="pl-8" />
@@ -269,7 +278,9 @@
 			</div>
 			<button
 				type="button"
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:text-foreground md:hidden {searchExpanded ? 'hidden' : 'flex'}"
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:text-foreground md:hidden {searchExpanded
+					? 'hidden'
+					: 'flex'}"
 				aria-label="Toggle search"
 				onclick={() => (searchExpanded = true)}
 			>

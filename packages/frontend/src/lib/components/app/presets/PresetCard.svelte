@@ -55,7 +55,7 @@
 			{#if onDuplicate}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
+					class="rounded p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
 					onclick={onDuplicate}
 					disabled={isOperating}
 					title="Duplicate preset"
@@ -67,7 +67,7 @@
 			{#if onEdit}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
+					class="rounded p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
 					onclick={onEdit}
 					disabled={isOperating}
 					title="Edit preset"
@@ -101,12 +101,12 @@
 		<div class="mb-2 flex flex-wrap items-center gap-1">
 			<Sparkles class="mr-1 h-3 w-3 text-muted-foreground" />
 			{#each preset.commonPrompts.slice(0, 2) as prompt, i (i)}
-				<Badge variant="outline" class="max-w-[12rem] truncate text-[10px]">
+				<Badge variant="outline" class="max-w-[12rem] truncate text-xs">
 					{prompt.length > 24 ? prompt.slice(0, 24) + '…' : prompt}
 				</Badge>
 			{/each}
 			{#if preset.commonPrompts.length > 2}
-				<Badge variant="secondary" class="text-[10px]">+{preset.commonPrompts.length - 2}</Badge>
+				<Badge variant="secondary" class="text-xs">+{preset.commonPrompts.length - 2}</Badge>
 			{/if}
 		</div>
 	{/if}
@@ -116,10 +116,10 @@
 		<div class="mb-2 flex flex-wrap items-center gap-1">
 			<Wrench class="mr-1 h-3 w-3 text-muted-foreground" />
 			{#each toolLabels.slice(0, 4) as label, i (i)}
-				<Badge variant="outline" class="text-[10px]">{label}</Badge>
+				<Badge variant="outline" class="text-xs">{label}</Badge>
 			{/each}
 			{#if toolLabels.length > 4}
-				<Badge variant="secondary" class="text-[10px]">+{toolLabels.length - 4}</Badge>
+				<Badge variant="secondary" class="text-xs">+{toolLabels.length - 4}</Badge>
 			{/if}
 		</div>
 	{/if}
@@ -127,10 +127,10 @@
 	<!-- Footer -->
 	<div class="mt-auto flex items-center justify-between gap-2 pt-2">
 		<div class="flex items-center gap-1.5">
-			<Badge variant="tertiary" class="text-[10px]"
+			<Badge variant="tertiary" class="text-xs"
 				>{toolCount} tool{toolCount !== 1 ? 's' : ''}</Badge
 			>
-			<Badge variant="tertiary" class="text-[10px]"
+			<Badge variant="tertiary" class="text-xs"
 				>{promptCount} prompt{promptCount !== 1 ? 's' : ''}</Badge
 			>
 		</div>
@@ -138,7 +138,7 @@
 		{#if onActivate}
 			<button
 				type="button"
-				class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {isActive
+				class="rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {isActive
 					? 'bg-primary text-primary-foreground hover:bg-primary/90'
 					: 'bg-info-bg text-info hover:bg-info-bg/80 hover:text-info/80'}"
 				onclick={isActive && onDeactivate ? onDeactivate : onActivate}

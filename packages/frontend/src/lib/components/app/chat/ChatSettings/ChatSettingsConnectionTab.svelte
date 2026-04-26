@@ -154,7 +154,7 @@
 		<div class="flex gap-2">
 			<Input
 				id="server-endpoint"
-				type="text"
+				type="url"
 				bind:value={endpointInput}
 				onblur={handleEndpointChange}
 				onkeydown={handleEndpointKeydown}
@@ -251,7 +251,7 @@
 								<span class="truncate text-sm">{model.name}</span>
 								<span class="ml-2 flex shrink-0 items-center gap-1.5">
 									{#if isActive}
-										<Badge variant="secondary" class="px-1.5 py-0 text-[10px]">active</Badge>
+										<Badge variant="secondary" class="px-1.5 py-0 text-xs">active</Badge>
 									{:else if model.model}
 										<span class="truncate text-xs text-muted-foreground"
 											>{model.model.split('/').pop()}</span
@@ -354,7 +354,7 @@
 				</label>
 				<Input
 					id="subagent-endpoint"
-					type="text"
+					type="url"
 					bind:value={subagentEndpointInput}
 					onblur={handleSubagentEndpointChange}
 					onkeydown={handleSubagentEndpointKeydown}
@@ -388,7 +388,7 @@
 								>
 									<span class="truncate text-sm">{model.name}</span>
 									{#if isActive}
-										<Badge variant="secondary" class="ml-2 shrink-0 px-1.5 py-0 text-[10px]"
+										<Badge variant="secondary" class="ml-2 shrink-0 px-1.5 py-0 text-xs"
 											>active</Badge
 										>
 									{/if}

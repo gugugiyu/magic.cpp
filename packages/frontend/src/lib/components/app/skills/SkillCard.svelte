@@ -76,7 +76,7 @@
 			{#if onPreview}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
+					class="rounded p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
 					onclick={onPreview}
 					disabled={isOperating}
 					title="Preview skill"
@@ -88,7 +88,7 @@
 			{#if onDuplicate}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
+					class="rounded p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
 					onclick={onDuplicate}
 					disabled={isOperating}
 					title="Duplicate skill"
@@ -100,7 +100,7 @@
 			{#if onEdit}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
+					class="rounded p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
 					onclick={onEdit}
 					disabled={isOperating}
 					title="Edit skill"
@@ -112,7 +112,7 @@
 			{#if onDelete}
 				<button
 					type="button"
-					class="rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1"
+					class="rounded p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5"
 					onclick={onDelete}
 					disabled={isOperating}
 					title="Delete skill"
@@ -132,22 +132,22 @@
 	<!-- Badges -->
 	<div class="mt-auto flex flex-wrap items-center gap-1.5">
 		{#if skill.source && skill.source !== 'local'}
-			<Badge variant={getSourceBadgeVariant(skill.source)} class="text-[10px]">
+			<Badge variant={getSourceBadgeVariant(skill.source)} class="text-xs">
 				{sourceLabels[skill.source]}
 			</Badge>
 		{/if}
 
-		<Badge variant="tertiary" class="text-[10px]">
+		<Badge variant="tertiary" class="text-xs">
 			{(byteCount / 1024).toFixed(1)} KB
 		</Badge>
 
 		{#if hasFrontmatter}
 			{#if skill.frontmatter.context === 'fork'}
-				<Badge variant="outline" class="text-[10px]">fork</Badge>
+				<Badge variant="outline" class="text-xs">fork</Badge>
 			{/if}
 
 			{#if skill.frontmatter.disableModelInvocation}
-				<Badge variant="outline" class="bg-warning-bg text-[10px] text-warning">user-only</Badge>
+				<Badge variant="outline" class="bg-warning-bg text-xs text-warning">user-only</Badge>
 			{/if}
 		{/if}
 
@@ -155,19 +155,19 @@
 		{#if onToggle}
 			<button
 				type="button"
-				class="ml-auto inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none {enabled
-					? 'bg-primary'
-					: 'bg-muted'}"
-				role="switch"
-				aria-checked={enabled}
-				aria-label="{enabled ? 'Disable' : 'Enable'} skill {skill.title}"
-				onclick={() => onToggle(!enabled)}
-			>
-				<span
-					class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm transition-transform {enabled
-						? 'translate-x-4'
-						: 'translate-x-0.5'}"
-				></span>
+			class="ml-auto inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none {enabled
+				? 'bg-primary'
+				: 'bg-muted'}"
+			role="switch"
+			aria-checked={enabled}
+			aria-label="{enabled ? 'Disable' : 'Enable'} skill {skill.title}"
+			onclick={() => onToggle(!enabled)}
+		>
+			<span
+				class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm transition-transform {enabled
+					? 'translate-x-5'
+					: 'translate-x-0.5'}"
+			></span>
 			</button>
 		{/if}
 	</div>

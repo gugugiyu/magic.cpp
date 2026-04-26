@@ -403,6 +403,7 @@
 		() => config()
 	);
 	const scroll = useScrollController();
+	let settingsScrollRef: HTMLElement | null = $state(null);
 
 	function navigateToSection(section: SettingsSectionTitle) {
 		const slug = SETTINGS_SECTION_TITLE_TO_SLUG[section];
@@ -427,6 +428,17 @@
 				}
 			}
 		}, SCROLL_CENTER_DELAY_MS);
+	});
+
+	// Reset settings scroll to top when switching sections
+	$effect(() => {
+		const _ = activeSection;
+		tick().then(() => {
+			const viewport = settingsScrollRef?.querySelector('[data-slot="scroll-area-viewport"]');
+			if (viewport) {
+				viewport.scrollTop = 0;
+			}
+		});
 	});
 
 	function handleThemeChange(newTheme: string) {
@@ -527,7 +539,7 @@
 			<!-- Horizontal Scrollable Category Menu with Navigation -->
 			<div class="relative flex scroll-p-4 items-center">
 				<button
-					class="absolute left-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm hover:bg-accent motion-safe:transition-opacity {scroll.canScrollLeft
+					class="absolute left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm hover:bg-accent motion-safe:transition-opacity {scroll.canScrollLeft
 						? 'opacity-100'
 						: 'pointer-events-none opacity-0'}"
 					onclick={scroll.scrollLeft}
@@ -562,7 +574,7 @@
 				</div>
 
 				<button
-					class="absolute right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm hover:bg-accent motion-safe:transition-opacity {scroll.canScrollRight
+					class="absolute right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-muted shadow-md backdrop-blur-sm hover:bg-accent motion-safe:transition-opacity {scroll.canScrollRight
 						? 'opacity-100'
 						: 'pointer-events-none opacity-0'}"
 					onclick={scroll.scrollRight}
@@ -574,9 +586,9 @@
 		</div>
 	</div>
 
-	<ScrollArea class="flex-1" type="hover" scrollHideDelay={20}>
+	<ScrollArea bind:ref={settingsScrollRef} class="flex-1" type="hover" scrollHideDelay={20}>
 		{#key activeSection}
-			<div class="flex h-full flex-col p-4 md:p-6" in:fade={{ duration: 100 }}>
+			<div class="flex min-h-full flex-col p-4 md:p-6" in:fade={{ duration: 100 }}>
 				<div
 					class="sticky top-0 z-10 -mx-4 -mt-4 mb-6 hidden items-center gap-2 border-b border-border/30 bg-background px-4 pt-4 pb-6 md:-mx-6 md:-mt-6 md:flex md:px-6 md:pt-6"
 				>
@@ -587,7 +599,7 @@
 					</h3>
 				</div>
 
-				<div class="min-h-0 flex-1">
+				<div class="flex-1">
 					{#if currentSection.title === SETTINGS_SECTION_TITLES.IMPORT_EXPORT}
 						<ChatSettingsImportExportTab />
 					{:else if currentSection.title === SETTINGS_SECTION_TITLES.CONNECTION}

@@ -520,6 +520,7 @@
 			{#if editingSectionIndex === index}
 				<textarea
 					class="agentic-edit-textarea"
+					aria-label="Edit assistant message section"
 					rows={Math.max(3, editingSectionText.split('\n').length)}
 					bind:value={editingSectionText}
 					onkeydown={(e) => {
@@ -698,10 +699,10 @@
 				{@const activeFinal = subagentFinalStats}
 				{@const displayTotal = activeProgress?.usage?.total ?? activeFinal?.totalTokens}
 				{@const displayToolCalls = activeProgress?.toolCallsCount ?? activeFinal?.toolCallsCount}
-				<div class="subagent-steps">
+				<div class="subagent-steps" role="status" aria-live="polite" aria-atomic="false">
 					{#if activeProgress?.originSkill}
 						<div class="subagent-step">
-							<Badge variant="outline" class="text-[10px]">
+							<Badge variant="outline" class="text-xs">
 								Triggered by skill: {activeProgress.originSkill}
 							</Badge>
 						</div>
@@ -756,14 +757,14 @@
 						{#if isPending && !isAwaitingApproval}<Loader2 class="h-3 w-3 animate-spin" />{/if}
 						{#if section.wasCropped}
 							<span
-								class="inline-flex items-center gap-1 rounded-md bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning"
+								class="inline-flex items-center gap-1 rounded-md bg-warning/10 px-1.5 py-0.5 text-xs font-medium text-warning"
 							>
 								<Scissors class="h-2.5 w-2.5" />
 								Trimmed
 							</span>
 						{:else if section.wasSummarized}
 							<span
-								class="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+								class="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary"
 							>
 								<Sparkles class="h-2.5 w-2.5" />
 								Summarized
@@ -777,7 +778,7 @@
 							</p>
 							{#if runCommandArgs.inShell}
 								<div
-									class="mb-2 inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[10px] font-semibold text-destructive"
+									class="mb-2 inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs font-semibold text-destructive"
 								>
 									<AlertCircle class="h-3 w-3" />
 									Shell mode requested — arbitrary code execution is possible.
@@ -813,7 +814,7 @@
 							</p>
 							{#if runCommandArgs.inShell}
 								<div
-									class="mb-2 inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[10px] font-semibold text-destructive"
+									class="mb-2 inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs font-semibold text-destructive"
 								>
 									<AlertCircle class="h-3 w-3" />
 									Shell mode requested — arbitrary code execution is possible.
@@ -984,6 +985,7 @@
 	}
 
 	.agentic-text-group:hover .agentic-section-actions,
+	.agentic-text-group:focus-within .agentic-section-actions,
 	.agentic-text-group.editing .agentic-section-actions {
 		opacity: 1;
 		max-height: 2rem;
@@ -1004,6 +1006,13 @@
 		transition:
 			opacity 0.15s ease,
 			max-height 0.15s ease;
+	}
+
+	@media (hover: none) {
+		.agentic-section-actions {
+			opacity: 1;
+			max-height: 2rem;
+		}
 	}
 
 	.agentic-edit-textarea {
@@ -1030,7 +1039,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.25rem;
-		padding: 0.25rem 0.5rem;
+		padding: 0.375rem 0.5rem;
 		border-radius: 0.25rem;
 		border: none;
 		background: transparent;
@@ -1040,6 +1049,7 @@
 			color 0.15s,
 			background 0.15s;
 		font-size: 0.75rem;
+		min-height: 1.5rem;
 	}
 
 	.agentic-action-btn:hover {
@@ -1061,14 +1071,14 @@
 	}
 
 	.agentic-inline-block {
-		margin-bottom: 0.3rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.agentic-inline-trigger {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.125rem 0.25rem;
+		padding: 0.25rem 0.375rem;
 		border-radius: 0.25rem;
 		background: transparent;
 		border: none;
@@ -1081,6 +1091,7 @@
 			background 0.15s;
 		text-align: left;
 		width: auto;
+		min-height: 1.5rem;
 	}
 
 	.agentic-inline-trigger:hover {
@@ -1170,8 +1181,10 @@
 		}
 	}
 
-	.thinking-pulse {
-		animation: thinking-pulse 1.6s ease-in-out infinite;
+	@media (prefers-reduced-motion: no-preference) {
+		.thinking-pulse {
+			animation: thinking-pulse 1.6s ease-in-out infinite;
+		}
 	}
 
 	.agentic-turn {

@@ -32,7 +32,7 @@
 
 {#if open}
 	<aside
-		class="z-999 flex h-full w-72 flex-col border-l bg-background shadow-sm"
+		class="absolute top-0 right-0 z-999 flex h-full w-72 flex-col border-l bg-background shadow-sm"
 		transition:slide={{ duration: 200, axis: 'x' }}
 	>
 		<div class="flex items-center justify-between border-b px-4 py-3">

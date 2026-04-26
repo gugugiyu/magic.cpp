@@ -44,7 +44,7 @@
 							class="flex cursor-pointer items-center gap-1.5 pt-1 pb-0.5 text-sm leading-none font-medium"
 						>
 							{tool.label}
-							<span class="text-[10px] text-muted-foreground tabular-nums">
+							<span class="text-xs text-muted-foreground tabular-nums">
 								~{getBuiltinToolPayloadApproxChars(tool.key)} chars
 							</span>
 						</label>
@@ -62,7 +62,7 @@
 		<SettingsSectionDivider class="space-y-4">
 			<h3 class="text-sm font-semibold">Backend Tools</h3>
 			<p class="text-xs text-muted-foreground">
-				Routed through the server via <code class="rounded bg-muted px-1 py-0.5 text-[10px]"
+				Routed through the server via <code class="rounded bg-muted px-1 py-0.5 text-xs"
 					>POST /api/tools/execute</code
 				>.
 			</p>
@@ -81,7 +81,7 @@
 								class="flex cursor-pointer items-center gap-1.5 pt-1 pb-0.5 text-sm leading-none font-medium"
 							>
 								{tool.label}
-								<span class="text-[10px] text-muted-foreground tabular-nums">
+								<span class="text-xs text-muted-foreground tabular-nums">
 									~{getBuiltinToolPayloadApproxChars(tool.key)} chars
 								</span>
 							</label>
@@ -112,7 +112,7 @@
 					<div class="flex flex-wrap gap-1.5">
 						{#each runCommandSessionStore.backendAllowedList as cmd (cmd)}
 							<span
-								class="inline-flex items-center gap-1 rounded-full border border-border bg-success-bg px-2 py-0.5 text-[10px] text-success"
+								class="inline-flex items-center gap-1 rounded-full border border-border bg-success-bg px-2 py-0.5 text-xs text-success"
 							>
 								<span class="font-mono">{cmd}</span>
 							</span>
@@ -145,17 +145,17 @@
 					<div class="flex flex-wrap gap-1.5">
 						{#each runCommandSessionStore.getApprovedCommands() as cmd (cmd)}
 							<div
-								class="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] text-primary"
+								class="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs text-primary"
 							>
 								<span class="font-mono">{cmd}</span>
-								<button
-									type="button"
-									class="inline-flex items-center justify-center rounded-full hover:bg-primary/20"
-									onclick={() => runCommandSessionStore.revoke(cmd)}
-									title="Revoke {cmd}"
-								>
-									<X class="h-2.5 w-2.5" />
-								</button>
+							<button
+								type="button"
+								class="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full hover:bg-primary/20"
+								onclick={() => runCommandSessionStore.revoke(cmd)}
+								title="Revoke {cmd}"
+							>
+								<X class="h-3 w-3" />
+							</button>
 							</div>
 						{/each}
 					</div>

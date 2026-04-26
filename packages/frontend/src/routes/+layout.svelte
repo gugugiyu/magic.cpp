@@ -303,7 +303,7 @@
 	/>
 
 	<Sidebar.Provider bind:open={sidebarOpen}>
-		<div class="flex h-screen w-full" style:height="{innerHeight}px">
+		<div class="relative flex h-screen w-full" style:height="{innerHeight}px">
 			<Sidebar.Root class="h-full">
 				<ChatSidebar bind:this={chatSidebar} />
 			</Sidebar.Root>

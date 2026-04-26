@@ -155,19 +155,19 @@
 		{#if onToggle}
 			<button
 				type="button"
-			class="ml-auto inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none {enabled
-				? 'bg-primary'
-				: 'bg-muted'}"
-			role="switch"
-			aria-checked={enabled}
-			aria-label="{enabled ? 'Disable' : 'Enable'} skill {skill.title}"
-			onclick={() => onToggle(!enabled)}
-		>
-			<span
-				class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm transition-transform {enabled
-					? 'translate-x-5'
-					: 'translate-x-0.5'}"
-			></span>
+				class="ml-auto inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none {enabled
+					? 'bg-primary'
+					: 'bg-muted'}"
+				role="switch"
+				aria-checked={enabled}
+				aria-label="{enabled ? 'Disable' : 'Enable'} skill {skill.title}"
+				onclick={() => onToggle(!enabled)}
+			>
+				<span
+					class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm transition-transform {enabled
+						? 'translate-x-5'
+						: 'translate-x-0.5'}"
+				></span>
 			</button>
 		{/if}
 	</div>

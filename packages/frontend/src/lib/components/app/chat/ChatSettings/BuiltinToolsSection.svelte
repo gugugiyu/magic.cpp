@@ -148,14 +148,14 @@
 								class="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs text-primary"
 							>
 								<span class="font-mono">{cmd}</span>
-							<button
-								type="button"
-								class="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full hover:bg-primary/20"
-								onclick={() => runCommandSessionStore.revoke(cmd)}
-								title="Revoke {cmd}"
-							>
-								<X class="h-3 w-3" />
-							</button>
+								<button
+									type="button"
+									class="inline-flex min-h-[1.5rem] min-w-[1.5rem] items-center justify-center rounded-full hover:bg-primary/20"
+									onclick={() => runCommandSessionStore.revoke(cmd)}
+									title="Revoke {cmd}"
+								>
+									<X class="h-3 w-3" />
+								</button>
 							</div>
 						{/each}
 					</div>

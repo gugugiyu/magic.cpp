@@ -249,11 +249,11 @@
 	$effect(() => {
 		const apiKey = config().apiKey;
 
-		if (
-			(page.route.id === '/' || page.route.id === '/chat/[id]') &&
-			page.status !== 401 &&
-			page.status !== 403
-		) {
+		// Untrack page to avoid re-running this effect on every navigation
+		const routeId = untrack(() => page.route.id);
+		const status = untrack(() => page.status);
+
+		if ((routeId === '/' || routeId === '/chat/[id]') && status !== 401 && status !== 403) {
 			const headers: Record<string, string> = {
 				'Content-Type': 'application/json'
 			};

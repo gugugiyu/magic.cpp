@@ -127,9 +127,7 @@
 	<!-- Footer -->
 	<div class="mt-auto flex items-center justify-between gap-2 pt-2">
 		<div class="flex items-center gap-1.5">
-			<Badge variant="tertiary" class="text-xs"
-				>{toolCount} tool{toolCount !== 1 ? 's' : ''}</Badge
-			>
+			<Badge variant="tertiary" class="text-xs">{toolCount} tool{toolCount !== 1 ? 's' : ''}</Badge>
 			<Badge variant="tertiary" class="text-xs"
 				>{promptCount} prompt{promptCount !== 1 ? 's' : ''}</Badge
 			>

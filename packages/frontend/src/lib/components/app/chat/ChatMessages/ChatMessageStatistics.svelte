@@ -33,7 +33,7 @@
 		hideSummary = false
 	}: Props = $props();
 
-	let activeView: ChatMessageStatsView = $state(initialView);
+	let activeView = $state<ChatMessageStatsView>(initialView);
 	let hasAutoSwitchedToGeneration = $state(false);
 	let userHasInteracted = $state(false);
 

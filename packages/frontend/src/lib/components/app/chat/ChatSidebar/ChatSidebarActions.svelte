@@ -43,7 +43,7 @@
 		{
 			icon: Search,
 			label: 'Search',
-			keys: ['cmd', 'k'],
+			keys: ['shift', 'cmd', 'k'],
 			onClick: () => {
 				isSearchModeActive = true;
 			}
@@ -51,25 +51,25 @@
 		{
 			icon: McpLogo,
 			label: 'MCP Servers',
-			keys: ['cmd', 'm'],
+			keys: ['shift', 'cmd', 'm'],
 			onClick: () => goto('#/settings/mcp')
 		},
 		{
 			icon: Plug,
 			label: 'Connections',
-			keys: ['cmd', 'c'],
+			keys: ['shift', 'cmd', 'c'],
 			onClick: () => goto('#/settings/connection')
 		},
 		{
 			icon: UserCog,
 			label: 'Presets',
-			keys: ['cmd', 'u'],
+			keys: ['shift', 'cmd', 'u'],
 			onClick: () => goto('#/presets')
 		},
 		{
 			icon: Wrench,
 			label: 'Skills',
-			keys: ['cmd', 's'],
+			keys: ['shift', 'cmd', 's'],
 			onClick: () => goto('#/skills')
 		}
 	];

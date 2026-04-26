@@ -222,6 +222,26 @@ export { default as TodoPocket } from './ChatForm/TodoPocket.svelte';
 export { default as ChatFormTextarea } from './ChatForm/ChatFormTextarea.svelte';
 
 /**
+ * **FilePocket** - Fuzzy file path autocomplete
+ *
+ * Floating picker triggered by typing `@path` in the chat input.
+ * Provides fuzzy-matched file and directory suggestions from the
+ * workspace filesystem tree. Supports keyboard navigation and
+ * replaces the typed token with the selected full path on Enter.
+ *
+ * **Features:**
+ * - Fuzzy search across all files and directories
+ * - Keyboard navigation (↑/↓ to navigate, Enter to select, Esc to close)
+ * - Scrollable list capped at ~5 visible items
+ * - File/Directory icons for visual distinction
+ * - Stays above other overlays (z-50)
+ *
+ * **Exported API:**
+ * - `handleKeydown(event): boolean` - Process keyboard events, returns true if handled
+ */
+export { default as FilePocket } from './ChatForm/FilePocket.svelte';
+
+/**
  * **ChatFormPromptPicker** - MCP prompt selection interface
  *
  * Floating picker for browsing and selecting MCP Server Prompts.

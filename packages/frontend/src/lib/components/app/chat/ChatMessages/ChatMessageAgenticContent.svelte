@@ -842,7 +842,7 @@
 					{/if}
 
 					{#if section.toolResult}
-						<div class="overflow-auto rounded-md border border-border bg-muted/50 p-3">
+						<div class="max-h-40 overflow-auto rounded-md border border-border bg-muted/50 p-3">
 							{#each section.parsedLines as line, i (i)}
 								<div class="font-mono text-xs leading-relaxed whitespace-pre-wrap">{line.text}</div>
 								{#if line.image}
@@ -1060,12 +1060,6 @@
 		color: var(--muted-foreground);
 	}
 
-	.agentic-turn {
-		display: flex;
-		flex-direction: column;
-		gap: 0;
-	}
-
 	.agentic-inline-block {
 		margin-bottom: 0.3rem;
 	}
@@ -1120,9 +1114,11 @@
 	}
 
 	.agentic-inline-content {
-		padding-left: 1.25rem;
+		/* margin-left aligns the border with the icon's left edge (trigger padding-left = 0.25rem) */
+		margin-left: 0.25rem;
+		/* padding-left brings content to label position: icon(0.875rem) + gap(0.5rem) */
+		padding-left: 1.375rem;
 		margin-top: 0.25rem;
-		/* padding-left: 0.75rem; */
 		border-left: 2px solid color-mix(in oklch, var(--muted-foreground) 25%, transparent);
 		max-height: 32rem;
 		overflow-y: auto;
@@ -1133,8 +1129,9 @@
 		flex-direction: column;
 		gap: 0;
 		margin-top: 0.125rem;
-		margin-left: 1rem;
-		padding-left: 0.625rem;
+		/* same alignment as agentic-inline-content: border at icon left edge */
+		margin-left: 0.25rem;
+		padding-left: 1.375rem;
 		border-left: 2px solid color-mix(in oklch, var(--muted-foreground) 15%, transparent);
 	}
 
@@ -1178,10 +1175,13 @@
 	}
 
 	.agentic-turn {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
 		position: relative;
 		border: 1px solid color-mix(in oklch, var(--muted-foreground) 22%, transparent);
 		border-radius: 0.75rem;
-		padding: 1rem;
+		padding: 1.375rem;
 		background: color-mix(in oklch, var(--muted) 15%, transparent);
 		transition: background 0.15s ease;
 	}

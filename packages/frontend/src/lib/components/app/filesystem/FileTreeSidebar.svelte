@@ -81,6 +81,8 @@
 						Retry
 					</button>
 				</div>
+			{:else if displayTree && displayTree?.length === 0}
+				<div class="rounded-md p-3 text-sm text-muted">No files or directories found.</div>
 			{:else if displayTree}
 				<div class="px-2 pb-2 text-xs text-muted-foreground">
 					{#if hasSearch}

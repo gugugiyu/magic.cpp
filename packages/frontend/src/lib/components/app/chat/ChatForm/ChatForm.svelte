@@ -8,6 +8,7 @@
 		ChatFormResourcePicker,
 		ChatFormTextarea,
 		ChatFormSkillPicker,
+		FilePocket,
 		TodoPocket
 	} from '$lib/components/app';
 	import { DialogMcpResources } from '$lib/components/app/dialogs';
@@ -47,6 +48,8 @@
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { presetsStore } from '$lib/stores/presets.svelte';
+	import { filesystemStore } from '$lib/stores/filesystem.svelte';
+	import type { FileSystemNode } from '$lib/services/filesystem.service';
 
 	interface Props {
 		// Data
@@ -132,6 +135,15 @@
 	// Todo Pocket State
 	let isTodoPocketOpen = $state(false);
 
+	// File Pocket State
+	let isFilePocketOpen = $state(false);
+	let filePocketQuery = $state('');
+
+	let _filePocketSetIdx = $state(0);
+	let filePocketTokenStart = $state(0);
+	let filePocketTokenEnd = $state(0);
+	let filePocketRef: FilePocket | undefined = $state(undefined);
+
 	/**
 	 *
 	 *
@@ -175,6 +187,18 @@
 			return `${base} (Alt+Enter to steer)`;
 		}
 		return placeholder;
+	});
+
+	let allFileNodes = $derived(filesystemStore.tree ? flattenFileTree(filesystemStore.tree) : []);
+
+	let filePocketItems = $derived.by(() => {
+		const q = filePocketQuery.toLowerCase().trim();
+		return allFileNodes
+			.map((n) => ({ n, score: scorePathMatch(n, q) }))
+			.filter((x) => x.score > 0)
+			.sort((a, b) => b.score - a.score)
+			.map((x) => x.n)
+			.slice(0, 50);
 	});
 
 	/**
@@ -264,9 +288,71 @@
 	 *
 	 */
 
+	function getActiveAtToken(
+		text: string,
+		cursorPos: number
+	): { start: number; end: number; query: string } | null {
+		if (!text || cursorPos < 0) return null;
+
+		let start = cursorPos;
+		while (start > 0 && !/\s/.test(text[start - 1])) {
+			start--;
+		}
+
+		if (text[start] !== '@') return null;
+
+		let end = cursorPos;
+		while (end < text.length && !/\s/.test(text[end])) {
+			end++;
+		}
+
+		return {
+			start,
+			end,
+			query: text.slice(start + 1, end)
+		};
+	}
+
+	function flattenFileTree(nodes: FileSystemNode[]): FileSystemNode[] {
+		const result: FileSystemNode[] = [];
+		const stack = [...nodes];
+		while (stack.length > 0) {
+			const node = stack.pop()!;
+			result.push(node);
+			if (node.children) {
+				stack.push(...node.children);
+			}
+		}
+		return result;
+	}
+
+	function scorePathMatch(node: FileSystemNode, query: string): number {
+		const q = query.toLowerCase();
+		if (!q) return 50;
+
+		const pathLower = node.path.toLowerCase();
+		const nameLower = node.name.toLowerCase();
+
+		if (pathLower === q) return 1000;
+		if (nameLower === q) return 900;
+		if (pathLower.startsWith(q)) return 500;
+		if (nameLower.startsWith(q)) return 400;
+		if (pathLower.includes(q)) return 200;
+		if (nameLower.includes(q)) return 150;
+
+		let qi = 0;
+		for (let i = 0; i < pathLower.length && qi < q.length; i++) {
+			if (pathLower[i] === q[qi]) qi++;
+		}
+		if (qi === q.length) return 50;
+
+		return 0;
+	}
+
 	function handleInput() {
 		const perChatOverrides = conversationsStore.getAllMcpServerOverrides();
 		const hasServers = mcpStore.hasEnabledServers(perChatOverrides);
+		const hasResources = mcpStore.hasResourcesCapability(perChatOverrides);
 
 		// Check for /skills trigger first (handles "/skills", "/skills " and "/skills <query>")
 		const skillTriggerMatch = value.match(/^\/skills(?:\s(.*))?$/);
@@ -278,32 +364,72 @@
 			promptSearchQuery = '';
 			isInlineResourcePickerOpen = false;
 			resourceSearchQuery = '';
-		} else if (value.startsWith(PROMPT_TRIGGER_PREFIX) && hasServers) {
+			isFilePocketOpen = false;
+			filePocketQuery = '';
+			return;
+		}
+
+		const cursorPos = textareaRef?.getElement()?.selectionStart ?? value.length;
+		const token = getActiveAtToken(value, cursorPos);
+
+		if (token) {
+			const query = token.query;
+			const isAtStart = token.start === 0;
+			const isPathLike = query.includes('/');
+
+			if (isPathLike || !isAtStart || !hasServers || !hasResources) {
+				filePocketQuery = query;
+				filePocketTokenStart = token.start;
+				filePocketTokenEnd = token.end;
+				isFilePocketOpen = true;
+				_filePocketSetIdx = 0;
+				isPromptPickerOpen = false;
+				promptSearchQuery = '';
+				isInlineResourcePickerOpen = false;
+				resourceSearchQuery = '';
+				isSkillPickerOpen = false;
+				skillSearchQuery = '';
+				if (!filesystemStore.tree) filesystemStore.load();
+			} else {
+				isInlineResourcePickerOpen = true;
+				resourceSearchQuery = query;
+				isPromptPickerOpen = false;
+				promptSearchQuery = '';
+				isSkillPickerOpen = false;
+				skillSearchQuery = '';
+				isFilePocketOpen = false;
+				filePocketQuery = '';
+			}
+			return;
+		}
+
+		if (value.startsWith(PROMPT_TRIGGER_PREFIX) && hasServers) {
 			isPromptPickerOpen = true;
 			promptSearchQuery = value.slice(1);
 			isInlineResourcePickerOpen = false;
 			resourceSearchQuery = '';
 			isSkillPickerOpen = false;
-		} else if (
-			value.startsWith(RESOURCE_TRIGGER_PREFIX) &&
-			hasServers &&
-			mcpStore.hasResourcesCapability(perChatOverrides)
-		) {
-			isInlineResourcePickerOpen = true;
-			resourceSearchQuery = value.slice(1);
-			isPromptPickerOpen = false;
-			promptSearchQuery = '';
-			isSkillPickerOpen = false;
-		} else {
-			isPromptPickerOpen = false;
-			promptSearchQuery = '';
-			isInlineResourcePickerOpen = false;
-			resourceSearchQuery = '';
-			isSkillPickerOpen = false;
+			skillSearchQuery = '';
+			isFilePocketOpen = false;
+			filePocketQuery = '';
+			return;
 		}
+
+		isPromptPickerOpen = false;
+		promptSearchQuery = '';
+		isInlineResourcePickerOpen = false;
+		resourceSearchQuery = '';
+		isSkillPickerOpen = false;
+		skillSearchQuery = '';
+		isFilePocketOpen = false;
+		filePocketQuery = '';
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
+		if (isFilePocketOpen && filePocketRef?.handleKeydown(event)) {
+			return;
+		}
+
 		if (isPromptPickerOpen && promptPickerRef?.handleKeydown(event)) {
 			return;
 		}
@@ -332,6 +458,12 @@
 		if (event.key === KeyboardKey.ESCAPE && isSkillPickerOpen) {
 			isSkillPickerOpen = false;
 			skillSearchQuery = '';
+			return;
+		}
+
+		if (event.key === KeyboardKey.ESCAPE && isFilePocketOpen) {
+			isFilePocketOpen = false;
+			filePocketQuery = '';
 			return;
 		}
 
@@ -424,6 +556,39 @@
 
 			onFilesAdd?.([textFile]);
 		}
+	}
+
+	/**
+	 *
+	 *
+	 * EVENT HANDLERS - File Pocket
+	 *
+	 *
+	 */
+
+	function handleFilePocketSelect(path: string) {
+		const before = value.slice(0, filePocketTokenStart);
+		const after = value.slice(filePocketTokenEnd);
+		value = `${before}@${path}${after}`;
+		onValueChange?.(value);
+
+		isFilePocketOpen = false;
+		filePocketQuery = '';
+
+		const pos = filePocketTokenStart + 1 + path.length;
+		requestAnimationFrame(() => {
+			const el = textareaRef?.getElement();
+			if (el) {
+				el.selectionStart = el.selectionEnd = pos;
+				el.focus();
+			}
+		});
+	}
+
+	function handleFilePocketClose() {
+		isFilePocketOpen = false;
+		filePocketQuery = '';
+		textareaRef?.focus();
 	}
 
 	/**
@@ -650,6 +815,16 @@
 		searchQuery={skillSearchQuery}
 		onSkillSelect={handleSkillSelect}
 		onClose={handleSkillPickerClose}
+	/>
+
+	<FilePocket
+		bind:this={filePocketRef}
+		isOpen={isFilePocketOpen}
+		items={filePocketItems}
+		query={filePocketQuery}
+		isLoading={filesystemStore.loading}
+		onSelect={handleFilePocketSelect}
+		onClose={handleFilePocketClose}
 	/>
 
 	<div

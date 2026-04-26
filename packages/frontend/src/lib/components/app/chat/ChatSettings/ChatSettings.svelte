@@ -574,7 +574,7 @@
 		</div>
 	</div>
 
-	<ScrollArea class="flex-1">
+	<ScrollArea class="flex-1" type="hover" scrollHideDelay={20}>
 		{#key activeSection}
 			<div class="flex h-full flex-col p-4 md:p-6" in:fade={{ duration: 100 }}>
 				<div

@@ -8,6 +8,30 @@ export class FilesystemStore {
 	expanded = $state(new SvelteSet<string>());
 	fileCount = $state(0);
 	sidebarOpen = $state(false);
+	searchQuery = $state('');
+
+	filteredTree = $derived.by(() => {
+		if (!this.tree) return null;
+		if (!this.searchQuery.trim()) return this.tree;
+		return this.filterTreeByQuery(this.tree, this.searchQuery.toLowerCase());
+	});
+
+	private filterTreeByQuery(nodes: FileSystemNode[], query: string): FileSystemNode[] {
+		const result: FileSystemNode[] = [];
+		for (const node of nodes) {
+			const nameMatches = node.name.toLowerCase().includes(query);
+			const pathMatches = node.path.toLowerCase().includes(query);
+			if (nameMatches || pathMatches) {
+				result.push({ ...node });
+			} else if (node.children) {
+				const filteredChildren = this.filterTreeByQuery(node.children, query);
+				if (filteredChildren.length > 0) {
+					result.push({ ...node, children: filteredChildren });
+				}
+			}
+		}
+		return result;
+	}
 
 	async load(path?: string) {
 		if (this.loading) return;

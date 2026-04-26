@@ -80,23 +80,19 @@
 	}
 </script>
 
-<div class="grid flex-1 {className}" style="width: 100%; grid-template-columns: 1fr;">
+<div class="grid flex-1 {className} max-h-50" style="width: 100%; grid-template-columns: 1fr;">
 	<!-- Overlay layer -->
 	<div
 		bind:this={overlayElement}
 		class="pointer-events-none col-start-1 row-start-1 overflow-hidden"
 		aria-hidden="true"
 	>
-		<div
-			class="min-h-12 w-full text-base leading-6 break-words whitespace-pre-wrap text-transparent"
-		>
+		<div class="min-h-12 w-full text-base break-words text-transparent">
 			{#each segments as segment (segment.start)}
 				{#if segment.type === 'text'}
-					<span>{segment.text}</span>
+					<span class="text-foreground">{segment.text}</span>
 				{:else}
-					<span
-						class="inline-flex items-center rounded bg-primary/10 px-1 py-0.5 font-mono text-sm text-primary"
-					>
+					<span class="items-center rounded bg-primary/20 text-foreground">
 						@{segment.path}
 					</span>
 				{/if}
@@ -111,8 +107,8 @@
 	<textarea
 		bind:this={textareaElement}
 		bind:value
-		class="col-start-1 row-start-1 min-h-12 w-full resize-none border-0 bg-transparent text-base leading-6 text-transparent outline-none placeholder:text-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-		style="caret-color: var(--foreground); max-height: var(--max-message-height);"
+		class="text-transparentmin-h-12 col-start-1 row-start-1 max-h-46 w-full resize-none border-0 bg-transparent text-base break-words outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+		style="caret-color: var(--foreground);"
 		aria-label="Message input"
 		class:cursor-not-allowed={disabled}
 		{disabled}

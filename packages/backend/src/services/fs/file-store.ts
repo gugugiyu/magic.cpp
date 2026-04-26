@@ -97,6 +97,7 @@ export class FileStore {
 	/** Read a file's content as text. Returns null if not found. */
 	async read(name: string): Promise<string | null> {
 		const file = Bun.file(this.resolvePath(name));
+		console.log(file, this.resolvePath(name), "@@")
 		if (!(await file.exists())) {
 			return null;
 		}
@@ -155,6 +156,41 @@ export class FileStore {
 	async listNames(): Promise<string[]> {
 		const entries = await this.list();
 		return entries.map((e) => e.name);
+	}
+
+	/** List all matching files recursively (including subdirectories). */
+	async listRecursive(): Promise<FileStoreEntry[]> {
+		const entries: FileStoreEntry[] = [];
+
+		const scanDir = async (dirPath: string, baseName: string) => {
+			try {
+				const files = await readdir(dirPath);
+				for (const fileName of files) {
+					const fullPath = resolve(dirPath, fileName);
+					const fileStat = await stat(fullPath);
+					if (fileStat.isDirectory()) {
+						await scanDir(fullPath, baseName ? `${baseName}/${fileName}` : fileName);
+					} else if (fileName.endsWith(this.extension)) {
+						const name = baseName
+							? `${baseName}/${fileName.slice(0, -this.extension.length)}`
+							: fileName.slice(0, -this.extension.length);
+						entries.push({
+							name,
+							path: fullPath,
+							lastModified: fileStat.mtime,
+							size: fileStat.size
+						});
+					}
+				}
+			} catch {
+				// Skip directories we can't read
+			}
+		};
+
+		await scanDir(this.fullPath, '');
+
+		entries.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+		return entries;
 	}
 
 	/**
@@ -216,3 +252,12 @@ export const skillFileStore = new FileStore({
 	extension: SKILL_FILE_EXTENSION,
 	dataDir: resolve(loadConfig().database.path, "..") ?? resolve(__dirname, '..', '..', 'data') /* Going back once to not nested upon "chat.db" */
 });
+
+/** Create a FileStore for a specific skill source directory. */
+export function createSkillFileStoreForSource(sourcePath: string): FileStore {
+	return new FileStore({
+		directory: '',  // path is already complete, not a subdirectory
+		extension: SKILL_FILE_EXTENSION,
+		dataDir: sourcePath
+	});
+}

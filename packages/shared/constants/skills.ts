@@ -28,10 +28,16 @@ export const SKILL_ARGUMENTS_PATTERN = /\$ARGUMENTS\[(\d+)\]/g;
  * Replaces any non-alphanumeric character (except hyphens and underscores) with hyphens.
  * Collapses consecutive separators into a single hyphen.
  * Strips leading/trailing separators.
+ * Preserves path segments (e.g., "subdir/my-skill" → "subdir/my-skill").
  */
 export function sanitizeSkillName(name: string): string {
 	return name
-		.replace(/[^a-zA-Z0-9_-]+/g, '-')
-		.replace(/^-+|-+$/g, '')
-		.toLowerCase();
+		.replace(/\\/g, '/')  // Normalize backslashes to forward slashes
+		.split('/')  // Split into path segments
+		.map((segment) =>
+			segment
+				.replace(/[^a-zA-Z0-9_-]+/g, '-')
+				.replace(/^-+|-+$/g, '')
+		)
+		.join('/')
 }

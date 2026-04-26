@@ -5,6 +5,9 @@
  * They support frontmatter metadata and $ARGUMENTS variable substitution.
  */
 
+/** Source location of a skill file. */
+export type SkillSource = 'local' | 'claude' | 'gemini' | 'qwen' | 'codex';
+
 /** Parsed frontmatter from a skill file. */
 export interface SkillFrontmatter {
 	/**
@@ -45,6 +48,9 @@ export interface SkillDefinition {
 
 	/** Parsed frontmatter metadata. */
 	frontmatter: SkillFrontmatter;
+
+	/** Source location of the skill file. */
+	source?: SkillSource;
 }
 
 /** Minimal skill info returned by `list_skill()` tool. */

@@ -13,7 +13,12 @@
 				destructive:
 					'bg-destructive [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/70 border-transparent text-destructive-foreground',
 				outline:
-					'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground backdrop-blur-sm'
+					'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground backdrop-blur-sm',
+				claude: 'bg-[#d68a3c] text-white border-transparent',
+				gemini: 'bg-[#4f46e5] text-white border-transparent',
+				qwen: 'bg-[#7c3aed] text-white border-transparent',
+				codex: 'bg-[#059669] text-white border-transparent',
+				global: 'bg-muted text-foreground border-transparent'
 			}
 		},
 		defaultVariants: {

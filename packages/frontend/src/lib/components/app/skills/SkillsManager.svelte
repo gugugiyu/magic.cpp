@@ -10,11 +10,24 @@
 	import { skillHasArguments } from '$lib/utils';
 	import { useDebounce } from '$lib/hooks/use-debounce.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import { Wrench, Plus, Upload, Search, Loader2, X, FileText, ArrowUpDown } from '@lucide/svelte';
+	import { Wrench, Plus, Upload, Search, Loader2, X, FileText, ArrowUpDown, RefreshCw } from '@lucide/svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
-	import type { SkillDefinition } from '@shared/types/skills';
+	import type { SkillDefinition, SkillSource } from '@shared/types/skills';
 	import { sanitizeSkillName, SKILL_MAX_CONTENT_BYTES } from '@shared/constants/skills';
+
+	// Helper to get warning for non-local skills
+	function getSkillWarning(source?: SkillSource): string | null {
+		if (!source || source === 'local') return null;
+		const labels: Record<SkillSource, string> = {
+			local: 'local',
+			claude: 'Claude',
+			gemini: 'Gemini',
+			qwen: 'Qwen',
+			codex: 'Codex'
+		};
+		return `This skill is from ${labels[source]}. Changes will be saved to the global ${labels[source]} skills directory.`;
+	}
 
 	// View modes
 	let searchQuery = $state('');
@@ -52,6 +65,9 @@
 	// Sort mode
 	type SortMode = 'default' | 'nameAsc' | 'enabledName';
 	let sortMode = $state<SortMode>('default');
+
+	// Mobile search collapse
+	let searchExpanded = $state(false);
 
 	const sortLabels: Record<SortMode, string> = {
 		default: 'Default',
@@ -414,20 +430,43 @@
 	</div>
 
 	<!-- Toolbar -->
-	<div class="flex items-center gap-3 border-b border-border/30 p-3 md:px-6">
-		<div class="relative flex-1">
-			<Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
-			<Input bind:value={searchQuery} placeholder="Search skills..." class="pl-8" />
-			{#if searchQuery}
+	<div class="flex min-h-[3.25rem] items-center gap-3 overflow-x-auto overflow-y-hidden border-b border-border/30 p-3 md:px-6">
+		<!-- Search (collapsible on mobile) -->
+		<div class="relative flex h-9 items-center shrink-0">
+			<div
+				class="flex items-center gap-2 {searchExpanded ? 'flex' : 'hidden'} md:flex"
+			>
+				<div class="relative w-[200px] shrink-0 sm:w-[250px]">
+					<Search class="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+					<Input bind:value={searchQuery} placeholder="Search skills..." class="pl-8" />
+					{#if searchQuery}
+						<button
+							type="button"
+							class="absolute top-2.5 right-2.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+							aria-label="Clear search"
+							onclick={() => (searchQuery = '')}
+						>
+							<X class="h-4 w-4" />
+						</button>
+					{/if}
+				</div>
 				<button
 					type="button"
-					class="absolute top-2.5 right-2.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-					aria-label="Clear search"
-					onclick={() => (searchQuery = '')}
+					class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:text-foreground md:hidden"
+					aria-label="Close search"
+					onclick={() => (searchExpanded = false)}
 				>
 					<X class="h-4 w-4" />
 				</button>
-			{/if}
+			</div>
+			<button
+				type="button"
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:text-foreground md:hidden {searchExpanded ? 'hidden' : 'flex'}"
+				aria-label="Toggle search"
+				onclick={() => (searchExpanded = true)}
+			>
+				<Search class="h-4 w-4" />
+			</button>
 		</div>
 
 		<!-- Sort controls -->
@@ -438,7 +477,7 @@
 				if (v) sortMode = v as SortMode;
 			}}
 		>
-			<SelectTrigger class="w-[180px]" aria-label="Sort skills">
+			<SelectTrigger class="w-[160px]" aria-label="Sort skills">
 				<ArrowUpDown class="mr-2 h-4 w-4" />
 				<span>{sortLabels[sortMode]}</span>
 			</SelectTrigger>
@@ -464,6 +503,15 @@
 		>
 			<Plus class="mr-1.5 h-4 w-4" />
 			New
+		</Button>
+
+		<Button
+			size="sm"
+			variant="ghost"
+			onclick={() => void skillsStore.loadSkills()}
+			title="Refresh skills"
+		>
+			<RefreshCw class="h-4 w-4" />
 		</Button>
 	</div>
 
@@ -525,6 +573,13 @@
 							<Button size="sm" onclick={saveEdit}>Save</Button>
 						</div>
 					</div>
+
+					{#if getSkillWarning(editingSkill.source)}
+						<div class="rounded-md bg-warning-bg px-3 py-2 text-xs text-warning">
+							{getSkillWarning(editingSkill.source)}
+						</div>
+					{/if}
+
 					<textarea
 						bind:value={editContent}
 						class="h-96 w-full rounded-md border border-border bg-background p-3 font-mono text-sm transition-shadow focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
@@ -564,10 +619,16 @@
 							? 'Try a different search term'
 							: 'Import a Claude skill or create a new one'}
 					</p>
-					<Button size="sm" onclick={() => (showImportModal = true)}>
-						<Upload class="mr-1.5 h-4 w-4" />
-						Import your first skill
-					</Button>
+					<div class="flex items-center gap-2">
+						<Button size="sm" variant="secondary" onclick={() => void skillsStore.loadSkills()}>
+							<Loader2 class="mr-1.5 h-4 w-4" />
+							Retry
+						</Button>
+						<Button size="sm" onclick={() => (showImportModal = true)}>
+							<Upload class="mr-1.5 h-4 w-4" />
+							Import skill
+						</Button>
+					</div>
 				</div>
 			{:else}
 				<!-- Skill Cards Grid -->
@@ -575,7 +636,7 @@
 					in:fade={{ duration: 150 }}
 					class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
 				>
-					{#each filteredSkills as skill (skill.name)}
+					{#each filteredSkills as skill (skill.name + skill.source)}
 						<SkillCard
 							{skill}
 							enabled={skillsStore.isSkillEnabled(skill.name)}

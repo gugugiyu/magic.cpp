@@ -1,8 +1,28 @@
 <script lang="ts">
 	import { Pencil, Trash2, Copy, Eye } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
-	import type { SkillDefinition } from '@shared/types/skills';
+	import type { SkillDefinition, SkillSource } from '@shared/types/skills';
 	import { SKILL_DESCRIPTION_TRIM_LENGTH } from '@shared/constants/skills';
+
+	const sourceLabels: Record<SkillSource, string> = {
+		local: 'local',
+		claude: 'Claude',
+		gemini: 'Gemini',
+		qwen: 'Qwen',
+		codex: 'Codex'
+	};
+
+	function getSourceBadgeVariant(
+		source?: SkillSource
+	): 'claude' | 'gemini' | 'qwen' | 'codex' | 'global' | undefined {
+		if (!source || source === 'local') return undefined;
+		// Map each provider to its corresponding badge variant
+		if (source === 'claude') return 'claude';
+		if (source === 'gemini') return 'gemini';
+		if (source === 'qwen') return 'qwen';
+		if (source === 'codex') return 'codex';
+		return 'global'; // fallback for any new providers
+	}
 
 	interface Props {
 		skill: SkillDefinition;
@@ -111,6 +131,12 @@
 
 	<!-- Badges -->
 	<div class="mt-auto flex flex-wrap items-center gap-1.5">
+		{#if skill.source && skill.source !== 'local'}
+			<Badge variant={getSourceBadgeVariant(skill.source)} class="text-[10px]">
+				{sourceLabels[skill.source]}
+			</Badge>
+		{/if}
+
 		<Badge variant="tertiary" class="text-[10px]">
 			{(byteCount / 1024).toFixed(1)} KB
 		</Badge>

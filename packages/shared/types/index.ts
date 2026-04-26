@@ -6,7 +6,7 @@ export type { MessageRole, MessageType } from '../enums/chat';
 export type { AttachmentType } from '../enums/attachment';
 
 // Re-export skill types
-export type { SkillDefinition, SkillFrontmatter, SkillListEntry, SkillReadResult } from './skills';
+export type { SkillDefinition, SkillFrontmatter, SkillListEntry, SkillReadResult, SkillSource } from './skills';
 
 // ========================
 // API types (minimal subset needed for shared types)

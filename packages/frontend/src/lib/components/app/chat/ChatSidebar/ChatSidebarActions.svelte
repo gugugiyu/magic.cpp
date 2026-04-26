@@ -51,25 +51,25 @@
 		{
 			icon: McpLogo,
 			label: 'MCP Servers',
-			keys: [],
+			keys: ['cmd', 'm'],
 			onClick: () => goto('#/settings/mcp')
 		},
 		{
 			icon: Plug,
 			label: 'Connections',
-			keys: [],
+			keys: ['cmd', 'c'],
 			onClick: () => goto('#/settings/connection')
 		},
 		{
 			icon: UserCog,
 			label: 'Presets',
-			keys: [],
+			keys: ['cmd', 'u'],
 			onClick: () => goto('#/presets')
 		},
 		{
 			icon: Wrench,
 			label: 'Skills',
-			keys: [],
+			keys: ['cmd', 's'],
 			onClick: () => goto('#/skills')
 		}
 	];

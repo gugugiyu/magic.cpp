@@ -13,6 +13,7 @@
 		"build": "echo 'Frontend must be built separately with: bun run build --workspace=@webui'"
 	},
 	"dependencies": {
+		"diff": "^9.0.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {

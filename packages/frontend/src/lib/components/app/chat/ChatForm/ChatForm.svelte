@@ -671,10 +671,10 @@
 		<TodoPocket convId={conversationsStore.activeConversation?.id ?? ''} open={isTodoPocketOpen} />
 
 		<div
-			class="relative flex min-h-[48px] flex-col items-center rounded-3xl py-2 pb-2.5 shadow-sm transition-shadow duration-150 focus-within:shadow-md md:!py-3"
+			class="relative flex flex-col items-center rounded-3xl py-2 pb-2.5 shadow-sm transition-shadow duration-150 focus-within:shadow-md md:!py-3"
 		>
 			<ChatFormTextarea
-				class="px-5 py-1.5 md:pt-0"
+				class="px-5 py-1.5 md:pt-0	"
 				bind:this={textareaRef}
 				bind:value
 				onKeydown={handleKeydown}

@@ -169,7 +169,8 @@ export default defineConfig({
 			'/models': 'http://localhost:3000',
 			'/cors-proxy': 'http://localhost:3000',
 			'/compact': 'http://localhost:3000',
-			'/health': 'http://localhost:3000'
+			'/health': 'http://localhost:3000',
+			'/api': 'http://localhost:3000'
 		},
 		headers: {
 			'Cross-Origin-Embedder-Policy': 'require-corp',

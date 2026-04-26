@@ -52,6 +52,10 @@ import { serverEndpointStore } from './server-endpoint.svelte';
 import { loadingContext } from './loading-context.svelte';
 import { createModuleLogger } from '$lib/utils/logger';
 import { toast } from 'svelte-sonner';
+import {
+	expandPathTokensInMessage,
+	expandPathTokensInMessages
+} from '$lib/utils/path-tokens-expansion.js';
 
 const logger = createModuleLogger('chatStore');
 
@@ -539,6 +543,9 @@ class ChatStore {
 	): Promise<void> {
 		if (!content.trim() && (!extras || extras.length === 0)) return;
 
+		const tokenCache = new Map<string, string>();
+		await expandPathTokensInMessage(content, tokenCache);
+
 		// Consume MCP resource attachments - converts them to extras and clears the live store
 		const resourceExtras = mcpStore.consumeResourceAttachmentsAsExtras();
 		const allExtras = resourceExtras.length > 0 ? [...(extras || []), ...resourceExtras] : extras;
@@ -608,7 +615,11 @@ class ChatStore {
 			conversationsStore.addMessageToActive(assistantMessage);
 			await this.streamChatCompletion(
 				conversationsStore.activeMessages.slice(0, -1),
-				assistantMessage
+				assistantMessage,
+				undefined,
+				undefined,
+				undefined,
+				tokenCache
 			);
 		} catch (error) {
 			if (isAbortError(error)) {
@@ -639,7 +650,8 @@ class ChatStore {
 		assistantMessage: DatabaseMessage,
 		onComplete?: (content: string) => Promise<void>,
 		onError?: (error: Error) => void,
-		modelOverride?: string | null
+		modelOverride?: string | null,
+		tokenCache?: Map<string, string>
 	): Promise<void> {
 		let effectiveModel = modelOverride;
 
@@ -872,8 +884,16 @@ class ChatStore {
 		const perChatOverrides = conversationsStore.activeConversation?.mcpServerOverrides;
 
 		const currentConfig = config();
-		const dispatchMessages: (DatabaseMessage | { role: MessageRole; content: string })[] =
+		let dispatchMessages: (DatabaseMessage | { role: MessageRole; content: string })[] =
 			allMessages;
+
+		if (tokenCache && tokenCache.size > 0) {
+			const expanded = await expandPathTokensInMessages(
+				allMessages.map((m) => ({ role: m.role as MessageRole, content: m.content })),
+				tokenCache
+			);
+			dispatchMessages = expanded as (DatabaseMessage | { role: MessageRole; content: string })[];
+		}
 
 		const agenticConfig = agenticStore.getConfig(currentConfig, perChatOverrides);
 		if (agenticConfig.enabled) {

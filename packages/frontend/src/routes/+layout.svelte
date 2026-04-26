@@ -5,6 +5,8 @@
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
 	import { ChatSidebar, DialogConversationTitleUpdate } from '$lib/components/app';
+	import { FileTreeSidebar } from '$lib/components/app/filesystem';
+	import { filesystemStore } from '$lib/stores/filesystem.svelte.js';
 	import { isLoading } from '$lib/stores/chat.svelte';
 	import { conversationsStore, activeMessages } from '$lib/stores/conversations.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -70,6 +72,11 @@
 			if (chatSidebar?.editActiveConversation) {
 				chatSidebar.editActiveConversation();
 			}
+		}
+
+		if (isCtrlOrCmd && event.shiftKey && event.key === KeyboardKey.B_UPPER) {
+			event.preventDefault();
+			filesystemStore.sidebarOpen = !filesystemStore.sidebarOpen;
 		}
 	}
 
@@ -285,7 +292,7 @@
 <Tooltip.Provider delayDuration={TOOLTIP_DELAY_DURATION}>
 	<ModeWatcher />
 
-	<Toaster richColors />
+	<Toaster richColors position="top-right" />
 
 	<DialogConversationTitleUpdate
 		bind:open={titleUpdateDialogOpen}
@@ -313,6 +320,11 @@
 			<Sidebar.Inset class="flex flex-1 flex-col overflow-hidden">
 				{@render children?.()}
 			</Sidebar.Inset>
+
+			<FileTreeSidebar
+				open={filesystemStore.sidebarOpen}
+				onOpenChange={(v) => (filesystemStore.sidebarOpen = v)}
+			/>
 		</div>
 	</Sidebar.Provider>
 </Tooltip.Provider>

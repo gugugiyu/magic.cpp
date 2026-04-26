@@ -44,52 +44,62 @@ export const builtinToolFields = [
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR,
 		label: 'Calculator',
+		iconColor: 'var(--info)',
 		description:
 			'Inject a calculator tool the model can call to evaluate arithmetic expressions without hallucinating results.'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_TIME,
 		label: 'Get time',
+		iconColor: 'var(--warning)',
 		description:
 			'Inject a get_time tool the model can call to retrieve the current date, time, and timezone (respects TZ env var, defaults to UTC).'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_LOCATION,
 		label: 'Get location',
+		iconColor: 'var(--purple)',
 		description:
 			'Inject a get_location tool the model can call to retrieve your browser-reported geolocation (requires permission).'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT,
 		label: 'Subagent',
-		description: 'Allow the main model to spawn a subagent to handle horizontal spanning tasks. (Must configured endpoint in Connections tab)'
+		iconColor: 'var(--cyan)',
+		description:
+			'Allow the main model to spawn a subagent to handle horizontal spanning tasks. (Must configured endpoint in Connections tab)'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_SKILLS,
 		label: 'Skills',
+		iconColor: 'var(--purple)',
 		description: 'Enable custom skill tools that the model can invoke for specialized capabilities.'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS,
 		label: 'Safe file tools',
+		iconColor: 'var(--info)',
 		description:
 			'Enable read-only filesystem tools (read_file, list_directory, search_files) that let the model probe the sandbox without modifying anything.'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_MUTATING_FILE_TOOLS,
 		label: 'Mutating file tools',
+		iconColor: 'var(--success)',
 		description:
 			'Enable write-capable filesystem tools (write_file, patch_file, delete_file, move_file) that let the model modify files in the sandbox. Use with caution.'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND,
 		label: 'Run command',
+		iconColor: 'var(--destructive)',
 		description:
 			'Enable the run_command tool that lets the model execute whitelisted commands inside the sandbox. Each command also requires per-session user approval.'
 	},
 	{
 		key: SETTINGS_KEYS.BUILTIN_TOOL_TODO_LIST,
 		label: 'Todo list',
+		iconColor: 'var(--success)',
 		description:
 			'Enable todo list tools (create_todo, mark_todo) that let the model create and mark tasks for the current conversation.'
 	}

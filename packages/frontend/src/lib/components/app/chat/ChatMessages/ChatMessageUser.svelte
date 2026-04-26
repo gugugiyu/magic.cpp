@@ -3,6 +3,7 @@
 	import { ChatAttachmentsList, MarkdownContent } from '$lib/components/app';
 	import { getMessageEditContext } from '$lib/contexts';
 	import { config } from '$lib/stores/settings.svelte';
+	import { parsePathTokens } from '$lib/utils/path-tokens.js';
 	import ChatMessageActions from './ChatMessageActions.svelte';
 	import ChatMessageEditForm from './ChatMessageEditForm.svelte';
 	import { MessageRole } from '$lib/enums';
@@ -48,6 +49,7 @@
 	let isMultiline = $state(false);
 	let messageElement: HTMLElement | undefined = $state();
 	const currentConfig = config();
+	let parsedSegments = $derived.by(() => parsePathTokens(message.content || ''));
 
 	$effect(() => {
 		if (!messageElement || !message.content.trim()) return;
@@ -100,7 +102,17 @@
 					</div>
 				{:else}
 					<span bind:this={messageElement} class="text-md whitespace-pre-wrap">
-						{message.content}
+						{#each parsedSegments as segment (segment.start)}
+							{#if segment.type === 'text'}
+								{segment.text}
+							{:else}
+								<span
+									class="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 font-mono text-xs text-primary"
+								>
+									@{segment.path}
+								</span>
+							{/if}
+						{/each}
 					</span>
 				{/if}
 			</Card>

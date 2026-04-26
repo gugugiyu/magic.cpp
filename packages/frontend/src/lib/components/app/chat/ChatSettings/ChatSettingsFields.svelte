@@ -111,7 +111,9 @@
 			{/if}
 		{:else if field.type === SettingsFieldType.TEXTAREA}
 			<Label for={field.key} class="block flex items-center gap-1.5 text-sm font-medium">
-				{field.label.startsWith("System Message") ? field.label + ` • ${String(localConfig[field.key]).length} chars` : field.label}
+				{field.label.startsWith('System Message')
+					? field.label + ` • ${String(localConfig[field.key]).length} chars`
+					: field.label}
 
 				{#if field.isExperimental}
 					<FlaskConical class="h-3.5 w-3.5 text-muted-foreground" />

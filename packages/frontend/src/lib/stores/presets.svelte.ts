@@ -208,7 +208,7 @@ class PresetsStore {
 	clearActivePreset(isRestoreSysPrompt: boolean = true): void {
 		this.#activePresetId = null;
 		this.#saveActiveId();
-		if (isRestoreSysPrompt) 
+		if (isRestoreSysPrompt)
 			settingsStore.updateConfig(SETTINGS_KEYS.SYSTEM_MESSAGE, this.#previousSystemMessage);
 	}
 }

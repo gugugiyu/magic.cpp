@@ -13,6 +13,7 @@ import * as messageHandlers from "./handlers/messages.ts";
 import * as skillHandlers from "./handlers/skills.ts";
 import * as presetHandlers from "./handlers/presets.ts";
 import { handleExecuteTool, handleGetAllowedCommands } from "./handlers/tools.ts";
+import { handleFileSystem, handleFileSystemDiff } from "./handlers/filesystem.ts";
 import { createLogger } from "./utils/logger.ts";
 
 const log = createLogger("router");
@@ -208,6 +209,18 @@ function initializeRoutes(pool: ModelPool, config: Config) {
     "/api/tools/allowed-commands",
     "GET",
     (req) => handleGetAllowedCommands(req, config),
+  );
+
+  // File system API
+  addRoute(
+    "/api/file-system",
+    "GET",
+    (req) => handleFileSystem(req, config),
+  );
+  addRoute(
+    "/api/file-system/diff",
+    "POST",
+    (req) => handleFileSystemDiff(req, config),
   );
 
   // Skill API routes

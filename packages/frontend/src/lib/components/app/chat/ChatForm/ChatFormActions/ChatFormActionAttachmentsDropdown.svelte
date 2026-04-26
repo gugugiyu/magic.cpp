@@ -359,7 +359,7 @@
 								class="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
 								onclick={() => toggleBuiltinTool(tool.key, !isEnabled)}
 							>
-								<span class="text-sm">{tool.label}</span>
+								<span class="text-sm hover:text-foreground">{tool.label}</span>
 								<Switch checked={isEnabled} />
 							</button>
 						{/each}

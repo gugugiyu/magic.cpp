@@ -42,7 +42,10 @@
 	}
 </script>
 
-<div class="flex justify-between border-t border-border/30 p-6">
+<div
+	class="footer sticky bottom-0 flex justify-between border-t border-border/30 p-6"
+	style="background: var(--background)"
+>
 	<div class="flex items-center gap-3">
 		<Button variant="outline" onclick={handleResetClick}>
 			<RotateCcw class="h-3 w-3" />

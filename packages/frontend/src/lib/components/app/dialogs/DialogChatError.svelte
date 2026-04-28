@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import { AlertTriangle, TimerOff } from '@lucide/svelte';
+	import { AlertTriangle, TimerOff, Timer, Lock, FileWarning } from '@lucide/svelte';
 	import { ErrorDialogType } from '$lib/enums';
 
 	interface Props {
@@ -8,24 +8,61 @@
 		type: ErrorDialogType;
 		message: string;
 		contextInfo?: { n_prompt_tokens: number; n_ctx: number };
+		retryAfter?: number;
 		onOpenChange?: (open: boolean) => void;
 	}
 
-	let { open = $bindable(), type, message, contextInfo, onOpenChange }: Props = $props();
+	let { open = $bindable(), type, message, contextInfo, retryAfter, onOpenChange }: Props = $props();
 
-	const isTimeout = $derived(type === ErrorDialogType.TIMEOUT);
-	const title = $derived(isTimeout ? 'TCP Timeout' : 'Server Error');
-	const description = $derived(
-		isTimeout
-			? 'The request did not receive a response from the server before timing out.'
-			: 'The server responded with an error message. Review the details below.'
-	);
-	const iconClass = $derived(isTimeout ? 'text-destructive' : 'text-warning');
-	const badgeClass = $derived(
-		isTimeout
-			? 'border-destructive/40 bg-destructive/10 text-destructive'
-			: 'border-warning/40 bg-warning-bg text-warning'
-	);
+	const config = $derived.by(() => {
+		switch (type) {
+			case ErrorDialogType.TIMEOUT:
+				return {
+					title: 'TCP Timeout',
+					description:
+						'The request did not receive a response from the server before timing out.',
+					icon: TimerOff,
+					iconClass: 'text-destructive',
+					badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive'
+				};
+			case ErrorDialogType.UNAUTHORIZED:
+				return {
+					title: 'Unauthorized',
+					description:
+						'The API key is invalid or has expired. Please check your credentials.',
+					icon: Lock,
+					iconClass: 'text-destructive',
+					badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive'
+				};
+			case ErrorDialogType.RATE_LIMIT:
+				return {
+					title: 'Rate Limited',
+					description: retryAfter
+						? `Too many requests. Please try again in ${retryAfter} second${retryAfter === 1 ? '' : 's'}.`
+						: 'Too many requests. Please try again later.',
+					icon: Timer,
+					iconClass: 'text-warning',
+					badgeClass: 'border-warning/40 bg-warning-bg text-warning'
+				};
+			case ErrorDialogType.PAYLOAD_TOO_LARGE:
+				return {
+					title: 'Payload Too Large',
+					description:
+						'The request was too large for the server to process. Try reducing message length or attachments.',
+					icon: FileWarning,
+					iconClass: 'text-warning',
+					badgeClass: 'border-warning/40 bg-warning-bg text-warning'
+				};
+			default:
+				return {
+					title: 'Server Error',
+					description: 'The server responded with an error message. Review the details below.',
+					icon: AlertTriangle,
+					iconClass: 'text-warning',
+					badgeClass: 'border-warning/40 bg-warning-bg text-warning'
+				};
+		}
+	});
 
 	function handleOpenChange(newOpen: boolean) {
 		open = newOpen;
@@ -37,21 +74,16 @@
 	<AlertDialog.Content>
 		<AlertDialog.Header>
 			<AlertDialog.Title class="flex items-center gap-2">
-				{#if isTimeout}
-					<TimerOff class={`h-5 w-5 ${iconClass}`} />
-				{:else}
-					<AlertTriangle class={`h-5 w-5 ${iconClass}`} />
-				{/if}
-
-				{title}
+				<config.icon class={`h-5 w-5 ${config.iconClass}`} />
+				{config.title}
 			</AlertDialog.Title>
 
 			<AlertDialog.Description>
-				{description}
+				{config.description}
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 
-		<div class={`rounded-lg border px-4 py-3 text-sm ${badgeClass}`}>
+		<div class={`rounded-lg border px-4 py-3 text-sm ${config.badgeClass}`}>
 			<p class="font-medium">{message}</p>
 			{#if contextInfo}
 				<div class="mt-2 space-y-1 text-xs opacity-80">

@@ -6,7 +6,8 @@ import {
 	detectLanguagePinner,
 	apiPost,
 	repairJsonObject,
-	sanitizeToolName
+	sanitizeToolName,
+	ApiError
 } from '$lib/utils';
 import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
@@ -907,52 +908,47 @@ export class ChatService {
 	 */
 
 	/**
-	 * Parses error response and creates appropriate error with context information
+	 * Parses error response and creates an ApiError with status, code, and context information.
 	 * @param response - HTTP response object
-	 * @returns Promise<Error> - Parsed error with context info if available
+	 * @returns Promise<ApiError> - Parsed error with context info if available
 	 */
-	private static async parseErrorResponse(
-		response: Response
-	): Promise<Error & { contextInfo?: { n_prompt_tokens: number; n_ctx: number } }> {
+	private static async parseErrorResponse(response: Response): Promise<ApiError> {
+		const retryAfter = response.headers.get('retry-after');
+		const retryAfterValue = retryAfter ? parseInt(retryAfter, 10) : undefined;
+
 		try {
 			const errorText = await response.text();
 
 			// Handle empty response body
 			if (!errorText || errorText.trim() === '') {
-				const fallback = new Error(
-					`Server error (${response.status}): ${response.statusText}`
-				) as Error & {
-					contextInfo?: { n_prompt_tokens: number; n_ctx: number };
-				};
-				fallback.name = 'HttpError';
-				return fallback;
+				return new ApiError(
+					`Server error (${response.status}): ${response.statusText}`,
+					response.status,
+					{ retryAfter: retryAfterValue }
+				);
 			}
 
 			const errorData: ApiErrorResponse = JSON.parse(errorText);
 
-			const message = errorData.error?.message || 'Unknown server error';
-			const error = new Error(message) as Error & {
-				contextInfo?: { n_prompt_tokens: number; n_ctx: number };
-			};
-			error.name = response.status === 400 ? 'ServerError' : 'HttpError';
+			const err = errorData.error;
+			const message = err?.message || 'Unknown server error';
+			const code = typeof err?.code === 'number' ? err.code : undefined;
+			const contextInfo =
+				err && 'n_prompt_tokens' in err && 'n_ctx' in err
+					? { n_prompt_tokens: err.n_prompt_tokens, n_ctx: err.n_ctx }
+					: undefined;
 
-			if (errorData.error && 'n_prompt_tokens' in errorData.error && 'n_ctx' in errorData.error) {
-				error.contextInfo = {
-					n_prompt_tokens: errorData.error.n_prompt_tokens,
-					n_ctx: errorData.error.n_ctx
-				};
-			}
-
-			return error;
+			return new ApiError(message, response.status, {
+				code,
+				retryAfter: retryAfterValue,
+				contextInfo
+			});
 		} catch {
-			const fallback = new Error(
-				`Server error (${response.status}): ${response.statusText}`
-			) as Error & {
-				contextInfo?: { n_prompt_tokens: number; n_ctx: number };
-			};
-			fallback.name = 'HttpError';
-
-			return fallback;
+			return new ApiError(
+				`Server error (${response.status}): ${response.statusText}`,
+				response.status,
+				{ retryAfter: retryAfterValue }
+			);
 		}
 	}
 

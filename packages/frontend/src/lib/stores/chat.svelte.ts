@@ -34,7 +34,8 @@ import {
 	findLeafNode,
 	findMessageById,
 	isAbortError,
-	generateConversationTitle
+	generateConversationTitle,
+	ApiError
 } from '$lib/utils';
 import {
 	MAX_INACTIVE_CONVERSATION_STATES,
@@ -211,6 +212,62 @@ class ChatStore {
 
 	private showErrorDialog(state: ErrorDialogState | null): void {
 		this.errorDialogState = state;
+	}
+
+	private resolveErrorDialogState(error: unknown): ErrorDialogState {
+		if (error instanceof ApiError) {
+			switch (error.status) {
+				case 401:
+					return {
+						type: ErrorDialogType.UNAUTHORIZED,
+						message: error.message,
+						contextInfo: error.contextInfo
+					};
+				case 429:
+					return {
+						type: ErrorDialogType.RATE_LIMIT,
+						message: error.message,
+						retryAfter: error.retryAfter,
+						contextInfo: error.contextInfo
+					};
+				case 413:
+					return {
+						type: ErrorDialogType.PAYLOAD_TOO_LARGE,
+						message: error.message,
+						contextInfo: error.contextInfo
+					};
+				default:
+					return {
+						type: ErrorDialogType.SERVER,
+						message: `${error.status}: ${error.message}`,
+						contextInfo: error.contextInfo
+					};
+			}
+		}
+
+		if (error instanceof Error) {
+			if (error.name === 'TimeoutError') {
+				return {
+					type: ErrorDialogType.TIMEOUT,
+					message: error.message
+				};
+			}
+			const contextInfo = (
+				error as Error & {
+					contextInfo?: { n_prompt_tokens: number; n_ctx: number };
+				}
+			).contextInfo;
+			return {
+				type: ErrorDialogType.SERVER,
+				message: error.message,
+				contextInfo
+			};
+		}
+
+		return {
+			type: ErrorDialogType.SERVER,
+			message: 'Unknown error'
+		};
 	}
 
 	dismissErrorDialog(): void {
@@ -631,20 +688,7 @@ class ChatStore {
 			}
 			logger.error('Failed to send message:', error);
 			this.setChatLoading(currentConv.id, false);
-			const dialogType =
-				error instanceof Error && error.name === 'TimeoutError'
-					? ErrorDialogType.TIMEOUT
-					: ErrorDialogType.SERVER;
-			const contextInfo = (
-				error as Error & {
-					contextInfo?: { n_prompt_tokens: number; n_ctx: number };
-				}
-			).contextInfo;
-			this.showErrorDialog({
-				type: dialogType,
-				message: error instanceof Error ? error.message : 'Unknown error',
-				contextInfo
-			});
+			this.showErrorDialog(this.resolveErrorDialogState(error));
 		}
 	}
 
@@ -870,16 +914,7 @@ class ChatStore {
 							logger.error('Failed to delete failed message:', err)
 						);
 				}
-				const contextInfo = (
-					error as Error & {
-						contextInfo?: { n_prompt_tokens: number; n_ctx: number };
-					}
-				).contextInfo;
-				this.showErrorDialog({
-					type: error.name === 'TimeoutError' ? ErrorDialogType.TIMEOUT : ErrorDialogType.SERVER,
-					message: error.message,
-					contextInfo
-				});
+				this.showErrorDialog(this.resolveErrorDialogState(error));
 				if (onError) onError(error);
 			}
 		};
@@ -1333,11 +1368,7 @@ class ChatStore {
 						this.setChatLoading(msg.convId, false);
 						this.clearChatStreaming(msg.convId);
 						this.setProcessingState(msg.convId, null);
-						this.showErrorDialog({
-							type:
-								error.name === 'TimeoutError' ? ErrorDialogType.TIMEOUT : ErrorDialogType.SERVER,
-							message: error.message
-						});
+						this.showErrorDialog(this.resolveErrorDialogState(error));
 					}
 				},
 
@@ -1738,10 +1769,7 @@ class ChatStore {
 			logger.error('Failed to compact session:', error);
 			this.setChatLoading(activeConv.id, false);
 			loadingContext.setCompaction(false);
-			this.showErrorDialog({
-				type: ErrorDialogType.SERVER,
-				message: error instanceof Error ? error.message : 'Unknown error'
-			});
+			this.showErrorDialog(this.resolveErrorDialogState(error));
 		}
 	}
 

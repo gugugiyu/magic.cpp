@@ -636,6 +636,7 @@
 <DialogChatError
 	message={activeErrorDialog?.message ?? ''}
 	contextInfo={activeErrorDialog?.contextInfo}
+	retryAfter={activeErrorDialog?.retryAfter}
 	onOpenChange={handleErrorDialogOpenChange}
 	open={Boolean(activeErrorDialog)}
 	type={activeErrorDialog?.type ?? ErrorDialogType.SERVER}

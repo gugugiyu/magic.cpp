@@ -515,6 +515,7 @@ class AgenticStore {
 					{
 						...options,
 						stream: true,
+						parallel_tool_calls: true, /* Some providers (OpenRouter requires this to handle our request correctly) */
 						tools: tools.length > 0 ? tools : undefined,
 						onChunk: (chunk: string) => {
 							turnContent += chunk;

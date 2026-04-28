@@ -139,6 +139,7 @@ export interface ErrorDialogState {
 	type: ErrorDialogType;
 	message: string;
 	contextInfo?: { n_prompt_tokens: number; n_ctx: number };
+	retryAfter?: number;
 }
 
 /**

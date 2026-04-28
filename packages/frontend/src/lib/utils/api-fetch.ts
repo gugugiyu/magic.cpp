@@ -12,6 +12,30 @@ import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
  * - Base path resolution
  */
 
+export class ApiError extends Error {
+	status: number;
+	code?: number;
+	retryAfter?: number;
+	contextInfo?: { n_prompt_tokens: number; n_ctx: number };
+
+	constructor(
+		message: string,
+		status: number,
+		options?: {
+			code?: number;
+			retryAfter?: number;
+			contextInfo?: { n_prompt_tokens: number; n_ctx: number };
+		}
+	) {
+		super(message);
+		this.name = 'ApiError';
+		this.status = status;
+		this.code = options?.code;
+		this.retryAfter = options?.retryAfter;
+		this.contextInfo = options?.contextInfo;
+	}
+}
+
 export interface ApiFetchOptions extends Omit<RequestInit, 'headers' | 'signal'> {
 	/**
 	 * Additional headers to merge with default headers.
@@ -88,8 +112,8 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 		if (timeoutId !== undefined) clearTimeout(timeoutId);
 
 		if (!response.ok) {
-			const errorMessage = await parseErrorMessage(response);
-			throw new Error(errorMessage);
+			const error = await parseApiError(response);
+			throw error;
 		}
 
 		// 204 No Content responses have no body
@@ -101,11 +125,15 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 	} catch (err) {
 		// Check for abort/timeout error
 		if (err instanceof DOMException && err.name === 'AbortError') {
-			throw new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+			const timeoutError = new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+			timeoutError.name = 'TimeoutError';
+			throw timeoutError;
 		}
 		// Bun/Node.js AbortController throws AbortError differently
 		if (err instanceof Error && err.name === 'AbortError') {
-			throw new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+			const timeoutError = new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+			timeoutError.name = 'TimeoutError';
+			throw timeoutError;
 		}
 		throw err;
 	}
@@ -164,19 +192,23 @@ export async function apiFetchWithParams<T>(
 		clearTimeout(timeoutId);
 
 		if (!response.ok) {
-			const errorMessage = await parseErrorMessage(response);
-			throw new Error(errorMessage);
+			const error = await parseApiError(response);
+			throw error;
 		}
 
 		return response.json() as Promise<T>;
 	} catch (err) {
 		// Check for abort/timeout error
 		if (err instanceof DOMException && err.name === 'AbortError') {
-			throw new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+			const timeoutError = new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+			timeoutError.name = 'TimeoutError';
+			throw timeoutError;
 		}
 		// Bun/Node.js AbortController throws AbortError differently
 		if (err instanceof Error && err.name === 'AbortError') {
-			throw new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+			const timeoutError = new Error(`Request timed out after ${DEFAULT_API_TIMEOUT / 1000}s`);
+			timeoutError.name = 'TimeoutError';
+			throw timeoutError;
 		}
 		throw err;
 	}
@@ -203,24 +235,38 @@ export async function apiPost<T, B = unknown>(
 }
 
 /**
- * Parse error message from a failed response.
- * Tries to extract error message from JSON body, falls back to status text.
+ * Parse an error response into an ApiError with status, code, and retry-after.
  */
-async function parseErrorMessage(response: Response): Promise<string> {
+async function parseApiError(response: Response): Promise<ApiError> {
+	const retryAfter = response.headers.get('retry-after');
+	const retryAfterValue = retryAfter ? parseInt(retryAfter, 10) : undefined;
+
 	try {
 		const errorData = await response.json();
-		if (errorData?.error?.message) {
-			return errorData.error.message;
+		if (errorData?.error) {
+			const err = errorData.error;
+			const message = err.message || (typeof err === 'string' ? err : 'Unknown server error');
+			const code = typeof err.code === 'number' ? err.code : undefined;
+			const contextInfo =
+				'n_prompt_tokens' in err && 'n_ctx' in err
+					? { n_prompt_tokens: err.n_prompt_tokens, n_ctx: err.n_ctx }
+					: undefined;
+			return new ApiError(message, response.status, {
+				code,
+				retryAfter: retryAfterValue,
+				contextInfo
+			});
 		}
-		if (errorData?.error && typeof errorData.error === 'string') {
-			return errorData.error;
-		}
-		if (errorData?.message) {
-			return errorData.message;
+		if (errorData?.message && typeof errorData.message === 'string') {
+			return new ApiError(errorData.message, response.status, { retryAfter: retryAfterValue });
 		}
 	} catch {
 		// JSON parsing failed, use status text
 	}
 
-	return `Request failed: ${response.status} ${response.statusText}`;
+	return new ApiError(
+		`Request failed: ${response.status} ${response.statusText}`,
+		response.status,
+		{ retryAfter: retryAfterValue }
+	);
 }

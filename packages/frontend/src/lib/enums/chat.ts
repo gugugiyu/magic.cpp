@@ -31,5 +31,8 @@ export enum ContentPartType {
  */
 export enum ErrorDialogType {
 	TIMEOUT = 'timeout',
-	SERVER = 'server'
+	SERVER = 'server',
+	UNAUTHORIZED = 'unauthorized',
+	RATE_LIMIT = 'rate_limit',
+	PAYLOAD_TOO_LARGE = 'payload_too_large'
 }

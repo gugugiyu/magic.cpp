@@ -12,15 +12,21 @@
 		onOpenChange?: (open: boolean) => void;
 	}
 
-	let { open = $bindable(), type, message, contextInfo, retryAfter, onOpenChange }: Props = $props();
+	let {
+		open = $bindable(),
+		type,
+		message,
+		contextInfo,
+		retryAfter,
+		onOpenChange
+	}: Props = $props();
 
 	const config = $derived.by(() => {
 		switch (type) {
 			case ErrorDialogType.TIMEOUT:
 				return {
 					title: 'TCP Timeout',
-					description:
-						'The request did not receive a response from the server before timing out.',
+					description: 'The request did not receive a response from the server before timing out.',
 					icon: TimerOff,
 					iconClass: 'text-destructive',
 					badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive'
@@ -28,8 +34,7 @@
 			case ErrorDialogType.UNAUTHORIZED:
 				return {
 					title: 'Unauthorized',
-					description:
-						'The API key is invalid or has expired. Please check your credentials.',
+					description: 'The API key is invalid or has expired. Please check your credentials.',
 					icon: Lock,
 					iconClass: 'text-destructive',
 					badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive'

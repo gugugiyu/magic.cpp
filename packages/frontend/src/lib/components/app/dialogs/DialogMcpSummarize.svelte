@@ -40,7 +40,7 @@
 	let hasMorePending = $derived(pendingRequests.length > 1);
 
 	$effect(() => {
-		return subscribePendingRequest((req : PendingSummarizeRequest | null) => {
+		return subscribePendingRequest((req: PendingSummarizeRequest | null) => {
 			untrack(() => {
 				if (req) {
 					const existingIds = new Set(pendingRequests.map((r) => r.id));

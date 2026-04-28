@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "web:dev": "bun run --filter webui dev",
-    "server:dev": "bun run --filter server dev"
+    "server:dev": "bun run --filter server dev",
+    "server:mock": "bun run --filter server mock"
   },
   "workspaces": ["packages/*"]
 }

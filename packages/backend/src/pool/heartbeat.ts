@@ -53,7 +53,7 @@ export class Heartbeat {
 
 	private async checkHealth(upstreamId: string): Promise<void> {
 		const upstream = this.pool.getUpstream(upstreamId);
-		if (!upstream) return;
+		if (!upstream || !this.config.upstreams.filter(upstream => upstream.id == upstreamId)[0].enabled) return;
 
 		const url = `${upstream.url}/health`;
 		const headers: Record<string, string> = {};

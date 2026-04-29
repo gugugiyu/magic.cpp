@@ -23,6 +23,7 @@
 	import { toast } from 'svelte-sonner';
 	import { slide } from 'svelte/transition';
 	import type { ModelOption } from '$lib/types/models';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		subagentEnabled?: boolean;
@@ -148,7 +149,7 @@
 	}
 
 	function groupModelsByUpstream(models: ModelOption[]): Map<string, ModelOption[]> {
-		const groups = new Map<string, ModelOption[]>();
+		const groups = new SvelteMap<string, ModelOption[]>();
 		for (const model of models) {
 			const key = model.upstreamLabel || model.upstreamId || 'Unknown';
 			if (!groups.has(key)) {
@@ -245,7 +246,9 @@
 		{:else if modelOptions().length > 0}
 			<div class="max-h-60 overflow-y-auto rounded-md border border-border/30">
 				{#each Array.from(groupModelsByUpstream(modelOptions()).entries()) as [groupName, models] (groupName)}
-					<div class="bg-muted/30 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+					<div
+						class="bg-muted/30 px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"
+					>
 						{groupName}
 					</div>
 					{#each models as model (model.id)}
@@ -392,7 +395,9 @@
 				{:else if modelOptions().length > 0}
 					<div class="max-h-40 overflow-y-auto rounded-md border border-border/30">
 						{#each Array.from(groupModelsByUpstream(modelOptions()).entries()) as [groupName, models] (groupName)}
-							<div class="bg-muted/30 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+							<div
+								class="bg-muted/30 px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"
+							>
 								{groupName}
 							</div>
 							{#each models as model (model.id)}

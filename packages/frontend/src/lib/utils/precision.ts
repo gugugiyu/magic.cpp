@@ -5,7 +5,7 @@
  * and display, addressing JavaScript's floating-point precision issues.
  */
 
-import { PRECISION_MULTIPLIER } from '$lib/constants';
+const PRECISION_MULTIPLIER = 1000000;
 
 /**
  * Normalize floating-point numbers for consistent comparison

@@ -5,7 +5,7 @@ import {
 	isTemplateComplete,
 	normalizeResourceUri
 } from '../../src/lib/utils/uri-template';
-import { URI_TEMPLATE_OPERATORS } from '../../src/lib/constants/uri-template';
+import { URI_TEMPLATE_OPERATORS } from '../../src/lib/constants/regex/uri-template';
 
 describe('extractTemplateVariables', () => {
 	it('extracts simple variables', () => {

@@ -1,6 +1,6 @@
 import { AgenticSectionType, MessageRole, AttachmentType } from '$lib/enums';
 import { ATTACHMENT_SAVED_REGEX, NEWLINE_SEPARATOR } from '$lib/constants';
-import { DATA_URI_BASE64_REGEX } from '$lib/constants/mcp-resource';
+import { DATA_URI_BASE64_REGEX } from '$lib/constants/mcp/mcp-resource';
 import type { ApiChatCompletionToolCall } from '$lib/types/api';
 import { repairToolCallsJson } from './json-repair';
 import type {

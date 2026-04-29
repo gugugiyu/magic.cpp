@@ -1,10 +1,3 @@
-import {
-	MS_PER_SECOND,
-	SECONDS_PER_MINUTE,
-	SECONDS_PER_HOUR,
-	SHORT_DURATION_THRESHOLD,
-	MEDIUM_DURATION_THRESHOLD
-} from '$lib/constants';
 import { AgenticSectionType } from '$lib/enums/agentic';
 import { deriveAgenticSections } from './agentic';
 
@@ -103,19 +96,21 @@ export function formatTime(date: Date): string {
 export function formatPerformanceTime(ms: number): string {
 	if (ms < 0) return '0s';
 
-	const totalSeconds = ms / MS_PER_SECOND;
+	const totalSeconds = ms / 1000; 
+	const SHORT_DURATION_THRESHOLD = 1;
 
 	if (totalSeconds < SHORT_DURATION_THRESHOLD) {
 		return `${totalSeconds.toFixed(1)}s`;
 	}
 
-	if (totalSeconds < MEDIUM_DURATION_THRESHOLD) {
+	if (totalSeconds < SHORT_DURATION_THRESHOLD * 10) {
 		return `${totalSeconds.toFixed(1)}s`;
 	}
 
+	const SECONDS_PER_HOUR = 60 * 60;
 	const hours = Math.floor(totalSeconds / SECONDS_PER_HOUR);
-	const minutes = Math.floor((totalSeconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
-	const seconds = Math.floor(totalSeconds % SECONDS_PER_MINUTE);
+	const minutes = Math.floor((totalSeconds % SECONDS_PER_HOUR) / 60);
+	const seconds = Math.floor(totalSeconds % 60);
 
 	const parts: string[] = [];
 

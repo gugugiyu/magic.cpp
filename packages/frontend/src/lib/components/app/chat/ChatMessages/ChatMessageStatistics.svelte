@@ -5,7 +5,6 @@
 	import { ChatMessageStatsView } from '$lib/enums';
 	import type { ChatMessageAgenticTimings } from '$lib/types/chat';
 	import { formatPerformanceTime } from '$lib/utils';
-	import { MS_PER_SECOND, DEFAULT_PERFORMANCE_TIME } from '$lib/constants';
 
 	interface Props {
 		predictedTokens?: number;
@@ -36,6 +35,7 @@
 	let activeView = $state<ChatMessageStatsView>(initialView);
 	let hasAutoSwitchedToGeneration = $state(false);
 	let userHasInteracted = $state(false);
+	const MS_PER_SECOND = 1000;
 
 	$effect(() => {
 		onActiveViewChange?.(activeView);
@@ -79,7 +79,7 @@
 		hasGenerationStats ? (predictedTokens! / predictedMs!) * MS_PER_SECOND : 0
 	);
 	let formattedTime = $derived(
-		predictedMs !== undefined ? formatPerformanceTime(predictedMs) : DEFAULT_PERFORMANCE_TIME
+		predictedMs !== undefined ? formatPerformanceTime(predictedMs) : '0s'
 	);
 
 	let promptTokensPerSecond = $derived(
@@ -111,7 +111,7 @@
 	);
 
 	let formattedAgenticToolsTime = $derived(
-		hasAgenticStats ? formatPerformanceTime(agenticTimings!.toolsMs) : DEFAULT_PERFORMANCE_TIME
+		hasAgenticStats ? formatPerformanceTime(agenticTimings!.toolsMs) : '0s'
 	);
 
 	let agenticTotalTimeMs = $derived(

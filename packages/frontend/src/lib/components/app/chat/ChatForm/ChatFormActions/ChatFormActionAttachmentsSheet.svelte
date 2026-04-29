@@ -6,7 +6,7 @@
 	import { FILE_TYPE_ICONS } from '$lib/constants';
 	import { McpLogo } from '$lib/components/app';
 	import { settingsStore, config } from '$lib/stores/settings.svelte';
-	import { SETTINGS_KEYS } from '$lib/constants/settings-keys';
+	import { SETTINGS_KEYS } from '$lib/constants';
 
 	interface Props {
 		class?: string;

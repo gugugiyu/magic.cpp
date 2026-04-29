@@ -138,7 +138,7 @@
 	{/if}
 
 	{#if servers.length > 0}
-		<div class="space-y-3">
+		<div class="grid grid-cols-3 gap-3">
 			{#each servers as server (server.id)}
 				<div animate:flip={{ duration: 200 }}>
 					{#if !initialLoadComplete}

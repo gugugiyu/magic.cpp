@@ -10,7 +10,8 @@
 		Database,
 		Plug,
 		ListFilter,
-		Wrench
+		Wrench,
+		Hammer,
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
@@ -328,7 +329,14 @@
 			]
 		},
 		{
-			title: SETTINGS_SECTION_TITLES.FILTER,
+			title: SETTINGS_SECTION_TITLES.TOOLS,
+			icon: Hammer,
+			fields: [
+
+			]
+		},
+		{
+			title: SETTINGS_SECTION_TITLES.FILTERS,
 			icon: ListFilter,
 			fields: [
 				{
@@ -655,31 +663,9 @@
 							<SettingsSectionDivider>
 								<McpServersSettings />
 							</SettingsSectionDivider>
-
-							<SettingsSectionDivider>
-								<BuiltinToolsSection {localConfig} onConfigChange={handleConfigChange} />
-							</SettingsSectionDivider>
-
-							<!-- Skills Section -->
-							<SettingsSectionDivider>
-								<h4 class="mb-2 text-sm font-semibold">Skills</h4>
-								<p class="mb-3 text-xs text-muted-foreground">
-									Enabled skills are available for model discovery via <code
-										class="rounded bg-muted px-1 py-0.5 text-[10px]">list_skill()</code
-									>.
-								</p>
-								<div class="flex items-center gap-2">
-									<Button size="sm" variant="outline" onclick={handleOpenSkillsPage}>
-										<Wrench class="mr-1.5 h-3.5 w-3.5" />
-										Manage Skills
-									</Button>
-									<span class="text-xs text-muted-foreground">
-										{skillsStore.skills.length} skill{skillsStore.skills.length !== 1 ? 's' : ''} available,
-										{skillsStore.enabledSkills.length} enabled
-									</span>
-								</div>
-							</SettingsSectionDivider>
 						</div>
+					{:else if currentSection.title == SETTINGS_SECTION_TITLES.TOOLS}
+						<BuiltinToolsSection {localConfig} onConfigChange={handleConfigChange} />
 					{:else}
 						<div class="space-y-6">
 							<ChatSettingsFields

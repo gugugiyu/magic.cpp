@@ -371,6 +371,6 @@
 }
 
 /* Hide elements when sidebar is in icon/collapsed mode */
-.group[data-collapsible="icon"] [data-slot="sidebar-container"] .hide-when-collapsed {
+.group[data-collapsible='icon'] [data-slot='sidebar-container'] .hide-when-collapsed {
 	display: none !important;
 }

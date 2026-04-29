@@ -12,7 +12,8 @@ export const SETTINGS_SECTION_TITLES = {
 	IMPORT_EXPORT: 'Import/Export',
 	CONNECTION: 'Connection',
 	MCP: 'MCP',
-	FILTER: 'Filter',
+	FILTERS: 'Filters',
+	TOOLS: 'Tools',
 	DEVELOPER: 'Developer'
 } as const;
 
@@ -29,7 +30,8 @@ export const SETTINGS_SECTION_SLUGS: Record<string, SettingsSectionTitle> = {
 	'import-export': SETTINGS_SECTION_TITLES.IMPORT_EXPORT,
 	connection: SETTINGS_SECTION_TITLES.CONNECTION,
 	mcp: SETTINGS_SECTION_TITLES.MCP,
-	filter: SETTINGS_SECTION_TITLES.FILTER,
+	filter: SETTINGS_SECTION_TITLES.FILTERS,
+	tools: SETTINGS_SECTION_TITLES.TOOLS,
 	developer: SETTINGS_SECTION_TITLES.DEVELOPER
 };
 

@@ -21,9 +21,7 @@
 	data-slot="sidebar-trigger"
 	variant="ghost"
 	size="icon-lg"
-	class="rounded-full backdrop-blur-lg hover:text-foreground {className} md:left-{sidebar.open
-		? 'unset'
-		: '2'} -top-2 -left-2 md:top-0"
+	class="rounded-full backdrop-blur-lg hover:text-foreground {className} -top-2 -left-2 md:top-0"
 	type="button"
 	onclick={(e) => {
 		onclick?.(e);

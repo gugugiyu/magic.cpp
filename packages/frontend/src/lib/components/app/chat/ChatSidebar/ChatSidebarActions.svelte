@@ -5,7 +5,10 @@
 	import { Input } from '$lib/components/ui/input';
 	import { McpLogo } from '$lib/components/app';
 	import { goto } from '$app/navigation';
+	import { useSidebar } from '$lib/components/ui/sidebar';
 	import type { Component } from 'svelte';
+
+	const sidebar = useSidebar();
 
 	interface Props {
 		handleMobileSidebarItemClick: () => void;
@@ -83,7 +86,7 @@
 
 <div class="my-1 space-y-1">
 	{#if isSearchModeActive}
-		<div class="relative">
+		<div class="relative hide-when-collapsed">
 			<Search class="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
 
 			<Input
@@ -104,18 +107,28 @@
 			{@const Icon = action.icon}
 
 			<Button
-				class="w-full justify-between backdrop-blur-none! hover:[&>kbd]:opacity-100"
-				href={action.label === 'New chat' ? '?new_chat=true#/' : undefined}
-				onclick={action.onClick}
+				class="w-full justify-between backdrop-blur-none! hover:[&>kbd]:opacity-100 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+				href={!sidebar.isMobile && sidebar.state === 'collapsed'
+					? undefined
+					: action.label === 'New chat'
+						? '?new_chat=true#/'
+						: undefined}
+				onclick={() => {
+					if (!sidebar.isMobile && sidebar.state === 'collapsed') {
+						sidebar.setOpen(true);
+						return;
+					}
+					action.onClick();
+				}}
 				variant="ghost"
 			>
 				<div class="flex items-center gap-2" style="color: var(--foreground)">
 					<Icon />
-					{action.label}
+					<span class="hide-when-collapsed">{action.label}</span>
 				</div>
 
 				{#if action.keys.length > 0}
-					<KeyboardShortcutInfo keys={action.keys} />
+					<span class="hide-when-collapsed"><KeyboardShortcutInfo keys={action.keys} /></span>
 				{/if}
 			</Button>
 		{/each}

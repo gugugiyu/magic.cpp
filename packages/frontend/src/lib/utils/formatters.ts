@@ -96,7 +96,7 @@ export function formatTime(date: Date): string {
 export function formatPerformanceTime(ms: number): string {
 	if (ms < 0) return '0s';
 
-	const totalSeconds = ms / 1000; 
+	const totalSeconds = ms / 1000;
 	const SHORT_DURATION_THRESHOLD = 1;
 
 	if (totalSeconds < SHORT_DURATION_THRESHOLD) {

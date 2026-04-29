@@ -122,6 +122,11 @@
 					type: SettingsFieldType.CHECKBOX
 				},
 				{
+					key: SETTINGS_KEYS.TOKEN_COUNTER,
+					label: 'Enable token counter',
+					type: SettingsFieldType.CHECKBOX
+				},
+				{
 					key: SETTINGS_KEYS.SHOW_THOUGHT_IN_PROGRESS,
 					label: 'Show thought in progress',
 					type: SettingsFieldType.CHECKBOX

@@ -17,6 +17,7 @@ export const SETTINGS_KEYS = {
 	TITLE_GENERATION_USE_FIRST_LINE: 'titleGenerationUseFirstLine',
 	// Display
 	SHOW_MESSAGE_STATS: 'showMessageStats',
+	TOKEN_COUNTER: 'tokenCounter',
 	SHOW_THOUGHT_IN_PROGRESS: 'showThoughtInProgress',
 	KEEP_STATS_VISIBLE: 'keepStatsVisible',
 	AUTO_MIC_ON_EMPTY: 'autoMicOnEmpty',

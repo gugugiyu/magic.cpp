@@ -304,7 +304,7 @@
 
 	<Sidebar.Provider bind:open={sidebarOpen}>
 		<div class="relative flex h-screen w-full" style:height="{innerHeight}px">
-			<Sidebar.Root class="h-full">
+			<Sidebar.Root class="h-full" collapsible="icon">
 				<ChatSidebar bind:this={chatSidebar} />
 			</Sidebar.Root>
 
@@ -312,7 +312,7 @@
 				<Sidebar.Trigger
 					class="transition-left absolute left-0 z-[900] duration-200 ease-linear {sidebarOpen
 						? 'md:left-[var(--sidebar-width)]'
-						: 'md:left-0!'}"
+						: 'md:left-[var(--sidebar-width-icon)]'}"
 					style="translate: 1rem 1rem;"
 				/>
 			{/if}

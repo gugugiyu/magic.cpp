@@ -24,6 +24,7 @@ export const SETTING_CONFIG_DEFAULT: Record<string, string | number | boolean | 
 	showRawOutputSwitch: false,
 	keepStatsVisible: false,
 	showMessageStats: true,
+	tokenCounter: true,
 	askForTitleConfirmation: false,
 	titleGenerationUseFirstLine: false,
 	pasteLongTextToFileLen: 2500,
@@ -148,6 +149,8 @@ export const SETTING_CONFIG_INFO: Record<string, string> = {
 	keepStatsVisible: 'Keep processing statistics visible after generation finishes.',
 	showMessageStats:
 		'Display generation statistics (tokens/second, token count, duration) below each assistant message.',
+	tokenCounter:
+		'Show token counter next to the submit button. Hidden on initial message (before first message is sent).',
 	askForTitleConfirmation:
 		'Ask for confirmation before automatically changing conversation title when editing the first message.',
 	titleGenerationUseFirstLine:

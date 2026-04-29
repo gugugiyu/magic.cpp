@@ -117,6 +117,8 @@
 	export function handleMobileSidebarItemClick() {
 		if (sidebar.isMobile) {
 			sidebar.toggle();
+		} else if (sidebar.state === 'collapsed') {
+			sidebar.setOpen(true);
 		}
 	}
 
@@ -144,17 +146,25 @@
 	}
 </script>
 
-<ScrollArea class="h-[100vh]">
-	<Sidebar.Header class=" top-0 z-10 gap-4 bg-sidebar/50 p-4 pb-2 backdrop-blur-lg md:sticky">
-		<a href="#/" onclick={handleMobileSidebarItemClick}>
-			<h1 class="inline-flex items-center gap-1 px-2 text-xl font-semibold">magic.cpp</h1>
+<ScrollArea
+	class="h-[100vh]"
+	onclick={() => {
+		if (!sidebar.isMobile && sidebar.state === 'collapsed') {
+			sidebar.setOpen(true);
+		}
+	}}
+>
+	<Sidebar.Header class="top-0 z-10 gap-4 bg-sidebar/50 p-4 pb-2 backdrop-blur-lg group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:p-2 md:sticky">
+		<a href="#/" onclick={handleMobileSidebarItemClick} class="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+			<h1 class="hide-when-collapsed inline-flex items-center gap-1 px-2 text-xl font-semibold">magic.cpp</h1>
+			<h1 class="mx-auto hidden h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary/10 text-lg font-bold text-sidebar-primary group-data-[collapsible=icon]:flex">M</h1>
 		</a>
 
 		<ChatSidebarActions {handleMobileSidebarItemClick} bind:isSearchModeActive bind:searchQuery />
 	</Sidebar.Header>
 
 	{#if !isSearchModeActive && pinnedConversations.length > 0}
-		<Sidebar.Group class="p-0 px-4">
+		<Sidebar.Group class="p-0 px-4 hide-when-collapsed">
 			<Sidebar.GroupLabel>
 				<div class="flex items-center gap-1">
 					<Pin class="h-3.5 w-3.5" />
@@ -189,7 +199,7 @@
 		</Sidebar.Group>
 	{/if}
 
-	<Sidebar.Group class="mt-2 space-y-2 p-0 px-4">
+	<Sidebar.Group class="mt-2 space-y-2 p-0 px-4 hide-when-collapsed">
 		{#if (filteredConversations.length > 0 && isSearchModeActive) || !isSearchModeActive}
 			<Sidebar.GroupLabel>
 				{isSearchModeActive ? 'Search results' : 'Conversations'}

@@ -178,6 +178,8 @@
 
 	let isTokenPocketOpen = $state(false);
 
+	let showTokenCounter = $derived(currentConfig.tokenCounter && activeMessages().length > 0);
+
 	let tokenBreakdown = $derived.by(() => {
 		const msgs = activeMessages();
 		let userChars = 0;
@@ -310,32 +312,34 @@
 		{/if}
 	</div>
 
-	<div class="relative">
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				class="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-75 hover:bg-accent active:scale-[0.97]"
-				onclick={() => (isTokenPocketOpen = !isTokenPocketOpen)}
-			>
-				<span class="sr-only">Token breakdown</span>
-				<TokenCounter breakdown={donutBreakdown} class="hover:bg-muted" />
-			</Tooltip.Trigger>
-			<Tooltip.Content side="top" class="bg-muted">
-				<p class="text-muted-foreground">
-					Total conversation: ~{tokenBreakdown.totalTokens.toLocaleString()} tokens
-				</p>
-				<p class="text-xs text-muted-foreground/60">
-					User: {tokenBreakdown.userTokens.toLocaleString()} · Assistant: {tokenBreakdown.assistantTokens.toLocaleString()}
-					· Tool: {tokenBreakdown.toolTokens.toLocaleString()}
-				</p>
-			</Tooltip.Content>
-		</Tooltip.Root>
+	{#if showTokenCounter}
+		<div class="relative">
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					class="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-75 hover:bg-accent active:scale-[0.97]"
+					onclick={() => (isTokenPocketOpen = !isTokenPocketOpen)}
+				>
+					<span class="sr-only">Token breakdown</span>
+					<TokenCounter breakdown={donutBreakdown} class="hover:bg-muted" />
+				</Tooltip.Trigger>
+				<Tooltip.Content side="top" class="bg-muted">
+					<p class="text-muted-foreground">
+						Total conversation: ~{tokenBreakdown.totalTokens.toLocaleString()} tokens
+					</p>
+					<p class="text-xs text-muted-foreground/60">
+						User: {tokenBreakdown.userTokens.toLocaleString()} · Assistant: {tokenBreakdown.assistantTokens.toLocaleString()}
+						· Tool: {tokenBreakdown.toolTokens.toLocaleString()}
+					</p>
+				</Tooltip.Content>
+			</Tooltip.Root>
 
-		<TokenPocket
-			isOpen={isTokenPocketOpen}
-			breakdown={tokenBreakdown}
-			onClose={() => (isTokenPocketOpen = false)}
-		/>
-	</div>
+			<TokenPocket
+				isOpen={isTokenPocketOpen}
+				breakdown={tokenBreakdown}
+				onClose={() => (isTokenPocketOpen = false)}
+			/>
+		</div>
+	{/if}
 
 	{#if isLoading}
 		<Button

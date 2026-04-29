@@ -10,10 +10,8 @@
 		Database,
 		Plug,
 		ListFilter,
-		Wrench,
-		Hammer,
+		Hammer
 	} from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
 	import {
 		ChatSettingsFooter,
 		ChatSettingsImportExportTab,
@@ -26,7 +24,6 @@
 	} from '$lib/components/app';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { config, settingsStore } from '$lib/stores/settings.svelte';
-	import { skillsStore } from '$lib/stores/skills.svelte';
 	import {
 		SETTINGS_SECTION_TITLES,
 		SETTINGS_SECTION_SLUGS,
@@ -331,9 +328,7 @@
 		{
 			title: SETTINGS_SECTION_TITLES.TOOLS,
 			icon: Hammer,
-			fields: [
-
-			]
+			fields: []
 		},
 		{
 			title: SETTINGS_SECTION_TITLES.FILTERS,
@@ -518,10 +513,6 @@
 		localConfig = { ...config() };
 
 		setTimeout(scroll.update, SCROLL_UPDATE_DELAY_MS);
-	}
-
-	function handleOpenSkillsPage() {
-		goto('#/skills');
 	}
 </script>
 

@@ -30,7 +30,7 @@ WORKDIR /app
 # Only copy the essential artifacts
 COPY --from=builder /app/packages/backend/dist/index.js ./packages/backend/src/index.js
 COPY --from=builder /app/packages/public ./packages/public
-COPY packages/backend/config.json ./packages/backend/config.json 
+COPY packages/backend/config.toml ./packages/backend/config.toml 
 
 EXPOSE 3000
 

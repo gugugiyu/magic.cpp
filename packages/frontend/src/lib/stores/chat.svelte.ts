@@ -85,14 +85,15 @@ class ChatStore {
 		string,
 		{ content: string; extras?: DatabaseMessageExtra[] }
 	>();
+	private messageStatuses = new SvelteMap<
+		string,
+		{ type: 'error'; message: string; statusCode?: number } | { type: 'cancelled' }
+	>();
 	private activeConversationId = $state<string | null>(null);
 	private isStreamingActive = $state(false);
 	private isEditModeActive = $state(false);
 	private addFilesHandler: ((files: File[]) => void) | null = $state(null);
 	pendingEditMessageId = $state<string | null>(null);
-	private messageUpdateCallback:
-		| ((messageId: string, updates: Partial<DatabaseMessage>) => void)
-		| null = null;
 	private _pendingDraftMessage = $state<string>('');
 	private _pendingDraftFiles = $state<ChatUploadedFile[]>([]);
 
@@ -272,6 +273,11 @@ class ChatStore {
 
 	dismissErrorDialog(): void {
 		this.errorDialogState = null;
+		for (const [id, status] of this.messageStatuses) {
+			if (status.type === 'error') {
+				this.messageStatuses.delete(id);
+			}
+		}
 	}
 
 	clearEditMode(): void {
@@ -330,6 +336,16 @@ class ChatStore {
 
 	isChatLoadingPublic(convId: string): boolean {
 		return this.chatLoadingStates.get(convId) || false;
+	}
+
+	getMessageStatus(
+		messageId: string
+	): { type: 'error'; message: string; statusCode?: number } | { type: 'cancelled' } | undefined {
+		return this.messageStatuses.get(messageId);
+	}
+
+	clearMessageStatus(messageId: string): void {
+		this.messageStatuses.delete(messageId);
 	}
 
 	private isChatLoadingInternal(convId: string): boolean {
@@ -643,6 +659,7 @@ class ChatStore {
 		this.showErrorDialog(null);
 		this.setChatLoading(currentConv.id, true);
 		this.clearChatStreaming(currentConv.id);
+		let assistantMessage: DatabaseMessage | undefined;
 		try {
 			let parentIdForUserMessage: string | undefined;
 			if (isNewConversation) {
@@ -671,7 +688,7 @@ class ChatStore {
 					currentConv.id,
 					generateConversationTitle(content, Boolean(config().titleGenerationUseFirstLine))
 				);
-			const assistantMessage = await this.createAssistantMessage(userMessage.id);
+			assistantMessage = await this.createAssistantMessage(userMessage.id);
 			conversationsStore.addMessageToActive(assistantMessage);
 			await this.streamChatCompletion(
 				conversationsStore.activeMessages.slice(0, -1),
@@ -684,10 +701,27 @@ class ChatStore {
 		} catch (error) {
 			if (isAbortError(error)) {
 				this.setChatLoading(currentConv.id, false);
+				if (assistantMessage) {
+					const idx = conversationsStore.findMessageIndex(assistantMessage.id);
+					if (idx !== -1) {
+						const msg = conversationsStore.activeMessages[idx];
+						if (!msg.content.trim()) {
+							this.messageStatuses.set(assistantMessage.id, { type: 'cancelled' });
+						}
+					}
+				}
 				return;
 			}
 			logger.error('Failed to send message:', error);
 			this.setChatLoading(currentConv.id, false);
+			if (assistantMessage) {
+				const statusCode = error instanceof ApiError ? error.status : undefined;
+				this.messageStatuses.set(assistantMessage.id, {
+					type: 'error',
+					message: error instanceof Error ? error.message : 'Unknown error',
+					statusCode
+				});
+			}
 			this.showErrorDialog(this.resolveErrorDialogState(error));
 		}
 	}
@@ -895,6 +929,13 @@ class ChatStore {
 				this.setStreamingActive(false);
 				if (isAbortError(error)) {
 					cleanupStreamingState();
+					const idx = conversationsStore.findMessageIndex(assistantMessage.id);
+					if (idx !== -1) {
+						const msg = conversationsStore.activeMessages[idx];
+						if (!msg.content.trim()) {
+							this.messageStatuses.set(assistantMessage.id, { type: 'cancelled' });
+						}
+					}
 					const steering = this.steeringRequests.get(convId);
 					if (steering) {
 						this.steeringRequests.delete(convId);
@@ -906,14 +947,12 @@ class ChatStore {
 				}
 				logger.error('Streaming error:', error);
 				cleanupStreamingState();
-				const idx = conversationsStore.findMessageIndex(assistantMessage.id);
-				if (idx !== -1) {
-					const failedMessage = conversationsStore.removeMessageAtIndex(idx);
-					if (failedMessage)
-						DatabaseService.deleteMessage(failedMessage.id).catch((err) =>
-							logger.error('Failed to delete failed message:', err)
-						);
-				}
+				const statusCode = error instanceof ApiError ? error.status : undefined;
+				this.messageStatuses.set(assistantMessage.id, {
+					type: 'error',
+					message: error.message,
+					statusCode
+				});
 				this.showErrorDialog(this.resolveErrorDialogState(error));
 				if (onError) onError(error);
 			}
@@ -1009,12 +1048,32 @@ class ChatStore {
 		await this.stopGenerationForChat(activeConv.id);
 	}
 	async stopGenerationForChat(convId: string): Promise<void> {
+		const streamingState = this.getChatStreaming(convId);
 		await this.savePartialResponseIfNeeded(convId);
 		this.setStreamingActive(false);
 		this.abortRequest(convId);
 		this.setChatLoading(convId, false);
 		this.clearChatStreaming(convId);
 		this.setProcessingState(convId, null);
+		if (streamingState && !streamingState.response.trim()) {
+			this.messageStatuses.set(streamingState.messageId, { type: 'cancelled' });
+			return;
+		}
+		// Fallback: when streamingState is missing (e.g. agentic aborted before first chunk),
+		// find the most recent empty assistant message and mark it cancelled
+		if (!streamingState) {
+			const messages =
+				convId === conversationsStore.activeConversation?.id
+					? conversationsStore.activeMessages
+					: await conversationsStore.getConversationMessages(convId);
+			for (let i = messages.length - 1; i >= 0; i--) {
+				const msg = messages[i];
+				if (msg.role === MessageRole.ASSISTANT && !msg.content.trim()) {
+					this.messageStatuses.set(msg.id, { type: 'cancelled' });
+					break;
+				}
+			}
+		}
 	}
 	private async savePartialResponseIfNeeded(convId?: string): Promise<void> {
 		const conversationId = convId || conversationsStore.activeConversation?.id;
@@ -1063,6 +1122,7 @@ class ChatStore {
 		if (!result) return;
 		const { message: messageToUpdate, index: messageIndex } = result;
 		const originalContent = messageToUpdate.content;
+		let assistantMessage: DatabaseMessage | undefined;
 		try {
 			const allMessages = await conversationsStore.getConversationMessages(activeConv.id);
 			const rootMessage = allMessages.find((m) => m.type === 'root' && m.parent === null);
@@ -1082,7 +1142,7 @@ class ChatStore {
 			conversationsStore.updateConversationTimestamp();
 			this.setChatLoading(activeConv.id, true);
 			this.clearChatStreaming(activeConv.id);
-			const assistantMessage = await this.createAssistantMessage();
+			assistantMessage = await this.createAssistantMessage();
 			conversationsStore.addMessageToActive(assistantMessage);
 			await conversationsStore.updateCurrentNode(assistantMessage.id);
 			await this.streamChatCompletion(
@@ -1096,7 +1156,28 @@ class ChatStore {
 				}
 			);
 		} catch (error) {
-			if (!isAbortError(error)) logger.error('Failed to update message:', error);
+			if (isAbortError(error)) {
+				if (assistantMessage) {
+					const idx = conversationsStore.findMessageIndex(assistantMessage.id);
+					if (idx !== -1) {
+						const msg = conversationsStore.activeMessages[idx];
+						if (!msg.content.trim()) {
+							this.messageStatuses.set(assistantMessage.id, { type: 'cancelled' });
+						}
+					}
+				}
+				return;
+			}
+			logger.error('Failed to update message:', error);
+			if (assistantMessage) {
+				const statusCode = error instanceof ApiError ? error.status : undefined;
+				this.messageStatuses.set(assistantMessage.id, {
+					type: 'error',
+					message: error instanceof Error ? error.message : 'Unknown error',
+					statusCode
+				});
+			}
+			this.showErrorDialog(this.resolveErrorDialogState(error));
 		}
 	}
 
@@ -1106,9 +1187,13 @@ class ChatStore {
 		const result = this.getMessageByIdWithRole(messageId, MessageRole.ASSISTANT);
 		if (!result) return;
 		const { index: messageIndex } = result;
+		let assistantMessage: DatabaseMessage | undefined;
 		try {
 			const messagesToRemove = conversationsStore.activeMessages.slice(messageIndex);
-			for (const message of messagesToRemove) await DatabaseService.deleteMessage(message.id);
+			for (const message of messagesToRemove) {
+				this.messageStatuses.delete(message.id);
+				await DatabaseService.deleteMessage(message.id);
+			}
 			conversationsStore.sliceActiveMessages(messageIndex);
 			conversationsStore.updateConversationTimestamp();
 			this.setChatLoading(activeConv.id, true);
@@ -1117,21 +1202,44 @@ class ChatStore {
 				conversationsStore.activeMessages.length > 0
 					? conversationsStore.activeMessages[conversationsStore.activeMessages.length - 1].id
 					: undefined;
-			const assistantMessage = await this.createAssistantMessage(parentMessageId);
+			assistantMessage = await this.createAssistantMessage(parentMessageId);
 			conversationsStore.addMessageToActive(assistantMessage);
 			await this.streamChatCompletion(
 				conversationsStore.activeMessages.slice(0, -1),
 				assistantMessage
 			);
 		} catch (error) {
-			if (!isAbortError(error)) logger.error('Failed to regenerate message:', error);
+			if (isAbortError(error)) {
+				this.setChatLoading(activeConv?.id || '', false);
+				if (assistantMessage) {
+					const idx = conversationsStore.findMessageIndex(assistantMessage.id);
+					if (idx !== -1) {
+						const msg = conversationsStore.activeMessages[idx];
+						if (!msg.content.trim()) {
+							this.messageStatuses.set(assistantMessage.id, { type: 'cancelled' });
+						}
+					}
+				}
+				return;
+			}
+			logger.error('Failed to regenerate message:', error);
 			this.setChatLoading(activeConv?.id || '', false);
+			if (assistantMessage) {
+				const statusCode = error instanceof ApiError ? error.status : undefined;
+				this.messageStatuses.set(assistantMessage.id, {
+					type: 'error',
+					message: error instanceof Error ? error.message : 'Unknown error',
+					statusCode
+				});
+			}
+			this.showErrorDialog(this.resolveErrorDialogState(error));
 		}
 	}
 
 	async regenerateMessageWithBranching(messageId: string, modelOverride?: string): Promise<void> {
 		const activeConv = conversationsStore.activeConversation;
 		if (!activeConv || this.isChatLoadingInternal(activeConv.id)) return;
+		let newAssistantMessage: DatabaseMessage | undefined;
 		try {
 			const idx = conversationsStore.findMessageIndex(messageId);
 			if (idx === -1) return;
@@ -1144,7 +1252,7 @@ class ChatStore {
 			this.setChatLoading(activeConv.id, true);
 			this.clearChatStreaming(activeConv.id);
 
-			const newAssistantMessage = await DatabaseService.createMessageBranch(
+			newAssistantMessage = await DatabaseService.createMessageBranch(
 				{
 					convId: msg.convId,
 					type: msg.type,
@@ -1157,6 +1265,7 @@ class ChatStore {
 				},
 				parentMessage.id
 			);
+			if (!newAssistantMessage) return;
 
 			await conversationsStore.updateCurrentNode(newAssistantMessage.id);
 			conversationsStore.updateConversationTimestamp();
@@ -1178,8 +1287,30 @@ class ChatStore {
 				modelToUse
 			);
 		} catch (error) {
-			if (!isAbortError(error)) logger.error('Failed to regenerate message with branching:', error);
+			if (isAbortError(error)) {
+				this.setChatLoading(activeConv?.id || '', false);
+				if (newAssistantMessage) {
+					const idx = conversationsStore.findMessageIndex(newAssistantMessage.id);
+					if (idx !== -1) {
+						const m = conversationsStore.activeMessages[idx];
+						if (!m.content.trim()) {
+							this.messageStatuses.set(newAssistantMessage.id, { type: 'cancelled' });
+						}
+					}
+				}
+				return;
+			}
+			logger.error('Failed to regenerate message with branching:', error);
 			this.setChatLoading(activeConv?.id || '', false);
+			if (newAssistantMessage) {
+				const statusCode = error instanceof ApiError ? error.status : undefined;
+				this.messageStatuses.set(newAssistantMessage.id, {
+					type: 'error',
+					message: error instanceof Error ? error.message : 'Unknown error',
+					statusCode
+				});
+			}
+			this.showErrorDialog(this.resolveErrorDialogState(error));
 		}
 	}
 
@@ -1254,6 +1385,7 @@ class ChatStore {
 			this.showErrorDialog(null);
 			this.setChatLoading(activeConv.id, true);
 			this.clearChatStreaming(activeConv.id);
+			this.clearMessageStatus(messageId);
 
 			const allMessages = await conversationsStore.getConversationMessages(activeConv.id);
 			const dbMessage = findMessageById(allMessages, messageId);
@@ -1395,6 +1527,7 @@ class ChatStore {
 		const { message: msg, index: idx } = result;
 
 		try {
+			this.clearMessageStatus(messageId);
 			if (shouldBranch) {
 				const newMessage = await DatabaseService.createMessageBranch(
 					{
@@ -1543,6 +1676,7 @@ class ChatStore {
 		this.setChatLoading(activeConv.id, true);
 		this.clearChatStreaming(activeConv.id);
 
+		let assistantMessage: DatabaseMessage | undefined;
 		try {
 			const allMessages = await conversationsStore.getConversationMessages(activeConv.id);
 			const conversationPath = filterByLeafNodeId(
@@ -1550,7 +1684,7 @@ class ChatStore {
 				userMessageId,
 				false
 			) as DatabaseMessage[];
-			const assistantMessage = await DatabaseService.createMessageBranch(
+			assistantMessage = await DatabaseService.createMessageBranch(
 				{
 					convId: activeConv.id,
 					type: MessageType.TEXT,
@@ -1563,13 +1697,36 @@ class ChatStore {
 				},
 				userMessageId
 			);
+			if (!assistantMessage) return;
 
 			conversationsStore.addMessageToActive(assistantMessage);
 
 			await this.streamChatCompletion(conversationPath, assistantMessage);
 		} catch (error) {
+			if (isAbortError(error)) {
+				this.setChatLoading(activeConv.id, false);
+				if (assistantMessage) {
+					const idx = conversationsStore.findMessageIndex(assistantMessage.id);
+					if (idx !== -1) {
+						const msg = conversationsStore.activeMessages[idx];
+						if (!msg.content.trim()) {
+							this.messageStatuses.set(assistantMessage.id, { type: 'cancelled' });
+						}
+					}
+				}
+				return;
+			}
 			logger.error('Failed to generate response:', error);
 			this.setChatLoading(activeConv.id, false);
+			if (assistantMessage) {
+				const statusCode = error instanceof ApiError ? error.status : undefined;
+				this.messageStatuses.set(assistantMessage.id, {
+					type: 'error',
+					message: error instanceof Error ? error.message : 'Unknown error',
+					statusCode
+				});
+			}
+			this.showErrorDialog(this.resolveErrorDialogState(error));
 		}
 	}
 
@@ -1843,3 +2000,4 @@ export const getMessageQueueLength = (convId: string) => chatStore.getMessageQue
 export const hasQueuedMessages = (convId: string) => chatStore.hasQueuedMessages(convId);
 export const hasSteeringRequest = (convId: string) => chatStore.hasSteeringRequest(convId);
 export const pendingEditMessageId = () => chatStore.pendingEditMessageId;
+export const getMessageStatus = (messageId: string) => chatStore.getMessageStatus(messageId);

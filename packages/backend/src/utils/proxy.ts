@@ -42,9 +42,24 @@ export async function proxyRequest(
 		// instead of AbortSignal.timeout() which applies to the entire fetch lifecycle.
 		const headerController = new AbortController();
 		const headerTimeout = setTimeout(() => headerController.abort(), headerTimeoutMs);
+
+		// Forward client disconnects to the upstream request so llama-server receives the abort.
+		// fetch() overrides any signal on the Request object, so we wire req.signal into
+		// headerController instead.
+		const onClientAbort = () => headerController.abort();
+		if (req.signal.aborted) {
+			headerController.abort();
+		} else {
+			req.signal.addEventListener('abort', onClientAbort);
+		}
+
 		const startTime = Date.now();
-		resp = await fetch(upstreamReq, { signal: headerController.signal });
-		clearTimeout(headerTimeout);
+		try {
+			resp = await fetch(upstreamReq, { signal: headerController.signal });
+		} finally {
+			clearTimeout(headerTimeout);
+			req.signal.removeEventListener('abort', onClientAbort);
+		}
 		const elapsed = Date.now() - startTime;
 		if (import.meta.env.DEV) {
 			log.debug(`upstream ${upstream.id} responded in ${elapsed}ms, status=${resp.status}`);

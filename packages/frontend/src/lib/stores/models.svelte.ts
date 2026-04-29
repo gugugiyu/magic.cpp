@@ -304,7 +304,9 @@ class ModelsStore {
 					meta: item.meta ?? null,
 					parsedId: ModelsService.parseModelId(modelId),
 					aliases: item.aliases ?? [],
-					tags: item.tags ?? []
+					tags: item.tags ?? [],
+					upstreamId: item.upstreamId,
+					upstreamLabel: item.upstreamLabel
 				} satisfies ModelOption;
 			});
 

@@ -9,7 +9,7 @@
 	} from '$lib/components/app';
 	import { getMessageEditContext } from '$lib/contexts';
 	import { useProcessingState } from '$lib/hooks/use-processing-state.svelte';
-	import { isLoading, isChatStreaming } from '$lib/stores/chat.svelte';
+	import { isLoading, isChatStreaming, getMessageStatus } from '$lib/stores/chat.svelte';
 	import { autoResizeTextarea, copyToClipboard, isIMEComposing } from '$lib/utils';
 	import { tick } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -158,6 +158,7 @@
 	let isStreaming = $derived(isChatStreaming());
 	let hasNoContent = $derived(!message?.content?.trim());
 	let isActivelyProcessing = $derived(isCurrentlyLoading || isStreaming);
+	let messageStatus = $derived(getMessageStatus(message.id));
 
 	let showProcessingInfoTop = $derived(
 		message?.role === MessageRole.ASSISTANT &&
@@ -258,6 +259,18 @@
 				isStreaming={isChatStreaming()}
 				highlightTurns={highlightAgenticTurns}
 			/>
+		{/if}
+
+		{#if messageStatus?.type === 'cancelled'}
+			<div class="mt-2 text-sm text-muted-foreground italic">Response cancelled</div>
+		{:else if messageStatus?.type === 'error'}
+			<div class="mt-2 text-sm text-destructive">
+				<span class="font-medium">Error from upstream</span>
+				{#if messageStatus.statusCode}
+					<span class="text-xs opacity-70"> (HTTP {messageStatus.statusCode})</span>
+				{/if}
+				<p class="mt-1 text-xs opacity-80">{messageStatus.message}</p>
+			</div>
 		{/if}
 	{:else}
 		<div class="text-sm whitespace-pre-wrap">

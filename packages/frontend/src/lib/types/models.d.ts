@@ -17,6 +17,10 @@ export interface ModelOption {
 	parsedId?: ParsedModelId;
 	aliases?: string[];
 	tags?: string[];
+	/** Upstream pool id that serves this model (backend-specific extension) */
+	upstreamId?: string;
+	/** Human-readable label of the owning upstream (backend-specific extension) */
+	upstreamLabel?: string;
 }
 
 export interface ParsedModelId {

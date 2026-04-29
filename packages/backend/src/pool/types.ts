@@ -16,6 +16,8 @@ export interface PooledModel {
 	created: number;
 	/** Which upstream serves this model */
 	upstreamId: string;
+	/** Human-readable label of the owning upstream */
+	upstreamLabel: string;
 	/** Raw extra fields from the upstream response */
 	[key: string]: unknown;
 }

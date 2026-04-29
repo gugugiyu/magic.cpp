@@ -22,6 +22,7 @@
 	import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
 	import { toast } from 'svelte-sonner';
 	import { slide } from 'svelte/transition';
+	import type { ModelOption } from '$lib/types/models';
 
 	interface Props {
 		subagentEnabled?: boolean;
@@ -145,6 +146,18 @@
 	function handleSubagentSummarizeToggle(checked: boolean) {
 		subagentConfigStore.setSummarizeEnabled(checked);
 	}
+
+	function groupModelsByUpstream(models: ModelOption[]): Map<string, ModelOption[]> {
+		const groups = new Map<string, ModelOption[]>();
+		for (const model of models) {
+			const key = model.upstreamLabel || model.upstreamId || 'Unknown';
+			if (!groups.has(key)) {
+				groups.set(key, []);
+			}
+			groups.get(key)!.push(model);
+		}
+		return groups;
+	}
 </script>
 
 <div class="space-y-6">
@@ -231,100 +244,105 @@
 			</div>
 		{:else if modelOptions().length > 0}
 			<div class="max-h-60 overflow-y-auto rounded-md border border-border/30">
-				{#each modelOptions() as model (model.id)}
-					{@const modelId = model.model ?? model.id}
-					{@const isActive = model.id === activeModelId}
-					{@const isExpanded = expandedModelId === modelId}
-					{@const serverModalities = modelsStore.getModelModalities(modelId)}
-					{@const serverVision = serverModalities?.vision ?? false}
-					{@const serverAudio = serverModalities?.audio ?? false}
-					{@const overrides = modelCapabilityStore.getOverride(modelId)}
-					<div class="border-b border-border/20 last:border-b-0">
-						<div class="flex items-center">
-							<button
-								type="button"
-								class="flex flex-1 items-center justify-between px-2 py-1.5 text-left transition-colors hover:bg-muted/50 {isActive
-									? 'bg-muted/70 font-medium'
-									: 'cursor-pointer'}"
-								onclick={() => handleModelSelect(model.id)}
-							>
-								<span class="truncate text-sm">{model.name}</span>
-								<span class="ml-2 flex shrink-0 items-center gap-1.5">
-									{#if isActive}
-										<Badge variant="secondary" class="px-1.5 py-0 text-xs">active</Badge>
-									{:else if model.model}
-										<span class="truncate text-xs text-muted-foreground"
-											>{model.model.split('/').pop()}</span
-										>
-									{/if}
-								</span>
-							</button>
-							<button
-								type="button"
-								title="Model capabilities"
-								class="flex shrink-0 items-center px-2 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
-								onclick={() => toggleExpand(modelId)}
-							>
-								<ChevronDown
-									class="h-3.5 w-3.5 transition-transform duration-150 {isExpanded
-										? 'rotate-180'
-										: ''}"
-								/>
-							</button>
-						</div>
-						{#if isExpanded}
-							<div
-								transition:slide={{ duration: 150 }}
-								class="space-y-2 border-t border-border/20 bg-muted/20 px-3 py-2.5"
-							>
-								<p class="text-xs font-medium text-muted-foreground">Capability overrides</p>
-								<label class="flex cursor-pointer items-center gap-2">
-									<Checkbox
-										id="cap-tool-{modelId}"
-										checked={modelCapabilityStore.isToolCallingEnabled(modelId)}
-										onCheckedChange={(c: boolean | 'indeterminate') =>
-											modelCapabilityStore.setToolCalling(modelId, Boolean(c))}
-										class="h-3.5 w-3.5"
-									/>
-									<span class="text-xs">Tool calling</span>
-								</label>
-								<label
-									class="flex items-center gap-2 {serverVision
-										? 'cursor-default opacity-50'
-										: 'cursor-pointer'}"
-								>
-									<Checkbox
-										id="cap-vision-{modelId}"
-										checked={serverVision || (overrides.vision ?? false)}
-										disabled={serverVision}
-										onCheckedChange={(c: boolean | 'indeterminate') =>
-											modelCapabilityStore.setVision(modelId, Boolean(c))}
-										class="h-3.5 w-3.5"
-									/>
-									<span class="text-xs">
-										Vision{serverVision ? ' (auto-detected)' : ''}
-									</span>
-								</label>
-								<label
-									class="flex items-center gap-2 {serverAudio
-										? 'cursor-default opacity-50'
-										: 'cursor-pointer'}"
-								>
-									<Checkbox
-										id="cap-audio-{modelId}"
-										checked={serverAudio || (overrides.audio ?? false)}
-										disabled={serverAudio}
-										onCheckedChange={(c: boolean | 'indeterminate') =>
-											modelCapabilityStore.setAudio(modelId, Boolean(c))}
-										class="h-3.5 w-3.5"
-									/>
-									<span class="text-xs">
-										Audio{serverAudio ? ' (auto-detected)' : ''}
-									</span>
-								</label>
-							</div>
-						{/if}
+				{#each Array.from(groupModelsByUpstream(modelOptions()).entries()) as [groupName, models] (groupName)}
+					<div class="bg-muted/30 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+						{groupName}
 					</div>
+					{#each models as model (model.id)}
+						{@const modelId = model.model ?? model.id}
+						{@const isActive = model.id === activeModelId}
+						{@const isExpanded = expandedModelId === modelId}
+						{@const serverModalities = modelsStore.getModelModalities(modelId)}
+						{@const serverVision = serverModalities?.vision ?? false}
+						{@const serverAudio = serverModalities?.audio ?? false}
+						{@const overrides = modelCapabilityStore.getOverride(modelId)}
+						<div class="border-b border-border/20 last:border-b-0">
+							<div class="flex items-center">
+								<button
+									type="button"
+									class="flex flex-1 items-center justify-between px-2 py-1.5 text-left transition-colors hover:bg-muted/50 {isActive
+										? 'bg-muted/70 font-medium'
+										: 'cursor-pointer'}"
+									onclick={() => handleModelSelect(model.id)}
+								>
+									<span class="truncate text-sm">{model.name}</span>
+									<span class="ml-2 flex shrink-0 items-center gap-1.5">
+										{#if isActive}
+											<Badge variant="secondary" class="px-1.5 py-0 text-xs">active</Badge>
+										{:else if model.model}
+											<span class="truncate text-xs text-muted-foreground"
+												>{model.model.split('/').pop()}</span
+											>
+										{/if}
+									</span>
+								</button>
+								<button
+									type="button"
+									title="Model capabilities"
+									class="flex shrink-0 items-center px-2 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
+									onclick={() => toggleExpand(modelId)}
+								>
+									<ChevronDown
+										class="h-3.5 w-3.5 transition-transform duration-150 {isExpanded
+											? 'rotate-180'
+											: ''}"
+									/>
+								</button>
+							</div>
+							{#if isExpanded}
+								<div
+									transition:slide={{ duration: 150 }}
+									class="space-y-2 border-t border-border/20 bg-muted/20 px-3 py-2.5"
+								>
+									<p class="text-xs font-medium text-muted-foreground">Capability overrides</p>
+									<label class="flex cursor-pointer items-center gap-2">
+										<Checkbox
+											id="cap-tool-{modelId}"
+											checked={modelCapabilityStore.isToolCallingEnabled(modelId)}
+											onCheckedChange={(c: boolean | 'indeterminate') =>
+												modelCapabilityStore.setToolCalling(modelId, Boolean(c))}
+											class="h-3.5 w-3.5"
+										/>
+										<span class="text-xs">Tool calling</span>
+									</label>
+									<label
+										class="flex items-center gap-2 {serverVision
+											? 'cursor-default opacity-50'
+											: 'cursor-pointer'}"
+									>
+										<Checkbox
+											id="cap-vision-{modelId}"
+											checked={serverVision || (overrides.vision ?? false)}
+											disabled={serverVision}
+											onCheckedChange={(c: boolean | 'indeterminate') =>
+												modelCapabilityStore.setVision(modelId, Boolean(c))}
+											class="h-3.5 w-3.5"
+										/>
+										<span class="text-xs">
+											Vision{serverVision ? ' (auto-detected)' : ''}
+										</span>
+									</label>
+									<label
+										class="flex items-center gap-2 {serverAudio
+											? 'cursor-default opacity-50'
+											: 'cursor-pointer'}"
+									>
+										<Checkbox
+											id="cap-audio-{modelId}"
+											checked={serverAudio || (overrides.audio ?? false)}
+											disabled={serverAudio}
+											onCheckedChange={(c: boolean | 'indeterminate') =>
+												modelCapabilityStore.setAudio(modelId, Boolean(c))}
+											class="h-3.5 w-3.5"
+										/>
+										<span class="text-xs">
+											Audio{serverAudio ? ' (auto-detected)' : ''}
+										</span>
+									</label>
+								</div>
+							{/if}
+						</div>
+					{/each}
 				{/each}
 			</div>
 		{:else if modelsStore.error}
@@ -373,39 +391,44 @@
 					</div>
 				{:else if modelOptions().length > 0}
 					<div class="max-h-40 overflow-y-auto rounded-md border border-border/30">
-						{#each modelOptions() as model (model.id)}
-							{@const modelId = model.model ?? model.id}
-							{@const isActive =
-								model.model === subagentSelectedModel || model.id === subagentSelectedModel}
-							{@const toolCallingOn = modelCapabilityStore.isToolCallingEnabled(modelId)}
-							<div class="flex items-center border-b border-border/20 last:border-b-0">
-								<button
-									type="button"
-									class="flex flex-1 items-center justify-between px-2 py-1.5 text-left transition-colors hover:bg-muted/50 {isActive
-										? 'bg-muted/70 font-medium'
-										: 'cursor-pointer'}"
-									onclick={() => handleSubagentModelSelect(modelId)}
-								>
-									<span class="truncate text-sm">{model.name}</span>
-									{#if isActive}
-										<Badge variant="secondary" class="ml-2 shrink-0 px-1.5 py-0 text-xs"
-											>active</Badge
-										>
-									{/if}
-								</button>
-								<button
-									type="button"
-									title={toolCallingOn
-										? 'Tool-calling enabled'
-										: 'Tool-calling disabled — subagent will not work'}
-									class="flex shrink-0 items-center gap-1 px-2 py-1.5 text-xs transition-colors {toolCallingOn
-										? 'text-muted-foreground hover:text-foreground'
-										: 'text-destructive hover:text-destructive/80'}"
-									onclick={() => modelCapabilityStore.setToolCalling(modelId, !toolCallingOn)}
-								>
-									<span class="font-mono">{toolCallingOn ? 'tools ✓' : 'tools ✗'}</span>
-								</button>
+						{#each Array.from(groupModelsByUpstream(modelOptions()).entries()) as [groupName, models] (groupName)}
+							<div class="bg-muted/30 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+								{groupName}
 							</div>
+							{#each models as model (model.id)}
+								{@const modelId = model.model ?? model.id}
+								{@const isActive =
+									model.model === subagentSelectedModel || model.id === subagentSelectedModel}
+								{@const toolCallingOn = modelCapabilityStore.isToolCallingEnabled(modelId)}
+								<div class="flex items-center border-b border-border/20 last:border-b-0">
+									<button
+										type="button"
+										class="flex flex-1 items-center justify-between px-2 py-1.5 text-left transition-colors hover:bg-muted/50 {isActive
+											? 'bg-muted/70 font-medium'
+											: 'cursor-pointer'}"
+										onclick={() => handleSubagentModelSelect(modelId)}
+									>
+										<span class="truncate text-sm">{model.name}</span>
+										{#if isActive}
+											<Badge variant="secondary" class="ml-2 shrink-0 px-1.5 py-0 text-xs"
+												>active</Badge
+											>
+										{/if}
+									</button>
+									<button
+										type="button"
+										title={toolCallingOn
+											? 'Tool-calling enabled'
+											: 'Tool-calling disabled — subagent will not work'}
+										class="flex shrink-0 items-center gap-1 px-2 py-1.5 text-xs transition-colors {toolCallingOn
+											? 'text-muted-foreground hover:text-foreground'
+											: 'text-destructive hover:text-destructive/80'}"
+										onclick={() => modelCapabilityStore.setToolCalling(modelId, !toolCallingOn)}
+									>
+										<span class="font-mono">{toolCallingOn ? 'tools ✓' : 'tools ✗'}</span>
+									</button>
+								</div>
+							{/each}
 						{/each}
 					</div>
 				{:else}

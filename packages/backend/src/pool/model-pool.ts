@@ -182,6 +182,7 @@ export class ModelPool {
 				owned_by: String(m['owned_by'] ?? upstream.id),
 				created: Number(m['created'] ?? 0),
 				upstreamId: upstream.id,
+				upstreamLabel: upstream.label,
 			}))
 			.filter((m) => m.id.length > 0);
 

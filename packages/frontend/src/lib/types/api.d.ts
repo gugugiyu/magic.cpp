@@ -66,7 +66,7 @@ export interface ApiModelStatus {
  * Based on actual API response structure
  */
 export interface ApiModelDataEntry {
-	/** Model identifier (e.g., "ggml-org/Qwen2.5-Omni-7B-GGUF:latest") */
+	/** Model identifier (e.g. "ggml-org/Qwen2.5-Omni-7B-GGUF:latest") */
 	id: string;
 	/** Model name (optional, usually same as id - not always returned by API) */
 	name?: string;
@@ -88,6 +88,10 @@ export interface ApiModelDataEntry {
 	tags?: string[];
 	/** Legacy meta field (may be present in older responses) */
 	meta?: Record<string, unknown> | null;
+	/** Upstream pool id that serves this model (backend-specific extension) */
+	upstreamId?: string;
+	/** Human-readable label of the owning upstream (backend-specific extension) */
+	upstreamLabel?: string;
 }
 
 export interface ApiModelDetails {

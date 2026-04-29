@@ -754,18 +754,17 @@
 		}
 
 		if (isRecording) {
+			isRecording = false;
 			try {
 				const audioBlob = await audioRecorder.stopRecording();
 				const wavBlob = await convertToWav(audioBlob);
 				const audioFile = createAudioFile(wavBlob);
 
 				onFilesAdd?.([audioFile]);
-				isRecording = false;
 			} catch (error) {
 				const message = error instanceof Error ? error.message : 'Unknown error';
 				toast.error(`Failed to stop recording: ${message}`);
 				console.error('Failed to stop recording:', error);
-				isRecording = false;
 			}
 		} else {
 			try {

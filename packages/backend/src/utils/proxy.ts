@@ -106,7 +106,18 @@ export async function proxyRequest(
 		responseHeaders.delete(h);
 	}
 
-	return new Response(resp.body, {
+	// Bridge client disconnects to the upstream body so llama-server receives the abort
+	// even after response headers have already been sent.
+	if (resp.body) {
+		const { readable, writable } = new TransformStream();
+		resp.body.pipeTo(writable).catch(() => {});
+		return new Response(readable, {
+			status: resp.status,
+			statusText: resp.statusText,
+			headers: responseHeaders,
+		});
+	}
+	return new Response(null, {
 		status: resp.status,
 		statusText: resp.statusText,
 		headers: responseHeaders,

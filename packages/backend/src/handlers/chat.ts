@@ -118,8 +118,12 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 			let buffer = '';
 			let wordCount = 0;
 
+			let closed = false;
 			const abortHandler = () => {
-				controller.close();
+				if (!closed) {
+					closed = true;
+					controller.close();
+				}
 			};
 			req.signal.addEventListener('abort', abortHandler);
 
@@ -177,7 +181,10 @@ export async function handleChat(req: Request, pool: ModelPool): Promise<Respons
 				log.error('streaming error:', err);
 			} finally {
 				req.signal.removeEventListener('abort', abortHandler);
-				controller.close();
+				if (!closed) {
+					closed = true;
+					controller.close();
+				}
 			}
 		}
 	});

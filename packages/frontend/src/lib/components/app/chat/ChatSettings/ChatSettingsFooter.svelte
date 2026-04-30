@@ -6,7 +6,6 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { goto } from '$app/navigation';
-	import { is } from 'zod/locales';
 
 	interface Props {
 		onReset?: () => void;
@@ -20,7 +19,7 @@
 	let showResetDialog = $state(false);
 	let showIndicator = $derived(isDirty);
 
-	$inspect(isDirty)
+	$inspect(isDirty);
 
 	function handleResetClick() {
 		showResetDialog = true;

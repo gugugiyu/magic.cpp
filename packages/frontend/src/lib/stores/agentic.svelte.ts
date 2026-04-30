@@ -576,9 +576,15 @@ class AgenticStore {
 					signal
 				);
 
-				this.updateSession(conversationId, { streamingToolCall: null });
+			this.updateSession(conversationId, { streamingToolCall: null });
 
-				if (turnTimings) {
+			// If the stream was aborted by the user, exit immediately without executing tool calls.
+			if (signal?.aborted) {
+				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
+				return;
+			}
+
+			if (turnTimings) {
 					agenticTimings.llm.predicted_n += turnTimings.predicted_n || 0;
 					agenticTimings.llm.predicted_ms += turnTimings.predicted_ms || 0;
 					agenticTimings.llm.prompt_n += turnTimings.prompt_n || 0;

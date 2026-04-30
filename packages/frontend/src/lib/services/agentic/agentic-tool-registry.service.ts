@@ -188,13 +188,13 @@ const SETTING_KEY_TO_TOOL_GROUP: Record<string, OpenAIToolDefinition[]> = {
 
 function getActiveBuiltinToolsFromSettings(settings: SettingsConfigType): OpenAIToolDefinition[] {
 	const tools: OpenAIToolDefinition[] = [];
-	
+
 	for (const [settingKey, toolDef] of Object.entries(SETTING_KEY_TO_TOOL)) {
 		if (!settings[settingKey]) continue;
 
 		if (
 			settingKey === SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT &&
-			(!subagentConfigStore.isConfigured)
+			!subagentConfigStore.isConfigured
 		) {
 			continue;
 		}

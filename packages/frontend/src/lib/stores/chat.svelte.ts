@@ -1049,12 +1049,31 @@ class ChatStore {
 	}
 	async stopGenerationForChat(convId: string): Promise<void> {
 		const streamingState = this.getChatStreaming(convId);
-		await this.savePartialResponseIfNeeded(convId);
+
+		// Abort the network request immediately so the upstream stops generating.
 		this.setStreamingActive(false);
 		this.abortRequest(convId);
+
+		// Persist whatever was already streamed using the captured state.
+		await this.savePartialResponseIfNeeded(convId, streamingState);
+
 		this.setChatLoading(convId, false);
 		this.clearChatStreaming(convId);
 		this.setProcessingState(convId, null);
+
+		// If a steering message is queued, start it now.
+		const steering = this.steeringRequests.get(convId);
+		if (steering) {
+			this.steeringRequests.delete(convId);
+			if (streamingState && !streamingState.response.trim()) {
+				this.messageStatuses.set(streamingState.messageId, { type: 'cancelled' });
+			}
+			this.sendMessage(steering.content, steering.extras, 'followup').catch((err) =>
+				logger.error('Failed to send steering message:', err)
+			);
+			return;
+		}
+
 		if (streamingState && !streamingState.response.trim()) {
 			this.messageStatuses.set(streamingState.messageId, { type: 'cancelled' });
 			return;
@@ -1075,10 +1094,13 @@ class ChatStore {
 			}
 		}
 	}
-	private async savePartialResponseIfNeeded(convId?: string): Promise<void> {
+	private async savePartialResponseIfNeeded(
+		convId?: string,
+		capturedStreamingState?: { response: string; messageId: string }
+	): Promise<void> {
 		const conversationId = convId || conversationsStore.activeConversation?.id;
 		if (!conversationId) return;
-		const streamingState = this.getChatStreaming(conversationId);
+		const streamingState = capturedStreamingState || this.getChatStreaming(conversationId);
 		if (!streamingState || !streamingState.response.trim()) return;
 		const messages =
 			conversationId === conversationsStore.activeConversation?.id

@@ -46,9 +46,7 @@
 
 	let isLoading = $derived(getAllLoadingChats().includes(conversation.id));
 	let isSummarizing = $derived(conversationsStore.summarizingConversationIds.has(conversation.id));
-	let subagentAvailable = $derived(
-		subagentConfigStore.isConfigured && subagentConfigStore.isEnabled
-	);
+	let subagentAvailable = $derived(subagentConfigStore.isConfigured);
 
 	let hasParentInList = $derived(
 		conversation.forkedFromConversationId

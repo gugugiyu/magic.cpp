@@ -497,7 +497,7 @@ class ConversationsStore {
 	 * @param convId - The conversation ID to summarize and rename
 	 */
 	async summarizeAndRenameConversation(convId: string): Promise<void> {
-		if (!subagentConfigStore.isConfigured || !subagentConfigStore.isEnabled) {
+		if (!subagentConfigStore.isConfigured) {
 			toast.warning(
 				'Subagent is not configured. Please set up the subagent in Settings → Connection.'
 			);

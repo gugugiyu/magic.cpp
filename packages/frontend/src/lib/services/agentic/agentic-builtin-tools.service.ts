@@ -201,10 +201,10 @@ export class AgenticBuiltinToolExecutor {
 		allTools?: OpenAIToolDefinition[],
 		signal?: AbortSignal
 	): Promise<string> {
-		if (!subagentConfigStore.isConfigured || !subagentConfigStore.isEnabled) {
+		if (!subagentConfigStore.isConfigured) {
 			return JSON.stringify({
 				error:
-					'Subagent not configured or not enabled. Please set endpoint, model, and enable the subagent in Settings.'
+					'Subagent not configured. Please set endpoint, model, and enable the subagent in Settings.'
 			});
 		}
 

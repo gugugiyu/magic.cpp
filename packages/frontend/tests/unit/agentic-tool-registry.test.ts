@@ -1,9 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgenticToolRegistry } from '$lib/services/agentic/agentic-tool-registry.service';
-import {
-	BUILTIN_TOOL_NAMES,
-	BUILTIN_TOOL_EXECUTION_TARGET
-} from '$lib/enums/builtin-tools';
 import type { OpenAIToolDefinition } from '$lib/types';
 
 // Mock the subagent config store so fromSettings() is testable without Svelte reactivity
@@ -25,11 +21,8 @@ function makeTool(name: string): OpenAIToolDefinition {
 	};
 }
 
-const ALL_BUILTIN_NAMES = Object.values(BUILTIN_TOOL_NAMES);
-
 const calculatorTool = makeTool('calculator');
 const readFileTool = makeTool('read_file');
-const writeFileTool = makeTool('write_file');
 const mcpTool = makeTool('mcp_search');
 
 describe('AgenticToolRegistry.fromToolDefinitions', () => {
@@ -183,9 +176,8 @@ describe('AgenticToolRegistry.fromSettings', () => {
 	});
 
 	it('returns empty registry when all tool settings are false', async () => {
-		const { AgenticToolRegistry: Registry } = await import(
-			'$lib/services/agentic/agentic-tool-registry.service'
-		);
+		const { AgenticToolRegistry: Registry } =
+			await import('$lib/services/agentic/agentic-tool-registry.service');
 		const settings = {
 			builtinToolCalculator: false,
 			builtinToolTime: false,
@@ -202,9 +194,8 @@ describe('AgenticToolRegistry.fromSettings', () => {
 	});
 
 	it('includes calculator when setting is true', async () => {
-		const { AgenticToolRegistry: Registry } = await import(
-			'$lib/services/agentic/agentic-tool-registry.service'
-		);
+		const { AgenticToolRegistry: Registry } =
+			await import('$lib/services/agentic/agentic-tool-registry.service');
 		const settings = {
 			builtinToolCalculator: true,
 			builtinToolTime: false,
@@ -222,9 +213,8 @@ describe('AgenticToolRegistry.fromSettings', () => {
 	});
 
 	it('expands group settings into multiple tools', async () => {
-		const { AgenticToolRegistry: Registry } = await import(
-			'$lib/services/agentic/agentic-tool-registry.service'
-		);
+		const { AgenticToolRegistry: Registry } =
+			await import('$lib/services/agentic/agentic-tool-registry.service');
 		const settings = {
 			builtinToolCalculator: false,
 			builtinToolTime: false,

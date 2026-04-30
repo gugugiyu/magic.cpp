@@ -483,7 +483,7 @@
 			} catch (error) {
 				toast.error('Invalid JSON in custom parameters. Please check the format and try again.');
 				console.error(error);
-				return;
+				return false;
 			}
 		}
 
@@ -501,12 +501,13 @@
 					}
 				} else {
 					toast.error(`Invalid numeric value for ${field}. Please enter a valid number.`);
-					return;
+					return false;
 				}
 			}
 		}
 
 		settingsStore.updateMultipleConfig(processedConfig);
+		return true;
 	}
 
 	export function reset() {

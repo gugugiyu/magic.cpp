@@ -15,7 +15,6 @@ export interface SubagentConfig {
 	endpoint: string;
 	apiKey: string;
 	model: string;
-	enabled: boolean;
 	summarizeEnabled: boolean;
 }
 
@@ -23,7 +22,6 @@ const DEFAULT_CONFIG: SubagentConfig = {
 	endpoint: '',
 	apiKey: '',
 	model: '',
-	enabled: false,
 	summarizeEnabled: false
 };
 
@@ -39,9 +37,7 @@ class SubagentConfigStore {
 			const stored = localStorage.getItem(SUBAGENT_CONFIG_LOCALSTORAGE_KEY);
 			if (stored !== null) {
 				const parsed = JSON.parse(stored) as SubagentConfig;
-				if (typeof parsed.enabled === 'boolean') {
-					return { ...DEFAULT_CONFIG, ...parsed };
-				}
+				return { ...DEFAULT_CONFIG, ...parsed };
 			}
 		} catch (error) {
 			console.warn('Failed to load subagent config:', error);
@@ -70,10 +66,6 @@ class SubagentConfigStore {
 		return this.#config.endpoint.trim().length > 0 && this.#config.model.trim().length > 0;
 	}
 
-	get isEnabled(): boolean {
-		return this.#config.enabled;
-	}
-
 	getEndpoint(): string {
 		return this.#config.endpoint;
 	}
@@ -84,11 +76,6 @@ class SubagentConfigStore {
 
 	getModel(): string {
 		return this.#config.model;
-	}
-
-	setEnabled(enabled: boolean): void {
-		this.#config = { ...this.#config, enabled };
-		this.saveToStorage(this.#config);
 	}
 
 	setEndpoint(endpoint: string): void {
@@ -126,4 +113,3 @@ export const subagentConfigStore = new SubagentConfigStore();
 
 export const subagentConfig = () => subagentConfigStore.config;
 export const isSubagentConfigured = () => subagentConfigStore.isConfigured;
-export const isSubagentEnabled = () => subagentConfigStore.isEnabled;

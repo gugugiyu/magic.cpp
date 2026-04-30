@@ -3,28 +3,24 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { RotateCcw } from '@lucide/svelte';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+	import { goto } from '$app/navigation';
+	import { is } from 'zod/locales';
 
 	interface Props {
 		onReset?: () => void;
-		onSave?: () => void;
+		onSave?: () => boolean | void;
 		isDirty?: boolean;
+		closeOnSave?: boolean;
 	}
 
-	let { onReset, onSave, isDirty = false }: Props = $props();
+	let { onReset, onSave, isDirty = false, closeOnSave = true }: Props = $props();
 
 	let showResetDialog = $state(false);
-	let showIndicator = $state(false);
+	let showIndicator = $derived(isDirty);
 
-	$effect(() => {
-		if (isDirty) {
-			showIndicator = true;
-		} else {
-			const timer = setTimeout(() => {
-				showIndicator = false;
-			}, 300);
-			return () => clearTimeout(timer);
-		}
-	});
+	$inspect(isDirty)
 
 	function handleResetClick() {
 		showResetDialog = true;
@@ -38,7 +34,13 @@
 	}
 
 	function handleSave() {
-		onSave?.();
+		// We capture wasDirty because onSave() will override localStorage defaults hence making the unsaved hook returns isDirty = false
+		const wasDirty = isDirty;
+
+		const saved = onSave?.();
+		if (closeOnSave && saved !== false && wasDirty) {
+			goto('#/');
+		}
 	}
 </script>
 
@@ -55,9 +57,8 @@
 
 		{#if showIndicator}
 			<span
-				class="flex items-center gap-1.5 text-xs text-destructive transition-all duration-300 {isDirty
-					? 'translate-x-0 opacity-100'
-					: 'translate-x-2 opacity-0'}"
+				class="flex items-center gap-1.5 text-xs text-destructive"
+				transition:fly={{ x: -10, duration: 250, easing: cubicOut }}
 			>
 				<span class="relative flex h-2 w-2">
 					<span

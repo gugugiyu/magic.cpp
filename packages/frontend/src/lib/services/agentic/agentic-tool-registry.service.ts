@@ -135,7 +135,14 @@ export class AgenticToolRegistry {
 	 */
 	getSubagentTools(allTools?: OpenAIToolDefinition[]): OpenAIToolDefinition[] {
 		// NO recursive subagent, skills and todo list access
-		const excluded = new Set(['call_subagent', 'read_skill', 'list_skill', 'create_todo', 'read_todo', 'mark_todo']);
+		const excluded = new Set([
+			'call_subagent',
+			'read_skill',
+			'list_skill',
+			'create_todo',
+			'read_todo',
+			'mark_todo'
+		]);
 		return (allTools ?? []).filter((t) => {
 			const tName = t.function?.name;
 			return tName && !excluded.has(tName);
@@ -181,13 +188,13 @@ const SETTING_KEY_TO_TOOL_GROUP: Record<string, OpenAIToolDefinition[]> = {
 
 function getActiveBuiltinToolsFromSettings(settings: SettingsConfigType): OpenAIToolDefinition[] {
 	const tools: OpenAIToolDefinition[] = [];
-
+	
 	for (const [settingKey, toolDef] of Object.entries(SETTING_KEY_TO_TOOL)) {
 		if (!settings[settingKey]) continue;
 
 		if (
 			settingKey === SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT &&
-			(!subagentConfigStore.isConfigured || !subagentConfigStore.isEnabled)
+			(!subagentConfigStore.isConfigured)
 		) {
 			continue;
 		}

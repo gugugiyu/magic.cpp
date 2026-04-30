@@ -302,14 +302,25 @@ export { McpReconnectService } from './mcp/mcp-reconnect.service';
 export { ChatProcessingService } from './chat/chat-processing.service';
 
 /**
- * **AgenticBuiltinToolsService** - Built-in tool execution for agentic flows
+ * **AgenticBuiltinToolExecutor** - Built-in tool execution for agentic flows
  *
  * Executes built-in tools (calculator, time, location, subagent, skills, todos,
  * run_command) without requiring MCP server connections.
  *
- * @see agenticStore in stores/agentic.svelte.ts — uses AgenticBuiltinToolsService for tool execution
+ * @see agenticStore in stores/agentic.svelte.ts — uses AgenticBuiltinToolExecutor for tool execution
  */
-export { AgenticBuiltinToolsService } from './agentic/agentic-builtin-tools.service';
+export { AgenticBuiltinToolExecutor } from './agentic/agentic-builtin-tools.service';
+
+/**
+ * **AgenticToolRegistry** - Central validation, classification, and routing
+ * authority for builtin tools during an agentic flow.
+ *
+ * Owns every decision about which tools are active, how they are dispatched,
+ * and which tools the subagent is allowed to see.
+ *
+ * @see agenticStore in stores/agentic.svelte.ts — uses AgenticToolRegistry for tool routing
+ */
+export { AgenticToolRegistry } from './agentic/agentic-tool-registry.service';
 
 /**
  * **AgenticToolUtils** - Tool call normalization and attachment extraction

@@ -1,3 +1,4 @@
+import { AgenticToolRegistry } from './agentic-tool-registry.service';
 import { BUILTIN_TOOL_EXECUTION_TARGET } from '$lib/enums/builtin-tools';
 import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 import { runCommandSessionStore } from '$lib/stores/run-command-session.svelte';
@@ -12,7 +13,7 @@ import { AttachmentType } from '$lib/enums';
 import type { OpenAIToolDefinition } from '$lib/types';
 import type { DatabaseMessageExtra } from '$lib/types/database';
 
-export class AgenticBuiltinToolsService {
+export class AgenticBuiltinToolExecutor {
 	static async executeBuiltinTool(
 		name: string,
 		args: string,
@@ -222,10 +223,8 @@ export class AgenticBuiltinToolsService {
 			return JSON.stringify({ error: 'call_subagent requires a prompt argument' });
 		}
 
-		const subagentTools = (allTools ?? []).filter((t: OpenAIToolDefinition) => {
-			const tName = t.function?.name;
-			return tName && tName !== 'call_subagent';
-		});
+		const registry = AgenticToolRegistry.fromToolDefinitions(allTools ?? []);
+		const subagentTools = registry.getSubagentTools(allTools ?? []);
 
 		const linkedController = createLinkedController(signal);
 		const subagentSignal = linkedController.signal;
@@ -323,16 +322,7 @@ export class AgenticBuiltinToolsService {
 
 						let toolResult: string;
 						try {
-							const builtinNameSet = new Set(
-								(allTools ?? [])
-									.filter(
-										(t) => BUILTIN_TOOL_EXECUTION_TARGET[t.function?.name ?? ''] === 'frontend'
-									)
-									.map((t) => t.function.name)
-							);
-							builtinNameSet.delete('call_subagent');
-
-							if (builtinNameSet.has(tcName)) {
+							if (registry.isBuiltin(tcName)) {
 								const builtinResult = await this.executeBuiltinTool(
 									tcName,
 									tcArgs,

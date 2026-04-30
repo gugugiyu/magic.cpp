@@ -1,22 +1,5 @@
 import { SETTINGS_KEYS } from '$lib/constants';
-import {
-	BUILTIN_TOOLS,
-	TOOL_READ_FILE,
-	TOOL_WRITE_FILE,
-	TOOL_PATCH_FILE,
-	TOOL_LIST_DIRECTORY,
-	TOOL_SEARCH_FILES,
-	TOOL_DELETE_FILE,
-	TOOL_MOVE_FILE,
-	TOOL_LIST_SKILL,
-	TOOL_READ_SKILL,
-	TOOL_CREATE_TODO,
-	TOOL_MARK_TODO,
-	TOOL_READ_TODO
-} from '@shared/constants/prompts-and-tools';
-import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
-import type { SettingsConfigType } from '$lib/types';
-import type { OpenAIToolDefinition } from '$lib/types';
+import { BUILTIN_TOOLS } from '@shared/constants/prompts-and-tools';
 
 export const BUILTIN_TOOL_NAMES = {
 	CALCULATOR: 'calculator',
@@ -105,32 +88,6 @@ export const builtinToolFields = [
 	}
 ] as const;
 
-/** Maps a single-tool setting key → the corresponding tool definition. */
-const SETTING_KEY_TO_TOOL: Record<string, OpenAIToolDefinition> = {
-	[SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR]: BUILTIN_TOOLS[0],
-	[SETTINGS_KEYS.BUILTIN_TOOL_TIME]: BUILTIN_TOOLS[1],
-	[SETTINGS_KEYS.BUILTIN_TOOL_LOCATION]: BUILTIN_TOOLS[2],
-	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: BUILTIN_TOOLS[3],
-	[SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND]: BUILTIN_TOOLS[13]
-};
-
-/** Maps a group setting key → the list of tool definitions it enables. */
-const SETTING_KEY_TO_TOOL_GROUP: Record<string, OpenAIToolDefinition[]> = {
-	[SETTINGS_KEYS.BUILTIN_TOOL_SKILLS]: [TOOL_LIST_SKILL, TOOL_READ_SKILL],
-	[SETTINGS_KEYS.BUILTIN_TOOL_SAFE_FILE_TOOLS]: [
-		TOOL_READ_FILE,
-		TOOL_LIST_DIRECTORY,
-		TOOL_SEARCH_FILES
-	],
-	[SETTINGS_KEYS.BUILTIN_TOOL_MUTATING_FILE_TOOLS]: [
-		TOOL_WRITE_FILE,
-		TOOL_PATCH_FILE,
-		TOOL_DELETE_FILE,
-		TOOL_MOVE_FILE
-	],
-	[SETTINGS_KEYS.BUILTIN_TOOL_TODO_LIST]: [TOOL_CREATE_TODO, TOOL_MARK_TODO, TOOL_READ_TODO]
-};
-
 /** Routes tool execution: 'frontend' means browser-side switch, 'backend' means POST /api/tools/execute. */
 export const BUILTIN_TOOL_EXECUTION_TARGET: Record<string, 'frontend' | 'backend'> = {
 	calculator: 'frontend',
@@ -164,30 +121,6 @@ export const BUILTIN_TOOL_SETTING_KEY_TARGET: Record<string, 'frontend' | 'backe
 	[SETTINGS_KEYS.BUILTIN_TOOL_RUN_COMMAND]: 'backend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_TODO_LIST]: 'frontend'
 };
-
-export function getActiveBuiltinTools(settings: SettingsConfigType): OpenAIToolDefinition[] {
-	const tools: OpenAIToolDefinition[] = [];
-
-	for (const [settingKey, toolDef] of Object.entries(SETTING_KEY_TO_TOOL)) {
-		if (!settings[settingKey]) continue;
-
-		if (
-			settingKey === SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT &&
-			(!subagentConfigStore.isConfigured || !subagentConfigStore.isEnabled)
-		) {
-			continue;
-		}
-
-		tools.push(toolDef);
-	}
-
-	for (const [settingKey, toolDefs] of Object.entries(SETTING_KEY_TO_TOOL_GROUP)) {
-		if (!settings[settingKey]) continue;
-		tools.push(...toolDefs);
-	}
-
-	return tools;
-}
 
 export function getBuiltinToolNames(): Set<string> {
 	return new Set(BUILTIN_TOOLS.map((t) => t.function.name));

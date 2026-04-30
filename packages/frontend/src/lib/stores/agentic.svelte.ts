@@ -22,16 +22,16 @@
 
 import { ChatService } from '$lib/services';
 import {
-	AgenticBuiltinToolsService,
+	AgenticBuiltinToolExecutor,
 	AgenticToolUtils,
 	AgenticTimingService,
-	AgenticAttachmentService
+	AgenticAttachmentService,
+	AgenticToolRegistry
 } from '$lib/services';
 import { config } from '$lib/stores/settings.svelte';
 import { mcpStore } from '$lib/stores/mcp.svelte';
 import { modelsStore } from '$lib/stores/models.svelte';
 import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
-import { getActiveBuiltinTools } from '$lib/enums/builtin-tools';
 import { isAbortError, safeNumber } from '$lib/utils';
 
 import { runCommandSessionStore } from '$lib/stores/run-command-session.svelte';
@@ -292,10 +292,6 @@ class AgenticStore {
 		return this._subagentFinalStats[conversationId] ?? null;
 	}
 
-	private getBuiltinTools(settings: SettingsConfigType): OpenAIToolDefinition[] {
-		return getActiveBuiltinTools(settings);
-	}
-
 	getConfig(
 		settings: SettingsConfigType,
 		perChatOverrides?: McpServerOverride[],
@@ -307,7 +303,7 @@ class AgenticStore {
 		const maxToolCallsPerTurn =
 			Number(settings.agenticMaxToolCallsPerTurn) || DEFAULT_AGENTIC_CONFIG.maxToolCallsPerTurn;
 		const hasMcp = hasMcpOverride ?? mcpStore.hasEnabledServers(perChatOverrides);
-		const hasBuiltin = this.getBuiltinTools(settings).length > 0;
+		const hasBuiltin = AgenticToolRegistry.fromSettings(settings).getBuiltinTools().length > 0;
 		return {
 			enabled: (hasMcp || hasBuiltin) && DEFAULT_AGENTIC_CONFIG.enabled,
 			maxTurns,
@@ -325,8 +321,8 @@ class AgenticStore {
 		if (!agenticConfig.enabled) return { handled: false };
 
 		// Collect built-in tools first (no async needed)
-		const builtinTools = this.getBuiltinTools(settings);
-		const builtinToolNames = new Set(builtinTools.map((t) => t.function.name));
+		const registry = AgenticToolRegistry.fromSettings(settings);
+		const builtinTools = registry.getBuiltinTools();
 		let mcpTools: ReturnType<typeof mcpStore.getToolDefinitionsForLLM> = [];
 
 		if (hasMcpServers) {
@@ -338,7 +334,7 @@ class AgenticStore {
 			}
 		}
 
-		const tools = [...builtinTools, ...mcpTools];
+		const tools = registry.mergeWithMcpTools(mcpTools);
 		if (tools.length === 0) {
 			logger.info('[AgenticStore] No tools available, falling back to standard chat');
 			return { handled: false };
@@ -389,7 +385,7 @@ class AgenticStore {
 				messages: normalizedMessages,
 				options,
 				tools,
-				builtinToolNames,
+				registry,
 				agenticConfig,
 				mcpSummarizeOutputs: Boolean(settings.mcpSummarizeOutputs),
 				mcpSummarizeLineThreshold: safeNumber(settings.mcpSummarizeLineThreshold, 400),
@@ -422,7 +418,7 @@ class AgenticStore {
 		messages: ApiChatMessageData[];
 		options: AgenticFlowOptions;
 		tools: OpenAIToolDefinition[];
-		builtinToolNames: Set<string>;
+		registry: AgenticToolRegistry;
 		agenticConfig: AgenticConfig;
 		mcpSummarizeOutputs: boolean;
 		mcpSummarizeLineThreshold: number;
@@ -436,7 +432,7 @@ class AgenticStore {
 			messages,
 			options,
 			tools,
-			builtinToolNames,
+			registry,
 			agenticConfig,
 			mcpSummarizeOutputs,
 			mcpSummarizeLineThreshold,
@@ -734,7 +730,7 @@ class AgenticStore {
 						let extras: DatabaseMessageExtra[] | undefined;
 						let success = true;
 						try {
-							if (builtinToolNames.has(mcpCall.function.name)) {
+							if (registry.isBuiltin(mcpCall.function.name)) {
 								const builtinResult = await this.executeBuiltinTool(
 									mcpCall.function.name,
 									typeof mcpCall.function.arguments === 'string'
@@ -801,8 +797,10 @@ class AgenticStore {
 					this.extractBase64Attachments(result);
 
 				// MCP response length harness: check if output exceeds threshold
-				const isMcpTool = !builtinToolNames.has(toolCall.function.name);
-				const summarizeEnabled = mcpSummarizeOutputs && (mcpSummarizeAllTools || isMcpTool);
+				const summarizeEnabled = registry.shouldSummarize(toolCall.function.name, {
+					mcpSummarizeOutputs,
+					mcpSummarizeAllTools
+				});
 				let cleanedResult: string;
 				let wasSummarized: boolean;
 				let wasCropped: boolean;
@@ -915,7 +913,7 @@ class AgenticStore {
 		signal?: AbortSignal,
 		toolCallId?: string
 	): Promise<{ content: string; extras?: DatabaseMessageExtra[] }> {
-		return AgenticBuiltinToolsService.executeBuiltinTool(
+		return AgenticBuiltinToolExecutor.executeBuiltinTool(
 			name,
 			args,
 			conversationId,

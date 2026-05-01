@@ -26,15 +26,8 @@
 
 	let { children } = $props();
 
-	let isChatRoute = $derived(page.route.id === '/chat/[id]');
-	let isHomeRoute = $derived(page.route.id === '/');
-	let isSettingsRoute = $derived(page.route.id?.startsWith('/settings/[section]') ?? false);
-	let isSkillsRoute = $derived(page.route.id === '/skills');
-	let isPresetsRoute = $derived(page.route.id === '/presets');
-	let isNewChatMode = $derived(page.url.searchParams.get('new_chat') === 'true');
 	let showSidebarByDefault = $derived(activeMessages().length > 0 || isLoading());
 	let alwaysShowSidebarOnDesktop = $derived(config().alwaysShowSidebarOnDesktop);
-	let autoShowSidebarOnNewChat = $derived(config().autoShowSidebarOnNewChat);
 	let isMobile = new IsMobile();
 	let isDesktop = $derived(!isMobile.current);
 	let sidebarOpen = $state(false);
@@ -102,28 +95,7 @@
 			return;
 		}
 
-		if (isSettingsRoute || isSkillsRoute || isPresetsRoute) {
-			// Always keep sidebar visible on settings, skills, and presets routes
-			sidebarOpen = true;
-			return;
-		}
-
-		if (isHomeRoute && !isNewChatMode) {
-			// Auto-collapse sidebar when navigating to home route (but not in new chat mode)
-			sidebarOpen = false;
-		} else if (isHomeRoute && isNewChatMode) {
-			// Keep sidebar open in new chat mode
-			sidebarOpen = true;
-		} else if (isChatRoute) {
-			// On chat routes, only auto-show sidebar if setting is enabled
-			if (autoShowSidebarOnNewChat) {
-				sidebarOpen = true;
-			}
-			// If setting is disabled, don't change sidebar state - let user control it manually
-		} else {
-			// Other routes follow default behavior
-			sidebarOpen = showSidebarByDefault;
-		}
+		sidebarOpen = showSidebarByDefault;
 	});
 
 	// Sync custom theme classes on app load and when theme changes

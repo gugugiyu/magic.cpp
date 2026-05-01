@@ -20,7 +20,7 @@
 		X,
 		FileText,
 		ArrowUpDown,
-		RefreshCw,
+		RefreshCw
 	} from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { SvelteSet } from 'svelte/reactivity';

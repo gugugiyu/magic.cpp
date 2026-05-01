@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import { Trash2, Pencil, Pin, PanelLeft, PanelLeftClose } from '@lucide/svelte';
-	import { ChatSidebarConversationItem, DialogConfirmation } from '$lib/components/app';
-	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import Label from '$lib/components/ui/label/label.svelte';
-	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
-	import * as Sidebar from '$lib/components/ui/sidebar';
+import { goto } from '$app/navigation';
+import { page } from '$app/state';
+import { Trash2, Pencil, Pin, PanelLeft, PanelLeftClose } from '@lucide/svelte';
+import { ChatSidebarConversationItem, DialogConfirmation } from '$lib/components/app';
+import { Button } from '$lib/components/ui/button';
+import { Checkbox } from '$lib/components/ui/checkbox';
+import Label from '$lib/components/ui/label/label.svelte';
+import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
+import * as Sidebar from '$lib/components/ui/sidebar';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import {
 		conversationsStore,
@@ -118,8 +118,6 @@
 	export function handleMobileSidebarItemClick() {
 		if (sidebar.isMobile) {
 			sidebar.toggle();
-		} else if (sidebar.state === 'collapsed') {
-			sidebar.setOpen(true);
 		}
 	}
 
@@ -149,9 +147,9 @@
 
 <ScrollArea
 	class="h-[100vh]"
-	onclick={() => {
-		if (!sidebar.isMobile && sidebar.state === 'collapsed') {
-			sidebar.setOpen(true);
+	onclick={(e) => {
+		if (!sidebar.isMobile && e.target === e.currentTarget) {
+			sidebar.toggle();
 		}
 	}}
 >
@@ -173,7 +171,14 @@
 				size="icon"
 				onclick={(e) => {
 					e.stopPropagation();
-					sidebar.toggle();
+
+					// If in search mode, deactivate it first
+					if (isSearchModeActive) {
+						isSearchModeActive = false;
+						searchQuery = '';
+					} else {
+						sidebar.toggle();
+					}
 				}}
 				class="shrink-0"
 				title="Toggle Sidebar"
@@ -186,7 +191,16 @@
 			</Button>
 		</div>
 
-		<ChatSidebarActions {handleMobileSidebarItemClick} bind:isSearchModeActive bind:searchQuery />
+		<ChatSidebarActions
+			{handleMobileSidebarItemClick}
+			bind:isSearchModeActive
+			bind:searchQuery
+			onActivateSearch={() => {
+				if (!sidebar.isMobile && sidebar.state === 'collapsed') {
+					sidebar.setOpen(true);
+				}
+			}}
+		/>
 	</Sidebar.Header>
 
 	{#if !isSearchModeActive && pinnedConversations.length > 0}

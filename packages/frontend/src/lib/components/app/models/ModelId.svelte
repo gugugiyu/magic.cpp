@@ -63,9 +63,13 @@
 		{/if}
 
 		{#if allTags.length > 0}
-			{#each allTags as tag (tag)}
-				<span class={tagBadgeClass}>{tag}</span>
-			{/each}
+			{#if allTags.length > 3}
+				<span class={tagBadgeClass}>{allTags.length}+ tags</span>
+			{:else}
+				{#each allTags as tag (tag)}
+					<span class={tagBadgeClass}>{tag}</span>
+				{/each}
+			{/if}
 		{/if}
 	</span>
 {/if}

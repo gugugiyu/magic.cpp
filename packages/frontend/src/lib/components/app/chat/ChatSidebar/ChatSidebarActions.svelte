@@ -11,6 +11,7 @@
 		handleMobileSidebarItemClick: () => void;
 		isSearchModeActive: boolean;
 		searchQuery: string;
+		onActivateSearch?: () => void;
 	}
 
 	interface ActionButton {
@@ -23,7 +24,8 @@
 	let {
 		handleMobileSidebarItemClick,
 		isSearchModeActive = $bindable(),
-		searchQuery = $bindable()
+		searchQuery = $bindable(),
+		onActivateSearch
 	}: Props = $props();
 
 	let searchInput: HTMLInputElement | null = $state(null);
@@ -46,6 +48,7 @@
 			keys: ['shift', 'cmd', 'k'],
 			onClick: () => {
 				isSearchModeActive = true;
+				onActivateSearch?.();
 			}
 		},
 		{

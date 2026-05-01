@@ -16,6 +16,7 @@
 		activeMessages
 	} from '$lib/stores/conversations.svelte';
 	import { modelsStore, modelOptions, selectedModelId } from '$lib/stores/models.svelte';
+	import { toast } from 'svelte-sonner';
 
 	let chatId = $derived(page.params.id);
 	let currentChatId: string | undefined = undefined;
@@ -147,6 +148,7 @@
 						await handleUrlParams();
 					}
 				} else {
+					toast.error("Unable to load conversation")
 					await goto('#/');
 				}
 			})();

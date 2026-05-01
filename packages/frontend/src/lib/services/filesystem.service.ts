@@ -62,3 +62,23 @@ export async function readFileContent(path: string): Promise<string> {
 	}
 	return result.result;
 }
+
+export async function listDirectoryContent(path: string): Promise<string> {
+	const res = await fetch('/api/tools/execute', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			name: 'list_directory',
+			args: { path }
+		})
+	});
+	if (!res.ok) {
+		const error = await res.text();
+		throw new Error(`Failed to list directory: ${error}`);
+	}
+	const result = await res.json();
+	if (result.result && result.result.startsWith('Error:')) {
+		throw new Error(result.result);
+	}
+	return result.result;
+}

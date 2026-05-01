@@ -1,6 +1,9 @@
-import { readFileContent as fetchFileContent } from '$lib/services/filesystem.service.js';
+import {
+	readFileContent as fetchFileContent,
+	listDirectoryContent
+} from '$lib/services/filesystem.service.js';
 
-const PATH_TOKEN_REGEX = /@([a-zA-Z0-9_./-]+(?:\/[a-zA-Z0-9_./-]+)*)/g;
+const PATH_TOKEN_REGEX = /@file\("([^"]*)"\)/g;
 
 export function extractPathTokens(text: string): string[] {
 	const tokens = new Set<string>();
@@ -34,12 +37,20 @@ export async function expandPathTokensInMessage(
 				fileContent = await fetchFileContent(token);
 				cache.set(token, fileContent);
 			} catch (_err) {
-				fileContent = `[Error reading file: ${token}]`;
-				cache.set(token, fileContent);
+				try {
+					fileContent = await listDirectoryContent(token);
+					cache.set(token, fileContent);
+				} catch (_dirErr) {
+					fileContent = `[Error reading file or directory: ${token}]`;
+					cache.set(token, fileContent);
+				}
 			}
 		}
 
-		const tokenRegex = new RegExp(`@${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+		const tokenRegex = new RegExp(
+			`@file\\("${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\)`,
+			'g'
+		);
 		expanded = expanded.replace(tokenRegex, `\n\`\`\`${token}\n${fileContent}\n\`\`\`\n`);
 	}
 

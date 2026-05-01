@@ -109,7 +109,7 @@
 								<span
 									class="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 font-mono text-xs text-primary"
 								>
-									@{segment.path}
+									@file("{segment.path}")
 								</span>
 							{/if}
 						{/each}

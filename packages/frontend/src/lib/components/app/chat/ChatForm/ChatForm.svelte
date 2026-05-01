@@ -292,24 +292,54 @@
 		text: string,
 		cursorPos: number
 	): { start: number; end: number; query: string } | null {
-		if (!text || cursorPos < 0) return null;
+		if (!text || cursorPos <= 0) return null;
 
-		let start = cursorPos;
-		while (start > 0 && !/\s/.test(text[start - 1])) {
-			start--;
+		// First, check if we're in an existing @file("...") pattern
+		const prefix = '@file("';
+		const tokenStart = text.lastIndexOf(prefix, cursorPos - 1);
+
+		let searchStart = 0;
+
+		if (tokenStart !== -1) {
+			const quoteEnd = text.indexOf('"', tokenStart + prefix.length);
+			const closingParen = text.indexOf(')', quoteEnd);
+
+			if (quoteEnd !== -1 && closingParen !== -1) {
+				const tokenEnd = closingParen + 1;
+				if (cursorPos < tokenEnd) {
+					return {
+						start: tokenStart,
+						end: tokenEnd,
+						query: text.slice(tokenStart + prefix.length, quoteEnd)
+					};
+				}
+				// Cursor is after a complete @file("...") token
+				// Search for bare @ only after this token
+				searchStart = tokenEnd;
+			}
 		}
 
-		if (text[start] !== '@') return null;
+		// Second, check if we're typing a bare @path (for conversion to new syntax)
+		// Find the most recent @ before cursor, starting from searchStart
+		const atIndex = text.lastIndexOf('@', cursorPos - 1);
+		if (atIndex === -1 || atIndex < searchStart) return null;
 
-		let end = cursorPos;
-		while (end < text.length && !/\s/.test(text[end])) {
-			end++;
-		}
+		// Make sure there's no whitespace between @ and cursor
+		const textBetween = text.slice(atIndex + 1, cursorPos);
+		if (/\s/.test(textBetween)) return null;
+
+		// Make sure we're not inside an existing @file("...") that wasn't caught above
+		// (e.g., cursor is before the opening quote)
+		const afterAt = text.slice(atIndex + 1, atIndex + 6);
+		if (afterAt === 'file("') return null;
+
+		// Extract the query (everything after @ up to cursor)
+		const query = textBetween;
 
 		return {
-			start,
-			end,
-			query: text.slice(start + 1, end)
+			start: atIndex,
+			end: cursorPos,
+			query
 		};
 	}
 
@@ -569,13 +599,23 @@
 	function handleFilePocketSelect(path: string) {
 		const before = value.slice(0, filePocketTokenStart);
 		const after = value.slice(filePocketTokenEnd);
-		value = `${before}@${path}${after}`;
+
+		// Check if this is an old-style @path token (needs conversion)
+		const tokenText = value.slice(filePocketTokenStart, filePocketTokenEnd);
+		const isNewSyntax = tokenText.startsWith('@file("');
+
+		if (isNewSyntax) {
+			value = `${before}@file("${path}")${after}`;
+		} else {
+			// Convert old @path to new @file("path") syntax
+			value = `${before}@file("${path}")${after}`;
+		}
 		onValueChange?.(value);
 
 		isFilePocketOpen = false;
 		filePocketQuery = '';
 
-		const pos = filePocketTokenStart + 1 + path.length;
+		const pos = filePocketTokenStart + `@file("${path}")`.length;
 		requestAnimationFrame(() => {
 			const el = textareaRef?.getElement();
 			if (el) {

@@ -93,7 +93,7 @@
 					<span class="text-foreground">{segment.text}</span>
 				{:else}
 					<span class="items-center rounded bg-primary/20 text-foreground">
-						@{segment.path}
+						@file("{segment.path}")
 					</span>
 				{/if}
 			{/each}

@@ -8,4 +8,3 @@
 
 <ChatScreenHeader />
 <PresetsManager />
-

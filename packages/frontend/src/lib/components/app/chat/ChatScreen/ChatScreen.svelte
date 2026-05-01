@@ -48,6 +48,31 @@
 	import { Trash2, AlertTriangle, RefreshCw } from '@lucide/svelte';
 	import ChatScreenDragOverlay from './ChatScreenDragOverlay.svelte';
 
+	function getWelcomeMessage() {
+		const hour = new Date().getHours();
+		const timeGreetings = [];
+		if (hour >= 5 && hour < 12) timeGreetings.push('Good morning');
+		else if (hour >= 12 && hour < 18) timeGreetings.push('Good afternoon');
+		else if (hour >= 18 && hour < 22) timeGreetings.push('Good evening');
+		else timeGreetings.push('Up late?');
+
+		const witty = [
+			'Welcome back',
+			'Testing new model?',
+			'Ready to magic?',
+			'What are we building today?',
+			'Hello, world.',
+			'init_chat()',
+			'Awaiting your prompt...',
+			'All systems operational.',
+			'Ready when you are.',
+			'Compile your thoughts.'
+		];
+
+		const pool = [...timeGreetings, ...witty];
+		return pool[Math.floor(Math.random() * pool.length)];
+	}
+
 	let { showCenteredEmpty = false } = $props();
 
 	let disableAutoScroll = $derived(Boolean(config().disableAutoScroll));
@@ -79,6 +104,7 @@
 	let emptyFileNames = $state<string[]>([]);
 
 	let initialMessage = $state('');
+	let welcomeMessage = $state(getWelcomeMessage());
 
 	let isEmpty = $derived(
 		showCenteredEmpty && !activeConversation() && activeMessages().length === 0 && !isLoading()
@@ -332,6 +358,7 @@
 		if (!disableAutoScroll) {
 			autoScroll.enable();
 		}
+		welcomeMessage = getWelcomeMessage();
 	});
 
 	onMount(() => {
@@ -476,7 +503,7 @@
 	>
 		<div class="w-full max-w-[48rem] px-4">
 			<div class="mb-10 text-center" in:fade={{ duration: 300 }}>
-				<h1 class="mb-2 text-2xl font-semibold tracking-tight md:text-3xl">magic.cpp</h1>
+				<h1 class="mb-2 text-2xl font-semibold tracking-tight md:text-3xl">{welcomeMessage}</h1>
 
 				<p class="text-muted-foreground md:text-lg">
 					{serverStore.props?.modalities?.audio

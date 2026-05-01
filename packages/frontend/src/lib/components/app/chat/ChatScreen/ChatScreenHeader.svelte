@@ -5,10 +5,12 @@
 	import { filesystemStore } from '$lib/stores/filesystem.svelte.js';
 	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 	import { subagentDialogStore } from '$lib/stores/subagent-dialog.svelte';
+	import { config } from '$lib/stores/settings.svelte';
 	import { activeConversation } from '$lib/stores/conversations.svelte';
 	import { goto } from '$app/navigation';
 
 	const sidebar = useSidebar();
+	const isSubagentEnabled = $derived(config().builtinToolCallSubagent);
 
 	let isSubagentConfigured = $derived(subagentConfigStore.isConfigured);
 	let conversationId = $derived(activeConversation()?.id ?? '');
@@ -26,7 +28,7 @@
 		: ''}"
 >
 	<div class="pointer-events-auto flex items-center space-x-2">
-		{#if isSubagentConfigured}
+		{#if isSubagentConfigured && isSubagentEnabled}
 			<Button
 				variant="ghost"
 				size="icon-lg"

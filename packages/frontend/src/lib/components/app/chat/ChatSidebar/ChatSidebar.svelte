@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Trash2, Pencil, Pin } from '@lucide/svelte';
+	import { Trash2, Pencil, Pin, PanelLeft, PanelLeftClose } from '@lucide/svelte';
 	import { ChatSidebarConversationItem, DialogConfirmation } from '$lib/components/app';
+	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import Label from '$lib/components/ui/label/label.svelte';
 	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
@@ -157,20 +158,31 @@
 	<Sidebar.Header
 		class="top-0 z-10 gap-4 bg-sidebar/50 p-4 pb-2 backdrop-blur-lg group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:p-2 md:sticky"
 	>
-		<a
-			href="#/"
-			onclick={handleMobileSidebarItemClick}
-			class="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center"
-		>
-			<h1 class="hide-when-collapsed inline-flex items-center gap-1 px-2 text-xl font-semibold">
-				magic.cpp
-			</h1>
-			<h1
-				class="mx-auto hidden h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary/10 text-lg font-bold text-sidebar-primary group-data-[collapsible=icon]:flex"
+		<div class="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
+			<a
+				href="#/"
+				onclick={handleMobileSidebarItemClick}
+				class="hide-when-collapsed inline-flex items-center gap-1 px-2 text-xl font-semibold"
 			>
-				M
-			</h1>
-		</a>
+				magic.cpp
+			</a>
+			<Button
+				variant="ghost"
+				size="icon"
+				onclick={(e) => {
+					e.stopPropagation();
+					sidebar.toggle();
+				}}
+				class="shrink-0"
+				title="Toggle Sidebar"
+			>
+				{#if sidebar.state === 'collapsed'}
+					<PanelLeft />
+				{:else}
+					<PanelLeftClose />
+				{/if}
+			</Button>
+		</div>
 
 		<ChatSidebarActions {handleMobileSidebarItemClick} bind:isSearchModeActive bind:searchQuery />
 	</Sidebar.Header>

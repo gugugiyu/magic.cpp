@@ -308,15 +308,6 @@
 				<ChatSidebar bind:this={chatSidebar} />
 			</Sidebar.Root>
 
-			{#if !(alwaysShowSidebarOnDesktop && isDesktop)}
-				<Sidebar.Trigger
-					class="transition-left absolute left-0 z-[900] duration-200 ease-linear {sidebarOpen
-						? 'md:left-[var(--sidebar-width)]'
-						: 'md:left-[var(--sidebar-width-icon)]'}"
-					style="translate: 1rem 1rem;"
-				/>
-			{/if}
-
 			<Sidebar.Inset class="flex flex-1 flex-col overflow-hidden">
 				{@render children?.()}
 			</Sidebar.Inset>

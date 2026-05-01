@@ -5,10 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { McpLogo } from '$lib/components/app';
 	import { goto } from '$app/navigation';
-	import { useSidebar } from '$lib/components/ui/sidebar';
 	import type { Component } from 'svelte';
-
-	const sidebar = useSidebar();
 
 	interface Props {
 		handleMobileSidebarItemClick: () => void;
@@ -108,18 +105,8 @@
 
 			<Button
 				class="w-full justify-between backdrop-blur-none! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 hover:[&>kbd]:opacity-100"
-				href={!sidebar.isMobile && sidebar.state === 'collapsed'
-					? undefined
-					: action.label === 'New chat'
-						? '?new_chat=true#/'
-						: undefined}
-				onclick={() => {
-					if (!sidebar.isMobile && sidebar.state === 'collapsed') {
-						sidebar.setOpen(true);
-						return;
-					}
-					action.onClick();
-				}}
+				href={action.label === 'New chat' ? '?new_chat=true#/' : undefined}
+				onclick={() => action.onClick()}
 				variant="ghost"
 			>
 				<div class="flex items-center gap-2" style="color: var(--foreground)">

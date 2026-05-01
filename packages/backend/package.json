@@ -11,7 +11,7 @@
 		"start": "bun run src/index.ts",
 		"check": "tsc --noEmit",
 		"mock": "bun run --watch ./mocks/mock-server.ts",
-		"build": "echo 'Frontend must be built separately with: bun run build --workspace=@webui'"
+		"build": "bun build src/index.ts --outdir dist --target=bun --bundle"
 	},
 	"dependencies": {
 		"diff": "^9.0.0",

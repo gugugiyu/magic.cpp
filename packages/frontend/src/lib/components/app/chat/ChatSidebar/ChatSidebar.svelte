@@ -7,6 +7,7 @@ import { Button } from '$lib/components/ui/button';
 import { Checkbox } from '$lib/components/ui/checkbox';
 import Label from '$lib/components/ui/label/label.svelte';
 import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
+import { settingsStore } from '$lib/stores/settings.svelte'
 import * as Sidebar from '$lib/components/ui/sidebar';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import {
@@ -119,6 +120,7 @@ import * as Sidebar from '$lib/components/ui/sidebar';
 		if (sidebar.isMobile) {
 			sidebar.toggle();
 		}
+		// On desktop, don't change sidebar state - let user control it manually
 	}
 
 	export function activateSearchMode() {
@@ -177,7 +179,10 @@ import * as Sidebar from '$lib/components/ui/sidebar';
 						isSearchModeActive = false;
 						searchQuery = '';
 					} else {
+						const willBeOpen = sidebar.state === 'collapsed';
 						sidebar.toggle();
+						// Persist user's manual toggle preference
+						settingsStore.updateConfig('alwaysShowSidebarOnDesktop', willBeOpen);
 					}
 				}}
 				class="shrink-0"

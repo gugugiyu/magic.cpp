@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Pencil, Trash2, Copy, Wrench, Sparkles } from '@lucide/svelte';
+	import { Pencil, Trash2, Copy, Wrench, Sparkles, Star } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import type { PresetView } from '@shared/types/presets';
 	import { builtinToolFields } from '$lib/enums/builtin-tools';
@@ -7,23 +7,27 @@
 	interface Props {
 		preset: PresetView;
 		isActive?: boolean;
+		isDefault?: boolean;
 		isOperating?: boolean;
 		onEdit?: () => void;
 		onDelete?: () => void;
 		onDuplicate?: () => void;
 		onActivate?: () => void;
 		onDeactivate?: () => void;
+		onMakeDefault?: () => void;
 	}
 
 	let {
 		preset,
 		isActive = false,
+		isDefault = false,
 		isOperating = false,
 		onEdit,
 		onDelete,
 		onDuplicate,
 		onActivate,
-		onDeactivate
+		onDeactivate,
+		onMakeDefault
 	}: Props = $props();
 
 	const toolCount = $derived(preset.enabledTools.length);
@@ -52,6 +56,20 @@
 		</div>
 
 		<div class="flex shrink-0 items-center gap-0.5 sm:gap-1">
+			{#if onMakeDefault}
+				<button
+					type="button"
+					class="rounded p-2 text-muted-foreground transition-colors hover:text-warning focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-1.5 {isDefault
+						? 'text-warning'
+						: ''}"
+					onclick={onMakeDefault}
+					disabled={isOperating}
+					title={isDefault ? 'Remove default status' : 'Make default'}
+					aria-label={isDefault ? 'Remove default status' : 'Make default'}
+				>
+					<Star class="h-3.5 w-3.5 {isDefault ? ' fill-warning' : ''}" />
+				</button>
+			{/if}
 			{#if onDuplicate}
 				<button
 					type="button"
@@ -131,6 +149,12 @@
 			<Badge variant="tertiary" class="text-xs"
 				>{promptCount} prompt{promptCount !== 1 ? 's' : ''}</Badge
 			>
+			{#if isDefault}
+				<Badge variant="secondary" class="text-xs">
+					<Star class="mr-1 h-3 w-3 fill-warning text-warning" />
+					Default
+				</Badge>
+			{/if}
 		</div>
 
 		{#if onActivate}

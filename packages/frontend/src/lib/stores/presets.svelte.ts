@@ -12,19 +12,18 @@
 import { browser } from '$app/environment';
 import { PresetService } from '$lib/services/preset.service';
 import { settingsStore } from '$lib/stores/settings.svelte';
-import { SETTINGS_KEYS } from '$lib/constants';
+import { SETTINGS_KEYS, DEFAULT_PRESET_LOCALSTORAGE_KEY } from '$lib/constants';
 import { builtinToolFields } from '$lib/enums/builtin-tools';
 import type { PresetView, PresetInput } from '@shared/types/presets';
 
 const ACTIVE_PRESET_LOCALSTORAGE_KEY = 'activePresetId';
-const PREVIOUS_SYSTEM_MESSAGE_LOCALSTORAGE_KEY = 'previousSystemMessage';
 
 class PresetsStore {
 	#presets = $state<PresetView[]>([]);
 	#isLoading = $state(false);
 	#error = $state<string | null>(null);
 	#activePresetId = $state<string | null>(this.#loadActiveId());
-	#previousSystemMessage = $state<string>(this.#loadPreviousSystemMessage());
+	#defaultPresetId = $state<string | null>(this.#loadDefaultPresetId());
 	#loadRequestId = 0;
 	#lastLoadTime = 0;
 
@@ -52,19 +51,23 @@ class PresetsStore {
 		}
 	}
 
-	#loadPreviousSystemMessage(): string {
-		if (!browser) return '';
+	#loadDefaultPresetId(): string | null {
+		if (!browser) return null;
 		try {
-			return localStorage.getItem(PREVIOUS_SYSTEM_MESSAGE_LOCALSTORAGE_KEY) ?? '';
+			return localStorage.getItem(DEFAULT_PRESET_LOCALSTORAGE_KEY);
 		} catch {
-			return '';
+			return null;
 		}
 	}
 
-	#savePreviousSystemMessage(): void {
+	#saveDefaultPresetId(): void {
 		if (!browser) return;
 		try {
-			localStorage.setItem(PREVIOUS_SYSTEM_MESSAGE_LOCALSTORAGE_KEY, this.#previousSystemMessage);
+			if (this.#defaultPresetId) {
+				localStorage.setItem(DEFAULT_PRESET_LOCALSTORAGE_KEY, this.#defaultPresetId);
+			} else {
+				localStorage.removeItem(DEFAULT_PRESET_LOCALSTORAGE_KEY);
+			}
 		} catch {
 			// ignore
 		}
@@ -93,6 +96,15 @@ class PresetsStore {
 		return this.#presets.find((p) => p.id === this.#activePresetId);
 	}
 
+	get defaultPresetId(): string | null {
+		return this.#defaultPresetId;
+	}
+
+	get defaultPreset(): PresetView | undefined {
+		if (!this.#defaultPresetId) return undefined;
+		return this.#presets.find((p) => p.id === this.#defaultPresetId);
+	}
+
 	// ─── CRUD Operations ──────────────────────────────────────────────
 
 	/** Load all presets from the backend. */
@@ -109,6 +121,14 @@ class PresetsStore {
 
 			this.#presets = presets;
 			this.#lastLoadTime = Date.now();
+
+			// Auto-apply default preset if no preset is active
+			if (!this.#activePresetId && this.#defaultPresetId) {
+				const defaultPreset = this.#presets.find((p) => p.id === this.#defaultPresetId);
+				if (defaultPreset) {
+					this.applyPreset(this.#defaultPresetId);
+				}
+			}
 		} catch (err) {
 			if (requestId !== this.#loadRequestId) return;
 			this.#error = (err as Error).message;
@@ -157,10 +177,18 @@ class PresetsStore {
 
 	/** Delete a preset and reload the list. */
 	async deletePreset(id: string): Promise<void> {
+		const wasActive = this.#activePresetId === id;
+		const wasDefault = this.#defaultPresetId === id;
+
 		await PresetService.deletePreset(id);
-		if (this.#activePresetId === id) {
+
+		if (wasActive) {
 			this.clearActivePreset();
 		}
+		if (wasDefault) {
+			this.clearDefaultPreset();
+		}
+
 		await this.loadPresets();
 	}
 
@@ -182,12 +210,6 @@ class PresetsStore {
 			return;
 		}
 
-		const isAlreadyActive = this.#activePresetId === id;
-		if (!isAlreadyActive) {
-			this.#previousSystemMessage = settingsStore.config[SETTINGS_KEYS.SYSTEM_MESSAGE] as string;
-			this.#savePreviousSystemMessage();
-		}
-
 		this.#activePresetId = id;
 		this.#saveActiveId();
 
@@ -203,13 +225,44 @@ class PresetsStore {
 	}
 
 	/**
-	 * Clear the active preset and restore raw system prompt default.
+	 * Clear the active preset and apply default if one exists.
 	 */
-	clearActivePreset(isRestoreSysPrompt: boolean = true): void {
+	clearActivePreset(): void {
 		this.#activePresetId = null;
 		this.#saveActiveId();
-		if (isRestoreSysPrompt)
-			settingsStore.updateConfig(SETTINGS_KEYS.SYSTEM_MESSAGE, this.#previousSystemMessage);
+
+		// Apply default preset if one exists
+		if (this.#defaultPresetId) {
+			const defaultPreset = this.#presets.find((p) => p.id === this.#defaultPresetId);
+			if (defaultPreset) {
+				this.applyPreset(this.#defaultPresetId);
+				return;
+			}
+		}
+
+		// No default preset, clear system message to empty
+		settingsStore.updateConfig(SETTINGS_KEYS.SYSTEM_MESSAGE, '');
+	}
+
+	/**
+	 * Set a preset as the default (persisted in localStorage).
+	 */
+	setDefaultPreset(id: string): void {
+		const preset = this.findPreset(id);
+		if (!preset) {
+			console.warn(`[presetsStore] Preset "${id}" not found, cannot set as default`);
+			return;
+		}
+		this.#defaultPresetId = id;
+		this.#saveDefaultPresetId();
+	}
+
+	/**
+	 * Clear the default preset.
+	 */
+	clearDefaultPreset(): void {
+		this.#defaultPresetId = null;
+		this.#saveDefaultPresetId();
 	}
 }
 

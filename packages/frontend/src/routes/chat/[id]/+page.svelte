@@ -148,7 +148,7 @@
 						await handleUrlParams();
 					}
 				} else {
-					toast.error("Unable to load conversation")
+					toast.error('Unable to load conversation');
 					await goto('#/');
 				}
 			})();

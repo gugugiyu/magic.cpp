@@ -462,7 +462,7 @@
 			localConfig[SETTINGS_KEYS.FILTER_CODEBLOCK_ONLY] = false;
 		} else if (key === SETTINGS_KEYS.SYSTEM_MESSAGE) {
 			// If system message, tool calls changed, reset presets entirely
-			presetsStore.clearActivePreset(false);
+			presetsStore.clearActivePreset();
 			const toastMsg = `Preset is no longer active because ${SETTINGS_KEYS.SYSTEM_MESSAGE ? 'system prompt' : 'built in tools list'} has changed`;
 			toast.info(toastMsg);
 		}

@@ -20,7 +20,7 @@
 		X,
 		FileText,
 		ArrowUpDown,
-		RefreshCw
+		RefreshCw,
 	} from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -225,6 +225,16 @@
 		presetsStore.clearActivePreset();
 		toast.success('Preset deactivated');
 	}
+
+	function handleMakeDefault(preset: PresetView) {
+		if (presetsStore.defaultPresetId === preset.id) {
+			presetsStore.clearDefaultPreset();
+			toast.success('Default preset cleared');
+		} else {
+			presetsStore.setDefaultPreset(preset.id);
+			toast.success(`Preset "${preset.name}" set as default`);
+		}
+	}
 </script>
 
 <div class="flex h-full flex-col gap-0">
@@ -397,12 +407,14 @@
 						<PresetCard
 							{preset}
 							isActive={presetsStore.activePresetId === preset.id}
+							isDefault={presetsStore.defaultPresetId === preset.id}
 							isOperating={busyPresetId === preset.id}
 							onEdit={() => openEditModal(preset)}
 							onDelete={() => confirmDelete(preset)}
 							onDuplicate={() => handleDuplicate(preset)}
 							onActivate={() => handleActivate(preset)}
 							onDeactivate={handleDeactivate}
+							onMakeDefault={() => handleMakeDefault(preset)}
 						/>
 					{/each}
 				</div>

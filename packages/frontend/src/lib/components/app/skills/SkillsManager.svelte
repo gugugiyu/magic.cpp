@@ -419,19 +419,9 @@
 <div class="flex h-full flex-col gap-0">
 	<!-- Header -->
 	<div class="grid gap-2 border-b border-border/30 p-4 md:p-6">
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-2">
-				<Wrench class="h-5 w-5" />
-				<h2 class="text-lg font-semibold">Skills Manager</h2>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<Badge variant="tertiary">{skillsStore.skills.length} total</Badge>
-				<Badge variant="outline">{skillsStore.enabledSkills.length} enabled</Badge>
-				<Badge variant="secondary" class="text-[10px]">
-					Max {(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB per skill
-				</Badge>
-			</div>
+		<div class="flex items-center gap-2">
+			<Wrench class="h-5 w-5" />
+			<h2 class="text-lg font-semibold">Skills Manager</h2>
 		</div>
 
 		<p class="text-sm text-muted-foreground">
@@ -643,6 +633,13 @@
 					</div>
 				</div>
 			{:else}
+				<div class="mb-4 flex items-center gap-2">
+					<Badge variant="tertiary">{skillsStore.skills.length} total</Badge>
+					<Badge variant="outline">{skillsStore.enabledSkills.length} enabled</Badge>
+					<Badge variant="secondary" class="text-[10px]">
+						Max {(SKILL_MAX_CONTENT_BYTES / 1024).toFixed(0)} KB per skill
+					</Badge>
+				</div>
 				<!-- Skill Cards Grid -->
 				<div
 					in:fade={{ duration: 150 }}

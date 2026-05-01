@@ -230,15 +230,9 @@
 <div class="flex h-full flex-col gap-0">
 	<!-- Header -->
 	<div class="grid gap-2 border-b border-border/30 p-4 md:p-6">
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-2">
-				<Sparkles class="h-5 w-5" />
-				<h2 class="text-lg font-semibold">Presets</h2>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<Badge variant="tertiary">{presetsStore.presets.length} total</Badge>
-			</div>
+		<div class="flex items-center gap-2">
+			<Sparkles class="h-5 w-5" />
+			<h2 class="text-lg font-semibold">Presets</h2>
 		</div>
 
 		<p class="text-sm text-muted-foreground">
@@ -391,6 +385,9 @@
 					</Button>
 				</div>
 			{:else}
+				<div class="mb-4 flex items-center gap-2">
+					<Badge variant="tertiary">{presetsStore.presets.length} total</Badge>
+				</div>
 				<!-- Preset Cards Grid -->
 				<div
 					in:fade={{ duration: 150 }}

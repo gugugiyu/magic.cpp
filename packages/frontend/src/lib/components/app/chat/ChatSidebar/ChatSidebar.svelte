@@ -158,7 +158,9 @@
 	<Sidebar.Header
 		class="top-0 z-10 gap-4 bg-sidebar/50 p-4 pb-2 backdrop-blur-lg group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:p-2 md:sticky"
 	>
-		<div class="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
+		<div
+			class="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center"
+		>
 			<a
 				href="#/"
 				onclick={handleMobileSidebarItemClick}

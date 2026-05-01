@@ -28,7 +28,7 @@
 		: ''}"
 >
 	<div class="pointer-events-auto flex items-center space-x-2">
-		{#if isSubagentConfigured && isSubagentEnabled}
+		{#if isSubagentConfigured && isSubagentEnabled && conversationId}
 			<Button
 				variant="ghost"
 				size="icon-lg"

@@ -108,7 +108,8 @@ export class DatabaseService {
 				extra: message.extra,
 				timings: message.timings,
 				model: message.model,
-				timestamp: message.timestamp
+				timestamp: message.timestamp,
+				subagentSessionId: message.subagentSessionId
 			},
 			message.convId,
 			parentId
@@ -117,6 +118,14 @@ export class DatabaseService {
 
 	static async getConversationMessages(convId: string): Promise<DatabaseMessage[]> {
 		return messagesAPI.getConversationMessages(convId);
+	}
+
+	static async getSubagentSessions(convId: string): Promise<string[]> {
+		return messagesAPI.getSubagentSessions(convId);
+	}
+
+	static async getSubagentMessages(convId: string, sessionId: string): Promise<DatabaseMessage[]> {
+		return messagesAPI.getSubagentMessages(convId, sessionId);
 	}
 
 	static async getMessageById(id: string): Promise<DatabaseMessage | undefined> {
@@ -141,7 +150,8 @@ export class DatabaseService {
 				extra: message.extra,
 				timings: message.timings,
 				model: message.model,
-				timestamp: message.timestamp
+				timestamp: message.timestamp,
+				subagentSessionId: message.subagentSessionId
 			},
 			{ parentId: message.parent }
 		);

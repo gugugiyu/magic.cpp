@@ -497,3 +497,24 @@ export { default as DialogMcpResourcePreview } from './DialogMcpResourcePreview.
  * ```
  */
 export { default as DialogMcpSummarize } from './DialogMcpSummarize.svelte';
+
+/**
+ * **DialogSubagent** - Subagent execution trace viewer
+ *
+ * Dialog showing the full read-only conversation trace of a subagent session.
+ * Displays system prompt, assistant turns, tool calls, and tool results with
+ * live updates during streaming and historical replay from the database.
+ *
+ * **Architecture:**
+ * - Uses ShadCN Dialog with scrollable content area
+ * - Fetches messages from DatabaseService.getSubagentMessages
+ * - Subscribes to subagentSessionStore for live progress
+ * - Sticky header shows model, turn count, tool count, token count
+ * - Sticky footer shows summary stats
+ *
+ * @example
+ * ```svelte
+ * <DialogSubagent bind:open conversationId={convId} initialSessionId={sessionId} />
+ * ```
+ */
+export { default as DialogSubagent } from './DialogSubagent.svelte';

@@ -227,6 +227,7 @@ export interface DatabaseMessage {
 	extra?: DatabaseMessageExtra[];
 	timings?: ChatMessageTimings;
 	model?: string;
+	subagentSessionId?: string;
 }
 
 export type ExportedConversation = {

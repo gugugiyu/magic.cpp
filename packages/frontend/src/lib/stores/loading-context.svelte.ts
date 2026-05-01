@@ -31,11 +31,6 @@ class LoadingContextStore {
 			return { type: 'tool', name: streamingTool.name };
 		}
 
-		const subagentProgress = agenticStore.subagentProgress(convId);
-		if (subagentProgress) {
-			return { type: 'subagent', skillName: subagentProgress.originSkill };
-		}
-
 		return { type: 'generation' };
 	}
 }

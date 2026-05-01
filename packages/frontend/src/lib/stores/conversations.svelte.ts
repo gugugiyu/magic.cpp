@@ -25,6 +25,7 @@ import { DatabaseService } from '$lib/services/database.service';
 import { todoStore } from '$lib/stores/todos.svelte';
 import { config } from '$lib/stores/settings.svelte';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
+import { subagentSessionStore } from '$lib/stores/subagent-session.svelte';
 import {
 	filterByLeafNodeId,
 	findLeafNode,
@@ -343,6 +344,7 @@ class ConversationsStore {
 		try {
 			await DatabaseService.deleteConversation(convId, options);
 			await todoStore.clearTodos(convId);
+			subagentSessionStore.clearSessionsForConversation(convId);
 
 			// Re-fetch from backend to ensure in-memory state is consistent
 			await this.loadConversations();
@@ -375,6 +377,7 @@ class ConversationsStore {
 				todoStore.conversationTodos.delete(key);
 			}
 			todoStore.loadedConversations.clear();
+			subagentSessionStore.clearAll();
 			await this.loadConversations();
 
 			toast.success('All conversations deleted');

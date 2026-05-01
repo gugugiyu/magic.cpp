@@ -2,7 +2,13 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { afterNavigate } from '$app/navigation';
-	import { ChatScreen, DialogModelNotAvailable, DialogMcpSummarize } from '$lib/components/app';
+	import {
+		ChatScreen,
+		DialogModelNotAvailable,
+		DialogMcpSummarize,
+		DialogSubagent
+	} from '$lib/components/app';
+	import { subagentDialogStore } from '$lib/stores/subagent-dialog.svelte';
 	import { chatStore, isLoading } from '$lib/stores/chat.svelte';
 	import {
 		conversationsStore,
@@ -178,3 +184,9 @@
 />
 
 <DialogMcpSummarize />
+
+<DialogSubagent
+	bind:open={subagentDialogStore.open}
+	conversationId={subagentDialogStore.conversationId}
+	initialSessionId={subagentDialogStore.initialSessionId}
+/>

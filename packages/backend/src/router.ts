@@ -163,6 +163,24 @@ function initializeRoutes(pool: ModelPool, config: Config) {
     },
   );
 
+  // Database API - subagent sessions
+  addRoute(
+    /^\/api\/conversations\/[^/]+\/subagent-sessions$/,
+    "GET",
+    async (req) => {
+      const convId = new URL(req.url).pathname.split("/")[3];
+      return conversationHandlers.handleGetSubagentSessions(getDatabase(), convId);
+    },
+  );
+  addRoute(
+    /^\/api\/conversations\/[^/]+\/subagent-messages$/,
+    "GET",
+    async (req) => {
+      const convId = new URL(req.url).pathname.split("/")[3];
+      return conversationHandlers.handleGetSubagentMessages(getDatabase(), convId, new URL(req.url));
+    },
+  );
+
   // Database API - messages by ID
   addRoute(
     /^\/api\/messages\/([^/]+)$/,

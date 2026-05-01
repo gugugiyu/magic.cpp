@@ -24,6 +24,8 @@ import {
   buildMessageTree,
   deleteMessages,
   updateMessage,
+  getSubagentMessages,
+  getSubagentSessions,
 } from "../database/queries/messages.ts";
 import { filterByLeafNodeId } from "../utils/branching.ts";
 import type {
@@ -243,6 +245,71 @@ export function handleGetConversationMessages(
 }
 
 /**
+ * GET /api/conversations/:id/subagent-sessions
+ */
+export function handleGetSubagentSessions(
+  db: DrizzleDB,
+  convId: string,
+): Response {
+  try {
+    const conversation = getConversation(db, convId);
+    if (!conversation) {
+      return Response.json(
+        { error: "Conversation not found" },
+        { status: 404 },
+      );
+    }
+
+    const sessions = getSubagentSessions(db, convId);
+    return Response.json(sessions);
+  } catch (error) {
+    log.error("failed to get subagent sessions:", error);
+    return Response.json(
+      { error: "Failed to retrieve subagent sessions" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * GET /api/conversations/:id/subagent-messages?sessionId=xxx
+ */
+export function handleGetSubagentMessages(
+  db: DrizzleDB,
+  convId: string,
+  url: URL,
+): Response {
+  try {
+    const conversation = getConversation(db, convId);
+    if (!conversation) {
+      return Response.json(
+        { error: "Conversation not found" },
+        { status: 404 },
+      );
+    }
+
+    const sessionId = url.searchParams.get("sessionId");
+    if (!sessionId) {
+      return Response.json(
+        { error: "Missing sessionId query parameter" },
+        { status: 400 },
+      );
+    }
+
+    const messages = getSubagentMessages(db, convId, sessionId);
+    const messagesWithTree = buildMessageTree(messages);
+
+    return Response.json(messagesWithTree);
+  } catch (error) {
+    log.error("failed to get subagent messages:", error);
+    return Response.json(
+      { error: "Failed to retrieve subagent messages" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
  * POST /api/conversations/:id/messages
  * Query params: parentId (optional), type (optional: 'root', 'system', or default)
  * Body: { content, role, reasoningContent, toolCalls, toolCallId, extra, timings, model, timestamp }
@@ -326,6 +393,7 @@ export async function handleCreateMessage(
           extra: body.extra,
           timings: body.timings,
           model: body.model,
+          subagentSessionId: body.subagentSessionId,
           children: [],
         };
 
@@ -346,7 +414,10 @@ export async function handleCreateMessage(
       });
 
       const allMessages = getConversationMessages(tx, convId);
-      const messagesWithTree = buildMessageTree(allMessages);
+      const messagesForTree = allMessages.some((m) => m.id === newMessage.id)
+        ? allMessages
+        : [...allMessages, newMessage];
+      const messagesWithTree = buildMessageTree(messagesForTree);
       const fullMessage = messagesWithTree.find((m) => m.id === newMessage.id)!;
 
       return Response.json(fullMessage, { status: 201 });

@@ -3,7 +3,7 @@
  * Tree/branching support: children arrays are computed, never stored.
  */
 
-import { eq, asc, inArray } from 'drizzle-orm';
+import { eq, asc, inArray, and, isNull, isNotNull } from 'drizzle-orm';
 import { messages as messagesTable } from '../schema-drizzle.ts';
 import type { Message } from '../schema-drizzle.ts';
 import type { DrizzleDB } from '../index.ts';
@@ -23,7 +23,8 @@ export function createMessage(db: DrizzleDB, message: DatabaseMessage): void {
 		toolCallId: message.toolCallId ?? null,
 		extra: message.extra ? JSON.stringify(message.extra) : null,
 		timings: message.timings ? JSON.stringify(message.timings) : null,
-		model: message.model ?? null
+		model: message.model ?? null,
+		subagentSessionId: message.subagentSessionId ?? null
 	}).run();
 }
 
@@ -37,10 +38,31 @@ export function getConversationMessages(db: DrizzleDB, convId: string): Database
 	const rows = db
 		.select()
 		.from(messagesTable)
-		.where(eq(messagesTable.convId, convId))
+		.where(and(eq(messagesTable.convId, convId), isNull(messagesTable.subagentSessionId)))
 		.orderBy(asc(messagesTable.timestamp))
 		.all();
 	return rows.map(rowToMessage);
+}
+
+export function getSubagentMessages(db: DrizzleDB, convId: string, sessionId: string): DatabaseMessage[] {
+	const rows = db
+		.select()
+		.from(messagesTable)
+		.where(and(eq(messagesTable.convId, convId), eq(messagesTable.subagentSessionId, sessionId)))
+		.orderBy(asc(messagesTable.timestamp))
+		.all();
+	return rows.map(rowToMessage);
+}
+
+export function getSubagentSessions(db: DrizzleDB, convId: string): string[] {
+	const testRows = db.selectDistinct({ subagentSessionId: messagesTable.subagentSessionId })
+		.from(messagesTable).all()
+	const rows = db
+		.selectDistinct({ subagentSessionId: messagesTable.subagentSessionId })
+		.from(messagesTable)
+		.where(and(eq(messagesTable.convId, convId), isNotNull(messagesTable.subagentSessionId)))
+		.all();
+	return rows.map((r) => r.subagentSessionId).filter((s): s is string => s !== null);
 }
 
 export function updateMessage(
@@ -65,6 +87,7 @@ export function updateMessage(
 	}
 	if (updates.model !== undefined) set.model = updates.model ?? null;
 	if (updates.timestamp !== undefined) set.timestamp = updates.timestamp;
+	if (updates.subagentSessionId !== undefined) set.subagentSessionId = updates.subagentSessionId ?? null;
 	// children is computed from parent_id relationships, not stored
 
 	if (Object.keys(set).length === 0) return;
@@ -197,6 +220,7 @@ function rowToMessage(row: Message): DatabaseMessage {
 		extra: row.extra ? JSON.parse(row.extra) : undefined,
 		timings: row.timings ? JSON.parse(row.timings) : undefined,
 		model: row.model ?? undefined,
+		subagentSessionId: row.subagentSessionId ?? undefined,
 		children: []
 	};
 }

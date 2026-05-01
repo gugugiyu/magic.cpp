@@ -30,10 +30,12 @@ export const messages = sqliteTable('messages', {
 	extra: text('extra'),
 	timings: text('timings'),
 	model: text('model'),
+	subagentSessionId: text('subagent_session_id'),
 }, (table) => [
 	index('idx_msg_conv_id').on(table.convId),
 	index('idx_msg_parent').on(table.parentId),
-	index('idx_msg_timestamp').on(table.timestamp)
+	index('idx_msg_timestamp').on(table.timestamp),
+	index('idx_msg_subagent_session').on(table.convId, table.subagentSessionId)
 ]);
 
 export const presets = sqliteTable('presets', {

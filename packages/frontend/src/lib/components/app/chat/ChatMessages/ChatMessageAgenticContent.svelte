@@ -22,17 +22,11 @@
 		Sparkles,
 		Search,
 		BookOpen,
-		FileText,
 		FolderOpen,
 		Terminal
 	} from '@lucide/svelte';
-	import { Badge } from '$lib/components/ui/badge';
-	import {
-		agenticStore,
-		agenticSubagentFinalStats,
-		type SubagentProgress,
-		type SubagentFinalStats
-	} from '$lib/stores/agentic.svelte';
+	import { subagentSessionStore } from '$lib/stores/subagent-session.svelte';
+	import { subagentDialogStore } from '$lib/stores/subagent-dialog.svelte';
 	import { cn } from '$lib/components/ui/utils';
 	import { AgenticSectionType, AttachmentType, FileTypeText } from '$lib/enums';
 	import { formatJsonPretty, applyResponseFilters, copyToClipboard } from '$lib/utils';
@@ -77,14 +71,6 @@
 	onDestroy(() => {
 		reExecutionAbortController?.abort();
 	});
-
-	const subagentProgress = $derived(
-		agenticStore.subagentProgress(message.convId)
-	) satisfies SubagentProgress | null;
-
-	const subagentFinalStats = $derived(
-		agenticSubagentFinalStats(message.convId)
-	) satisfies SubagentFinalStats | null;
 
 	const showToolCallInProgress = $derived(config().showToolCallInProgress as boolean);
 	const showThoughtInProgress = $derived(config().showThoughtInProgress as boolean);
@@ -615,6 +601,10 @@
 		{@const isListSkill = section.toolName === 'list_skill'}
 		{@const isReadSkill = section.toolName === 'read_skill'}
 		{@const isRunCommand = section.toolName === 'run_command'}
+		{@const isCallSubagent = section.toolName === 'call_subagent'}
+		{@const subagentSession = isCallSubagent
+			? subagentSessionStore.getSession(section.toolCallId || '')
+			: undefined}
 		{@const runCommandArgs = isRunCommand
 			? parseRunCommandArgs(section)
 			: { rationale: '', command: '', inShell: false }}
@@ -644,9 +634,9 @@
 				onclick={() => toggleExpanded(index, section)}
 				aria-expanded={isExpanded(index, section)}
 			>
-				{#if isPending && !skillIcon && !isFileTool && !isRunCommand}
+				{#if isPending && !skillIcon && !isFileTool && !isRunCommand && !isCallSubagent}
 					<Loader2 class="h-3.5 w-3.5 shrink-0 animate-spin" />
-				{:else if hasError && !skillIcon && !isFileTool && !isRunCommand}
+				{:else if hasError && !skillIcon && !isFileTool && !isRunCommand && !isCallSubagent}
 					<AlertCircle class="h-3.5 w-3.5 shrink-0 text-destructive" />
 				{:else if skillIcon}
 					{@const Icon = skillIcon}
@@ -655,6 +645,8 @@
 					<FolderOpen class="h-3.5 w-3.5 shrink-0 text-warning" />
 				{:else if isRunCommand}
 					<Terminal class="h-3.5 w-3.5 shrink-0 text-primary" />
+				{:else if isCallSubagent}
+					<Bot class="h-3.5 w-3.5 shrink-0 text-primary" />
 				{:else}
 					<CheckCircle class="h-3.5 w-3.5 shrink-0 text-success" />
 				{/if}
@@ -684,6 +676,29 @@
 							: hasError
 								? 'Error running command'
 								: `[DONE] ${runCommandArgs.rationale || '…'}`}
+					{:else if isCallSubagent}
+						{#if subagentSession}
+							{#if subagentSession.isRunning}
+								Subagent running (turn {subagentSession.currentTurn}, {subagentSession.modelName})
+								{#if subagentSession.steps.length > 0}
+									— {subagentSession.steps.length} tool call{subagentSession.steps.length > 1
+										? 's'
+										: ''}
+								{/if}
+							{:else if subagentSession.isComplete}
+								Subagent complete ({subagentSession.currentTurn} turn{subagentSession.currentTurn >
+								1
+									? 's'
+									: ''}, {subagentSession.totalTokens.toLocaleString()} tokens)
+							{:else if subagentSession.error}
+								Subagent error — {subagentSession.error}
+							{:else}
+								Called <span class="agentic-name">call_subagent</span>
+							{/if}
+						{:else}
+							{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}
+							<span class="agentic-name">call_subagent</span>{isPending ? '…' : ''}
+						{/if}
 					{:else}
 						{isPending ? 'Calling' : hasError ? 'Error in' : 'Called'}
 						<span class="agentic-name">{section.toolName || 'tool'}</span>{isPending ? '…' : ''}
@@ -693,52 +708,6 @@
 					<ChevronRight class={cn('agentic-chevron', isExpanded(index, section) && 'expanded')} />
 				{/if}
 			</button>
-
-			{#if section.toolName === 'call_subagent' && (subagentProgress || subagentFinalStats)}
-				{@const activeProgress = subagentProgress}
-				{@const activeFinal = subagentFinalStats}
-				{@const displayTotal = activeProgress?.usage?.total ?? activeFinal?.totalTokens}
-				{@const displayToolCalls = activeProgress?.toolCallsCount ?? activeFinal?.toolCallsCount}
-				<div class="subagent-steps" role="status" aria-live="polite" aria-atomic="false">
-					{#if activeProgress?.originSkill}
-						<div class="subagent-step">
-							<Badge variant="outline" class="text-xs">
-								Triggered by skill: {activeProgress.originSkill}
-							</Badge>
-						</div>
-					{/if}
-					{#if activeProgress?.steps?.length}
-						{#each activeProgress.steps as step, i (i)}
-							<div class="subagent-step">
-								{#if step.status === 'calling'}
-									<Loader2 class="h-3 w-3 shrink-0 animate-spin" />
-								{:else}
-									<Bot class="h-3 w-3 shrink-0" />
-								{/if}
-								<span class="text-xs text-muted-foreground">
-									<span class="font-mono">{activeProgress.modelName}</span> →
-									<span class="agentic-name">{step.toolName}</span>(){step.status === 'calling'
-										? '…'
-										: ''}
-								</span>
-							</div>
-						{/each}
-					{/if}
-					{#if displayTotal || displayToolCalls}
-						<div class="subagent-stats">
-							<div class="subagent-step">
-								<FileText class="h-3 w-3 shrink-0" />
-								{#if displayTotal}
-									<span>{displayTotal.toLocaleString()} tokens</span>
-								{/if}
-								{#if displayToolCalls}
-									<span>• {displayToolCalls} tool calls</span>
-								{/if}
-							</div>
-						</div>
-					{/if}
-				</div>
-			{/if}
 
 			{#if isExpanded(index, section)}
 				<div class="agentic-inline-content" transition:slide={motionStore.slide()}>
@@ -750,6 +719,24 @@
 							maxHeight="20rem"
 							class="text-xs"
 						/>
+					{/if}
+
+					{#if isCallSubagent && section.toolCallId}
+						<div class="mt-3 flex items-center gap-2">
+							<button
+								type="button"
+								class="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+								onclick={() => {
+									subagentDialogStore.openDialog({
+										conversationId: message.convId,
+										sessionId: section.toolCallId
+									});
+								}}
+							>
+								<Bot class="h-3 w-3" />
+								Open subagent trace
+							</button>
+						</div>
 					{/if}
 
 					<div class="mt-3 mb-2 flex items-center gap-2 text-xs text-muted-foreground/60">
@@ -1144,31 +1131,6 @@
 		margin-left: 0.25rem;
 		padding-left: 1.375rem;
 		border-left: 2px solid color-mix(in oklch, var(--muted-foreground) 15%, transparent);
-	}
-
-	.subagent-steps {
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-		margin-left: 1.5rem;
-		margin-top: 0.125rem;
-	}
-
-	.subagent-step {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		color: var(--muted-foreground);
-	}
-
-	.subagent-stats {
-		display: flex;
-		gap: 0.5rem;
-		margin-left: 1.5rem;
-		margin-top: 0.25rem;
-		font-size: 10px;
-		color: var(--muted-foreground);
-		opacity: 0.6;
 	}
 
 	@keyframes thinking-pulse {

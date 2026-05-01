@@ -323,6 +323,17 @@ export { AgenticBuiltinToolExecutor } from './agentic/agentic-builtin-tools.serv
 export { AgenticToolRegistry } from './agentic/agentic-tool-registry.service';
 
 /**
+ * **AgenticLoopHarness** - Stateless shared harness for multi-turn agentic execution.
+ *
+ * Handles one turn of streaming LLM inference + parallel tool execution + result
+ * processing. Used by both the main agentic loop and the subagent executor.
+ *
+ * @see agenticStore in stores/agentic.svelte.ts — delegates turns to AgenticLoopHarness
+ * @see AgenticBuiltinToolExecutor in services/agentic/agentic-builtin-tools.service.ts — subagent uses harness
+ */
+export { AgenticLoopHarness } from './agentic/agentic-loop-harness.service';
+
+/**
  * **AgenticToolUtils** - Tool call normalization and attachment extraction
  *
  * Normalizes tool calls from API responses, deduplicates identical calls,

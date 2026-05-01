@@ -29,6 +29,13 @@
       "when": 1776963417000,
       "tag": "0003_todos",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1776963418000,
+      "tag": "0004_subagent_messages",
+      "breakpoints": true
     }
   ]
 }

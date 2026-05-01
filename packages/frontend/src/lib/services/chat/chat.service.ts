@@ -64,6 +64,9 @@ export class ChatService {
 			onTimings,
 			// Tools for function calling
 			tools,
+			// Custom endpoint (for subagent delegation)
+			endpoint,
+			apiKey,
 			// Generation parameters
 			temperature,
 			max_tokens,
@@ -248,12 +251,19 @@ export class ChatService {
 
 		try {
 			if (stream) {
-				const baseUrl = serverEndpointStore.isDefault() ? '' : serverEndpointStore.getBaseUrl();
+				const baseUrl = endpoint
+					? endpoint
+					: serverEndpointStore.isDefault()
+						? ''
+						: serverEndpointStore.getBaseUrl();
 				const url = baseUrl ? `${baseUrl}/v1/chat/completions` : '/v1/chat/completions';
+
+				const headers = getJsonHeaders();
+				if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
 				const response = await fetch(url, {
 					method: 'POST',
-					headers: getJsonHeaders(),
+					headers,
 					body: JSON.stringify(requestBody),
 					signal
 				});
@@ -283,6 +293,34 @@ export class ChatService {
 
 				return;
 			} else {
+				if (endpoint) {
+					const url = `${endpoint}/v1/chat/completions`;
+					const headers = getJsonHeaders();
+					if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+					const response = await fetch(url, {
+						method: 'POST',
+						headers,
+						body: JSON.stringify(requestBody),
+						signal
+					});
+
+					if (!response.ok) {
+						const error = await ChatService.parseErrorResponse(response);
+						if (onError) onError(error);
+						throw error;
+					}
+
+					return ChatService.handleNonStreamResponse(
+						response,
+						onComplete,
+						onError,
+						onToolCallChunk,
+						onModel,
+						signal
+					);
+				}
+
 				const response = await apiPost<ApiChatCompletionResponse>(
 					'/v1/chat/completions',
 					requestBody,
@@ -290,11 +328,12 @@ export class ChatService {
 				);
 
 				return ChatService.handleNonStreamResponse(
-					response,
+					response as unknown as Response,
 					onComplete,
 					onError,
 					onToolCallChunk,
-					onModel
+					onModel,
+					signal
 				);
 			}
 		} catch (error) {

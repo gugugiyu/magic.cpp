@@ -20,6 +20,10 @@ export interface SettingsChatServiceOptions {
 	stream?: boolean;
 	// Model (required in ROUTER mode, optional in MODEL mode)
 	model?: string;
+	// Custom endpoint for subagent delegation
+	endpoint?: string;
+	// API key for custom endpoint
+	apiKey?: string;
 	// System message to inject
 	systemMessage?: string;
 	// Disable reasoning parsing (use 'none' instead of 'auto')

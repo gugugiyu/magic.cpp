@@ -1,17 +1,20 @@
 import { AgenticToolRegistry } from './agentic-tool-registry.service';
+import { AgenticLoopHarness } from './agentic-loop-harness.service';
 import { BUILTIN_TOOL_EXECUTION_TARGET } from '$lib/enums/builtin-tools';
 import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
 import { runCommandSessionStore } from '$lib/stores/run-command-session.svelte';
 import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
+import { subagentSessionStore } from '$lib/stores/subagent-session.svelte';
 import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
 import { skillsStore } from '$lib/stores/skills.svelte';
 import { todoStore } from '$lib/stores/todos.svelte';
-import { mcpStore } from '$lib/stores/mcp.svelte';
-import { createLinkedController, repairJsonObject, sanitizeToolName } from '$lib/utils';
+import { DatabaseService } from '$lib/services/database.service';
+import { createLinkedController } from '$lib/utils';
 import { SUBAGENT_DEFAULT_PROMPT } from '@shared/constants/prompts-and-tools';
-import { AttachmentType } from '$lib/enums';
+import { AttachmentType, MessageRole, MessageType } from '$lib/enums';
 import type { OpenAIToolDefinition } from '$lib/types';
 import type { DatabaseMessageExtra } from '$lib/types/database';
+import type { ApiChatMessageData } from '$lib/types/api';
 
 export class AgenticBuiltinToolExecutor {
 	static async executeBuiltinTool(
@@ -99,7 +102,8 @@ export class AgenticBuiltinToolExecutor {
 						conversationId,
 						messageId,
 						allTools,
-						signal
+						signal,
+						toolCallId
 					)
 				};
 			case 'list_skill':
@@ -199,7 +203,8 @@ export class AgenticBuiltinToolExecutor {
 		conversationId: string,
 		messageId: string,
 		allTools?: OpenAIToolDefinition[],
-		signal?: AbortSignal
+		signal?: AbortSignal,
+		toolCallId?: string
 	): Promise<string> {
 		if (!subagentConfigStore.isConfigured) {
 			return JSON.stringify({
@@ -223,6 +228,7 @@ export class AgenticBuiltinToolExecutor {
 			return JSON.stringify({ error: 'call_subagent requires a prompt argument' });
 		}
 
+		const sessionId = toolCallId || `subagent_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 		const registry = AgenticToolRegistry.fromToolDefinitions(allTools ?? []);
 		const subagentTools = registry.getSubagentTools(allTools ?? []);
 
@@ -231,144 +237,187 @@ export class AgenticBuiltinToolExecutor {
 
 		const endpoint = subagentConfigStore.getEndpoint();
 		const apiKey = subagentConfigStore.getApiKey();
-		const url = `${endpoint}/v1/chat/completions`;
-		const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-		if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-		const subagentToolsPayload = subagentTools.length > 0 ? subagentTools : undefined;
 
-		const loopMessages: Record<string, unknown>[] = [];
-		if (system) {
-			loopMessages.push({ role: 'system', content: system });
-		} else {
-			loopMessages.push({ role: 'system', content: SUBAGENT_DEFAULT_PROMPT });
-		}
-		loopMessages.push({ role: 'user', content: prompt });
+		subagentSessionStore.startSession({
+			sessionId,
+			conversationId,
+			modelName: subagentModelId
+		});
+
+		const loopMessages: ApiChatMessageData[] = [];
+		const systemContent = system || SUBAGENT_DEFAULT_PROMPT;
+		loopMessages.push({ role: MessageRole.SYSTEM, content: systemContent });
+		loopMessages.push({ role: MessageRole.USER, content: prompt });
 
 		const SUBAGENT_MAX_TURNS = 10;
-		let _totalTokens = 0;
-		let _promptTokens = 0;
-		let _completionTokens = 0;
+		let lastMessageId: string | null = null;
 
 		try {
-			for (let subTurn = 0; subTurn < SUBAGENT_MAX_TURNS; subTurn++) {
+			// Persist system message to DB
+			const systemMsg = await DatabaseService.createMessageBranch(
+				{
+					convId: conversationId,
+					type: MessageType.TEXT,
+					role: MessageRole.SYSTEM,
+					content: systemContent,
+					timestamp: Date.now(),
+					subagentSessionId: sessionId
+				} as Omit<DatabaseMessage, 'id'>,
+				null
+			);
+			lastMessageId = systemMsg.id;
+
+			for (let turn = 0; turn < SUBAGENT_MAX_TURNS; turn++) {
 				if (subagentSignal?.aborted) {
 					throw new DOMException('Aborted', 'AbortError');
 				}
 
-				const requestBody: Record<string, unknown> = {
-					model: subagentModelId,
-					messages: loopMessages,
-					stream: false,
-					...(subagentToolsPayload !== undefined ? { tools: subagentToolsPayload } : {})
-				};
+				subagentSessionStore.setTurn(sessionId, turn + 1);
 
-				const response = await fetch(url, {
-					method: 'POST',
-					headers,
-					body: JSON.stringify(requestBody),
-					signal: subagentSignal
+				const turnResult = await AgenticLoopHarness.runSingleTurn(
+					loopMessages,
+					{
+						model: subagentModelId,
+						endpoint,
+						apiKey,
+						tools: subagentTools.length > 0 ? subagentTools : undefined,
+						signal: subagentSignal
+					},
+					{
+						onChunk: (chunk) => {
+							subagentSessionStore.appendContent(sessionId, chunk);
+						},
+						onReasoningChunk: (chunk) => {
+							subagentSessionStore.appendReasoning(sessionId, chunk);
+						},
+						onToolCallChunk: () => {
+							// Tool calls are handled after the turn completes
+						},
+						onModel: (model) => {
+							subagentSessionStore.setModel(sessionId, model);
+						},
+						onTimings: (timings) => {
+							if (timings) {
+								subagentSessionStore.addUsage(
+									sessionId,
+									timings.prompt_n || 0,
+									timings.predicted_n || 0,
+									(timings.prompt_n || 0) + (timings.predicted_n || 0)
+								);
+							}
+						}
+					}
+				);
+
+				if (subagentSignal?.aborted) {
+					throw new DOMException('Aborted', 'AbortError');
+				}
+
+				// Persist assistant message to DB
+				const assistantMsg = await DatabaseService.createMessageBranch(
+					{
+						convId: conversationId,
+						type: MessageType.TEXT,
+						role: MessageRole.ASSISTANT,
+						content: turnResult.content,
+						reasoningContent: turnResult.reasoningContent,
+						toolCalls: turnResult.toolCalls ? JSON.stringify(turnResult.toolCalls) : '',
+						model: subagentModelId,
+						timestamp: Date.now(),
+						subagentSessionId: sessionId
+					} as Omit<DatabaseMessage, 'id'>,
+					lastMessageId
+				);
+				lastMessageId = assistantMsg.id;
+
+				// Add assistant to loop history
+				loopMessages.push({
+					role: MessageRole.ASSISTANT,
+					content: turnResult.content,
+					reasoning_content: turnResult.reasoningContent,
+					tool_calls: turnResult.toolCalls
 				});
 
-				if (!response.ok) {
-					const errorText = await response.text().catch(() => 'Unknown error');
-					return JSON.stringify({
-						error: `Subagent error (${response.status}): ${errorText}`
-					});
+				// No tool calls = final turn
+				if (!turnResult.toolCalls || turnResult.toolCalls.length === 0) {
+					subagentSessionStore.completeSession(sessionId);
+					return JSON.stringify({ result: turnResult.content });
 				}
 
-				const data = (await response.json()) as {
-					choices?: {
-						message?: {
-							content?: string | { type: string; text?: string }[] | null;
-							tool_calls?: {
-								id?: string;
-								function?: { name?: string; arguments?: string };
-							}[];
-						};
-						finish_reason?: string;
-					}[];
-					usage?: {
-						prompt_tokens?: number;
-						completion_tokens?: number;
-						total_tokens?: number;
-					};
-				};
+				// Execute tools via shared harness
+				const executeBuiltinToolForSubagent: import('./agentic-loop-harness.service').ExecuteBuiltinToolFn =
+					(name, args, convId, msgId, tcId) =>
+						AgenticBuiltinToolExecutor.executeBuiltinTool(
+							name,
+							args,
+							convId,
+							msgId,
+							allTools,
+							subagentSignal,
+							tcId
+						);
 
-				if (data.usage) {
-					_promptTokens += data.usage.prompt_tokens ?? 0;
-					_completionTokens += data.usage.completion_tokens ?? 0;
-					_totalTokens += data.usage.total_tokens ?? 0;
+				const toolOutcomes = await AgenticLoopHarness.executeTools(turnResult.toolCalls, {
+					registry,
+					conversationId,
+					messageId: assistantMsg.id,
+					allTools,
+					signal: subagentSignal,
+					effectiveModel: subagentModelId,
+					mcpSummarizeOutputs: false,
+					mcpSummarizeLineThreshold: 400,
+					mcpSummarizeHardCap: 800,
+					mcpSummarizeAllTools: false,
+					executeBuiltinTool: executeBuiltinToolForSubagent
+				});
+
+				if (subagentSignal?.aborted) {
+					throw new DOMException('Aborted', 'AbortError');
 				}
 
-				const choice = data.choices?.[0];
-				if (!choice) {
-					return JSON.stringify({ error: 'Invalid subagent response format' });
-				}
+				// Persist tool results and add to history
+				for (const outcome of toolOutcomes) {
+					subagentSessionStore.addStep(
+						sessionId,
+						outcome.toolCall.function?.name || 'tool',
+						'done'
+					);
+					subagentSessionStore.incrementToolCallsCount(sessionId);
 
-				const assistantMsg = choice.message;
-				const toolCalls = assistantMsg?.tool_calls;
+					const toolMsg = await DatabaseService.createMessageBranch(
+						{
+							convId: conversationId,
+							type: MessageType.TEXT,
+							role: MessageRole.TOOL,
+							content: outcome.result,
+							toolCallId: outcome.toolCall.id,
+							extra: outcome.extras,
+							timestamp: Date.now(),
+							subagentSessionId: sessionId
+						} as Omit<DatabaseMessage, 'id'>,
+						lastMessageId
+					);
+					lastMessageId = toolMsg.id;
 
-				if (toolCalls && toolCalls.length > 0) {
 					loopMessages.push({
-						role: 'assistant',
-						content: assistantMsg?.content ?? null,
-						tool_calls: toolCalls
+						role: MessageRole.TOOL,
+						tool_call_id: outcome.toolCall.id,
+						content: outcome.contentParts ?? outcome.result
 					});
-
-					for (const tc of toolCalls ?? []) {
-						const tcName = sanitizeToolName(tc.function?.name ?? '');
-						const tcArgs = repairJsonObject(tc.function?.arguments ?? '{}');
-						const tcId = tc.id ?? `call_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-						let toolResult: string;
-						try {
-							if (registry.isBuiltin(tcName)) {
-								const builtinResult = await this.executeBuiltinTool(
-									tcName,
-									tcArgs,
-									conversationId,
-									messageId,
-									allTools,
-									subagentSignal,
-									tcId
-								);
-								toolResult = builtinResult.content;
-							} else {
-								const mcpResult = await mcpStore.executeTool(
-									{ id: tcId, function: { name: tcName, arguments: tcArgs } },
-									subagentSignal
-								);
-								toolResult = mcpResult.content;
-							}
-						} catch (err) {
-							if (err instanceof DOMException && err.name === 'AbortError') throw err;
-							toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`;
-						}
-
-						loopMessages.push({ role: 'tool', tool_call_id: tcId, content: toolResult });
-					}
-				} else {
-					const resultContent =
-						typeof assistantMsg?.content === 'string'
-							? assistantMsg.content
-							: (assistantMsg?.content
-									?.map((c) =>
-										typeof c === 'object' && c !== null && 'text' in c
-											? ((c as { text?: string }).text ?? '')
-											: ''
-									)
-									.join('') ?? '');
-
-					return JSON.stringify({ result: resultContent });
 				}
 			}
 
+			subagentSessionStore.completeSession(sessionId);
 			return JSON.stringify({
 				error: 'Subagent reached maximum turn limit without producing a final answer'
 			});
 		} catch (error) {
-			if (error instanceof DOMException && error.name === 'AbortError') throw error;
+			if (error instanceof DOMException && error.name === 'AbortError') {
+				subagentSessionStore.setError(sessionId, 'Aborted');
+				throw error;
+			}
 			const message = error instanceof Error ? error.message : String(error);
+			subagentSessionStore.setError(sessionId, message);
 			return JSON.stringify({ error: `Subagent request failed: ${message}` });
 		}
 	}

@@ -20,13 +20,13 @@
  * @see mcpStore in stores/mcp.svelte.ts for MCP operations
  */
 
-import { ChatService } from '$lib/services';
 import {
+	ChatService,
 	AgenticBuiltinToolExecutor,
 	AgenticToolUtils,
 	AgenticTimingService,
-	AgenticAttachmentService,
-	AgenticToolRegistry
+	AgenticToolRegistry,
+	AgenticLoopHarness
 } from '$lib/services';
 import { config } from '$lib/stores/settings.svelte';
 import { mcpStore } from '$lib/stores/mcp.svelte';
@@ -41,13 +41,9 @@ import {
 	LLM_ERROR_BLOCK_START,
 	LLM_ERROR_BLOCK_END
 } from '$lib/constants';
-import {
-	processToolOutput as processMcpToolOutput,
-	countLines,
-	McpSummarizeCancelledError
-} from '$lib/services/mcp/mcp-summarize-harness';
+import { McpSummarizeCancelledError } from '$lib/services/mcp/mcp-summarize-harness';
 import { createModuleLogger } from '$lib/utils/logger';
-import { AttachmentType, ContentPartType, MessageRole, ToolCallType } from '$lib/enums';
+import { MessageRole, ToolCallType } from '$lib/enums';
 import type {
 	AgenticFlowParams,
 	AgenticFlowResult,
@@ -55,7 +51,6 @@ import type {
 	AgenticConfig,
 	SettingsConfigType,
 	McpServerOverride,
-	MCPToolCall,
 	OpenAIToolDefinition
 } from '$lib/types';
 import type {
@@ -64,11 +59,7 @@ import type {
 	AgenticFlowCallbacks,
 	AgenticFlowOptions
 } from '$lib/types/agentic';
-import type {
-	ApiChatCompletionToolCall,
-	ApiChatMessageData,
-	ApiChatMessageContentPart
-} from '$lib/types/api';
+import type { ApiChatCompletionToolCall, ApiChatMessageData } from '$lib/types/api';
 import type {
 	ChatMessagePromptProgress,
 	ChatMessageTimings,
@@ -76,11 +67,7 @@ import type {
 	ChatMessageToolCallTiming,
 	ChatMessageAgenticTurnStats
 } from '$lib/types/chat';
-import type {
-	DatabaseMessage,
-	DatabaseMessageExtra,
-	DatabaseMessageExtraImageFile
-} from '$lib/types/database';
+import type { DatabaseMessage, DatabaseMessageExtra } from '$lib/types/database';
 
 const logger = createModuleLogger('agenticStore');
 
@@ -111,28 +98,7 @@ export interface SubagentFinalStats {
 	toolCallsCount?: number;
 }
 
-// Built-in tool definitions imported from $lib/constants/prompts
-
 // ─────────────────────────────────────────────────────────────────────────────
-
-const MCP_TOOL_EXECUTION_TIMEOUT_MS = 120_000;
-
-function withMcpToolTimeout<T>(promise: Promise<T>, toolName: string): Promise<T> {
-	let timerId: ReturnType<typeof setTimeout> | undefined;
-	const timeoutPromise = new Promise<never>((_, reject) => {
-		timerId = setTimeout(
-			() =>
-				reject(
-					new DOMException(
-						`Tool "${toolName}" timed out after ${MCP_TOOL_EXECUTION_TIMEOUT_MS}ms`,
-						'TimeoutError'
-					)
-				),
-			MCP_TOOL_EXECUTION_TIMEOUT_MS
-		);
-	});
-	return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timerId));
-}
 
 function createDefaultSession(): AgenticSession {
 	return {
@@ -180,9 +146,6 @@ function toAgenticMessages(messages: ApiChatMessageData[]): AgenticMessage[] {
 
 class AgenticStore {
 	private _sessions = $state<Map<string, AgenticSession>>(new Map());
-	private _subagentProgress = $state<Record<string, SubagentProgress | null>>({});
-	/** Persisted final stats shown in UI after subagent completes. */
-	private _subagentFinalStats = $state<Record<string, SubagentFinalStats | null>>({});
 	/** Tracks the last skill name read via read_skill, for associating with subsequent call_subagent. */
 	private _lastReadSkill = $state<Map<string, string>>(new Map());
 
@@ -194,10 +157,6 @@ class AgenticStore {
 			if (session.isRunning) return true;
 		}
 		return false;
-	}
-
-	subagentProgress(conversationId: string): SubagentProgress | null {
-		return this._subagentProgress[conversationId] ?? null;
 	}
 
 	getSession(conversationId: string): AgenticSession {
@@ -261,35 +220,6 @@ class AgenticStore {
 
 	clearError(conversationId: string): void {
 		this.updateSession(conversationId, { lastError: null });
-	}
-
-	private setSubagentProgress(conversationId: string, progress: SubagentProgress | null): void {
-		this._subagentProgress = { ...this._subagentProgress, [conversationId]: progress };
-	}
-
-	private addSubagentStep(conversationId: string, step: SubagentStep): void {
-		const current = this._subagentProgress[conversationId];
-		if (!current) return;
-		this._subagentProgress = {
-			...this._subagentProgress,
-			[conversationId]: { ...current, steps: [...current.steps, step] }
-		};
-	}
-
-	private markLastSubagentStepDone(conversationId: string): void {
-		const current = this._subagentProgress[conversationId];
-		if (!current || current.steps.length === 0) return;
-		const steps = current.steps.map((s, i) =>
-			i === current.steps.length - 1 ? { ...s, status: 'done' as const } : s
-		);
-		this._subagentProgress = {
-			...this._subagentProgress,
-			[conversationId]: { ...current, steps }
-		};
-	}
-
-	subagentFinalStats(conversationId: string): SubagentFinalStats | null {
-		return this._subagentFinalStats[conversationId] ?? null;
 	}
 
 	getConfig(
@@ -506,13 +436,13 @@ class AgenticStore {
 			};
 
 			try {
-				await ChatService.sendMessage(
+				const turnResult = await AgenticLoopHarness.runSingleTurn(
 					sessionMessages as ApiChatMessageData[],
 					{
 						...options,
-						stream: true,
-						parallel_tool_calls: true /* Some providers (OpenRouter requires this to handle our request correctly) */,
-						tools: tools.length > 0 ? tools : undefined,
+						tools: tools.length > 0 ? tools : undefined
+					},
+					{
 						onChunk: (chunk: string) => {
 							turnContent += chunk;
 							onChunk?.(chunk);
@@ -564,27 +494,24 @@ class AgenticStore {
 								capturedTimings = timings;
 								turnTimings = timings;
 							}
-						},
-						onComplete: () => {
-							/* Completion handled after sendMessage resolves */
-						},
-						onError: (error: Error) => {
-							throw error;
 						}
-					},
-					undefined,
-					signal
+					}
 				);
 
-			this.updateSession(conversationId, { streamingToolCall: null });
+				turnContent = turnResult.content;
+				turnReasoningContent = turnResult.reasoningContent || '';
+				turnToolCalls = turnResult.toolCalls || [];
+				turnTimings = turnResult.timings;
 
-			// If the stream was aborted by the user, exit immediately without executing tool calls.
-			if (signal?.aborted) {
-				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
-				return;
-			}
+				this.updateSession(conversationId, { streamingToolCall: null });
 
-			if (turnTimings) {
+				// If the stream was aborted by the user, exit immediately without executing tool calls.
+				if (signal?.aborted) {
+					this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
+					return;
+				}
+
+				if (turnTimings) {
 					agenticTimings.llm.predicted_n += turnTimings.predicted_n || 0;
 					agenticTimings.llm.predicted_ms += turnTimings.predicted_ms || 0;
 					agenticTimings.llm.prompt_n += turnTimings.prompt_n || 0;
@@ -706,189 +633,82 @@ class AgenticStore {
 				tool_calls: normalizedCalls
 			});
 
-			// Phase 1: Execute all tool calls in parallel
-			type ToolCallOutcome = {
-				toolCall: (typeof normalizedCalls)[number];
-				result: string;
-				success: boolean;
-				durationMs: number;
-				extras?: DatabaseMessageExtra[];
-			};
-
 			if (signal?.aborted) {
 				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 				return;
 			}
 
-			let toolOutcomes: ToolCallOutcome[];
+			// Execute tools via shared harness
 			try {
-				toolOutcomes = await Promise.all(
-					normalizedCalls.map(async (toolCall): Promise<ToolCallOutcome> => {
-						const toolStartTime = performance.now();
-						const mcpCall: MCPToolCall = {
-							id: toolCall.id,
-							function: {
-								name: toolCall.function.name,
-								arguments: toolCall.function.arguments
-							}
-						};
-						let result: string;
-						let extras: DatabaseMessageExtra[] | undefined;
-						let success = true;
-						try {
-							if (registry.isBuiltin(mcpCall.function.name)) {
-								const builtinResult = await this.executeBuiltinTool(
-									mcpCall.function.name,
-									typeof mcpCall.function.arguments === 'string'
-										? mcpCall.function.arguments
-										: JSON.stringify(mcpCall.function.arguments),
-									conversationId,
-									firstAssistantMessageId,
-									tools,
-									signal,
-									mcpCall.id
-								);
-								result = builtinResult.content;
-								extras = builtinResult.extras;
-								if (result.startsWith('Error:')) success = false;
-							} else {
-								const executionResult = await withMcpToolTimeout(
-									mcpStore.executeTool(mcpCall, signal),
-									mcpCall.function.name
-								);
-								result = executionResult.content;
-							}
-						} catch (error) {
-							if (isAbortError(error)) throw error;
-							result = `Error: ${error instanceof Error ? error.message : String(error)}`;
-							success = false;
-						}
-						return {
-							toolCall,
+				const toolOutcomes = await AgenticLoopHarness.executeTools(normalizedCalls, {
+					registry,
+					conversationId,
+					messageId: firstAssistantMessageId,
+					allTools: tools,
+					signal,
+					effectiveModel,
+					mcpSummarizeOutputs,
+					mcpSummarizeLineThreshold,
+					mcpSummarizeHardCap,
+					mcpSummarizeAllTools,
+					executeBuiltinTool: (name, args, convId, msgId, tcId) =>
+						this.executeBuiltinTool(name, args, convId, msgId, tools, signal, tcId)
+				});
+
+				if (signal?.aborted) {
+					this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
+					return;
+				}
+
+				// Process results sequentially (DB writes and session ordering must be serial)
+				for (const outcome of toolOutcomes) {
+					const {
+						toolCall,
+						result,
+						success: toolSuccess,
+						durationMs,
+						extras,
+						contentParts
+					} = outcome;
+
+					const toolTiming: ChatMessageToolCallTiming = {
+						name: toolCall.function?.name ?? '',
+						duration_ms: durationMs,
+						success: toolSuccess
+					};
+
+					agenticTimings.toolCalls!.push(toolTiming);
+					agenticTimings.toolCallsCount++;
+					agenticTimings.toolsMs += durationMs;
+					turnStats.toolCalls.push(toolTiming);
+					turnStats.toolsMs += durationMs;
+
+					// Create the tool result message in the DB
+					let toolResultMessage: DatabaseMessage | undefined;
+					if (createToolResultMessage) {
+						toolResultMessage = await createToolResultMessage(
+							toolCall.id ?? '',
 							result,
-							success,
-							durationMs: Math.round(performance.now() - toolStartTime),
-							extras
-						};
-					})
-				);
+							extras?.length ? extras : undefined
+						);
+					}
+
+					if (extras?.length && toolResultMessage) {
+						onAttachments?.(toolResultMessage.id, extras);
+					}
+
+					sessionMessages.push({
+						role: MessageRole.TOOL,
+						tool_call_id: toolCall.id ?? '',
+						content: contentParts ?? result
+					});
+				}
 			} catch (error) {
-				if (isAbortError(error)) {
+				if (error instanceof McpSummarizeCancelledError || isAbortError(error)) {
 					this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
 					return;
 				}
 				throw error;
-			}
-
-			if (signal?.aborted) {
-				this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
-				return;
-			}
-
-			// Phase 2: Process results sequentially (DB writes and session ordering must be serial)
-			for (const { toolCall, result, success: toolSuccess, durationMs, extras } of toolOutcomes) {
-				const toolTiming: ChatMessageToolCallTiming = {
-					name: toolCall.function.name,
-					duration_ms: durationMs,
-					success: toolSuccess
-				};
-
-				agenticTimings.toolCalls!.push(toolTiming);
-				agenticTimings.toolCallsCount++;
-				agenticTimings.toolsMs += durationMs;
-				turnStats.toolCalls.push(toolTiming);
-				turnStats.toolsMs += durationMs;
-
-				const { cleanedResult: rawCleanedResult, attachments } =
-					this.extractBase64Attachments(result);
-
-				// MCP response length harness: check if output exceeds threshold
-				const summarizeEnabled = registry.shouldSummarize(toolCall.function.name, {
-					mcpSummarizeOutputs,
-					mcpSummarizeAllTools
-				});
-				let cleanedResult: string;
-				let wasSummarized: boolean;
-				let wasCropped: boolean;
-				try {
-					({
-						content: cleanedResult,
-						wasSummarized,
-						wasCropped
-					} = await processMcpToolOutput(
-						toolCall.function.name,
-						rawCleanedResult,
-						summarizeEnabled,
-						mcpSummarizeLineThreshold,
-						mcpSummarizeHardCap,
-						signal
-					));
-				} catch (error) {
-					if (error instanceof McpSummarizeCancelledError) {
-						this.completeFlow(capturedTimings, agenticTimings, onFlowComplete);
-						return;
-					}
-					throw error;
-				}
-
-				// Build summary metadata extra if summarized or cropped
-				const summaryExtras: DatabaseMessageExtra[] = [];
-				if (wasSummarized) {
-					summaryExtras.push({
-						type: AttachmentType.MCP_SUMMARY,
-						name: 'summarized',
-						originalLineCount: countLines(rawCleanedResult)
-					});
-				} else if (wasCropped) {
-					summaryExtras.push({
-						type: AttachmentType.MCP_SUMMARY,
-						name: 'cropped',
-						originalLineCount: countLines(rawCleanedResult)
-					});
-				}
-
-				const allExtras = [...summaryExtras, ...attachments, ...(extras ?? [])];
-
-				// Create the tool result message in the DB
-				let toolResultMessage: DatabaseMessage | undefined;
-				if (createToolResultMessage) {
-					toolResultMessage = await createToolResultMessage(
-						toolCall.id,
-						cleanedResult,
-						allExtras.length > 0 ? allExtras : undefined
-					);
-				}
-
-				if (allExtras.length > 0 && toolResultMessage) {
-					onAttachments?.(toolResultMessage.id, allExtras);
-				}
-
-				// Build content parts for session history (including images for vision models)
-				const contentParts: ApiChatMessageContentPart[] = [
-					{ type: ContentPartType.TEXT, text: cleanedResult }
-				];
-				for (const attachment of attachments) {
-					if (attachment.type === AttachmentType.IMAGE) {
-						if (modelsStore.modelSupportsVision(effectiveModel)) {
-							contentParts.push({
-								type: ContentPartType.IMAGE_URL,
-								image_url: {
-									url: (attachment as DatabaseMessageExtraImageFile).base64Url
-								}
-							});
-						} else {
-							logger.info(
-								`[AgenticStore] Skipping image attachment (model "${effectiveModel}" does not support vision)`
-							);
-						}
-					}
-				}
-
-				sessionMessages.push({
-					role: MessageRole.TOOL,
-					tool_call_id: toolCall.id,
-					content: contentParts.length === 1 ? cleanedResult : contentParts
-				});
 			}
 
 			if (turnStats.toolCalls.length > 0) {
@@ -942,19 +762,8 @@ class AgenticStore {
 		onFlowComplete?.(this.buildFinalTimings(capturedTimings, agenticTimings));
 	}
 
-	private setSubagentFinalStats(conversationId: string, stats: SubagentFinalStats): void {
-		this._subagentFinalStats = {
-			...this._subagentFinalStats,
-			[conversationId]: stats
-		};
-	}
-
 	private devLog(...args: unknown[]): void {
 		logger.debug(...args);
-	}
-
-	private sanitizeToolArguments(args: string): string {
-		return AgenticToolUtils.sanitizeToolArguments(args);
 	}
 
 	private buildFinalTimings(
@@ -972,15 +781,8 @@ class AgenticStore {
 		return AgenticToolUtils.deduplicateToolCalls(calls);
 	}
 
-	private extractBase64Attachments(result: string): {
-		cleanedResult: string;
-		attachments: DatabaseMessageExtra[];
-	} {
-		return AgenticAttachmentService.extractBase64Attachments(result);
-	}
-
-	private buildAttachmentName(mimeType: string, index: number): string {
-		return AgenticAttachmentService.buildAttachmentName(mimeType, index);
+	subagentProgress(_conversationId: string): null {
+		return null;
 	}
 }
 
@@ -1006,12 +808,12 @@ export function agenticStreamingToolCall(conversationId: string) {
 	return agenticStore.streamingToolCall(conversationId);
 }
 
-export function agenticSubagentProgress(conversationId: string) {
-	return agenticStore.subagentProgress(conversationId);
+export function agenticSubagentProgress(_conversationId: string) {
+	return null;
 }
 
-export function agenticSubagentFinalStats(conversationId: string): SubagentFinalStats | null {
-	return agenticStore.subagentFinalStats(conversationId);
+export function agenticSubagentFinalStats(_conversationId: string): SubagentFinalStats | null {
+	return null;
 }
 
 export function agenticIsAnyRunning() {

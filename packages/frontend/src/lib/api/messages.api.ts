@@ -19,6 +19,7 @@ export interface CreateMessageParams {
 	timings?: DatabaseMessage['timings'];
 	model?: string;
 	timestamp?: number;
+	subagentSessionId?: string;
 }
 
 /**
@@ -79,7 +80,7 @@ export async function createMessage(
 	options?: { parentId?: string | null; type?: 'root' | 'system' }
 ): Promise<DatabaseMessage> {
 	const queryParams = new URLSearchParams();
-	if (options?.parentId !== undefined) queryParams.set('parentId', options.parentId || '');
+	if (options?.parentId) queryParams.set('parentId', options.parentId);
 	if (options?.type) queryParams.set('type', options.type);
 
 	const queryString = queryParams.toString();
@@ -120,6 +121,25 @@ export async function createSystemMessage(
 			content
 		},
 		{ parentId, type: 'system' }
+	);
+}
+
+/**
+ * Get all subagent session IDs for a conversation.
+ */
+export async function getSubagentSessions(convId: string): Promise<string[]> {
+	return apiFetch<string[]>(`/api/conversations/${convId}/subagent-sessions`);
+}
+
+/**
+ * Get subagent messages for a specific session.
+ */
+export async function getSubagentMessages(
+	convId: string,
+	sessionId: string
+): Promise<DatabaseMessage[]> {
+	return apiFetch<DatabaseMessage[]>(
+		`/api/conversations/${convId}/subagent-messages?sessionId=${sessionId}`
 	);
 }
 

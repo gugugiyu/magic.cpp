@@ -39,13 +39,13 @@ bun install
 Copy and edit the example config:
 
 ```bash
-cp packages/backend/config.example.toml packages/backend/config.toml
+cp config/config.example.toml config/config.toml
 ```
 
 If any upstream uses `$ENV_VAR` placeholders for API keys, copy the `.env.example` file and fill in the actual values:
 
 ```bash
-cp packages/backend/.env.example packages/backend/.env
+cp config/.env.example config/.env
 # Edit .env and set your actual API keys
 ```
 
@@ -53,7 +53,7 @@ cp packages/backend/.env.example packages/backend/.env
 
 ### Configuration
 
-Config is loaded from `config.toml` (adjacent to `src/`) at startup. Environment variables for API keys are loaded from `.env` (adjacent to `src/`). Placeholders like `$OPENAI_KEY` in `config.toml` are resolved against the environment — if the variable is not set, the upstream will have no API key and requests to it will likely fail with an auth error.
+Config is loaded from `config/config.toml` (at the repo root) at startup. Environment variables for API keys are loaded from `config/.env` (at the repo root). Placeholders like `$OPENAI_KEY` in `config.toml` are resolved against the environment — if the variable is not set, the upstream will have no API key and requests to it will likely fail with an auth error.
 
 **Hot Reload**: The server watches `config.toml` for changes and automatically reloads most settings without requiring a restart. Changes to `port`, `staticDir`, or `database.path` require a full server restart and will be logged as warnings.
 
@@ -94,6 +94,7 @@ modelList = ["gpt-4o"]
 | `heartbeatInterval` | number | `30` | Seconds between upstream health checks |
 | `database` | object | — | SQLite database configuration |
 | `database.path` | string | `data/chat.db` | Path to the SQLite database file, relative to `config.toml` |
+| `database.skillsFolder` | string | `data/skills` | Path to the skills directory, relative to `config.toml` |
 | `streaming` | object | — | Streaming configuration |
 | `streaming.enabled` | boolean | `true` | Enable/disable streaming mode |
 | `streaming.bufferWords` | number | `0` | Buffer words before streaming to frontend |
@@ -132,6 +133,7 @@ These changes are logged as warnings but **require** server restart to take effe
 | `port` | HTTP server bind port |
 | `staticDir` | Frontend static files directory |
 | `database.path` | SQLite database file location |
+| `database.skillsFolder` | Skills directory location |
 
 
 ---

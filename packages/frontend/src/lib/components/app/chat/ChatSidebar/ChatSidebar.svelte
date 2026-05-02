@@ -1,14 +1,14 @@
 <script lang="ts">
-import { goto } from '$app/navigation';
-import { page } from '$app/state';
-import { Trash2, Pencil, Pin, PanelLeft, PanelLeftClose } from '@lucide/svelte';
-import { ChatSidebarConversationItem, DialogConfirmation } from '$lib/components/app';
-import { Button } from '$lib/components/ui/button';
-import { Checkbox } from '$lib/components/ui/checkbox';
-import Label from '$lib/components/ui/label/label.svelte';
-import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte'
-import * as Sidebar from '$lib/components/ui/sidebar';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { Trash2, Pencil, Pin, PanelLeft, PanelLeftClose } from '@lucide/svelte';
+	import { ChatSidebarConversationItem, DialogConfirmation } from '$lib/components/app';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import Label from '$lib/components/ui/label/label.svelte';
+	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
+	import * as Sidebar from '$lib/components/ui/sidebar';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import {
 		conversationsStore,

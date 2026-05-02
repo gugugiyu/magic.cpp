@@ -5,7 +5,8 @@
 		"moduleResolution": "bundler",
 		"types": ["bun-types"],
 		"paths": {
-			"#shared/*": ["../shared/*"]
+			"#shared/*": ["../shared/*"],
+			"#database/*": ["../database/*"]
 		},
 		"strict": true,
 		"skipLibCheck": true,

@@ -28,11 +28,14 @@ FROM oven/bun:distroless
 WORKDIR /app
 
 # Only copy the essential artifacts
-COPY --from=builder /app/packages/backend/dist/index.js ./packages/backend/src/index.js
+COPY --from=builder /app/packages/backend/dist/index.js ./packages/backend/dist/index.js
 COPY --from=builder /app/packages/public ./packages/public
-COPY packages/backend/config.toml ./packages/backend/config.toml 
+COPY ./packages/database/migrations ./packages/database/migrations
+COPY ./packages/database/seeds ./packages/database/seeds
+COPY ./config ./config
 
+WORKDIR /app/packages/backend
 EXPOSE 3000
 
 # Use 'bun' directly for the entrypoint in distroless
-ENTRYPOINT ["bun", "packages/backend/src/index.js"]
+ENTRYPOINT ["bun", "dist/index.js"]

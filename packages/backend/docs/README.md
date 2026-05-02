@@ -283,6 +283,7 @@ debug = false
 
 [database]
 path = "data/chat.db"
+skillsFolder = "data/skills"
 
 [filesystem]
 root = "data/files"

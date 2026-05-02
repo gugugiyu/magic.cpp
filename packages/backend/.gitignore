@@ -15,9 +15,7 @@ static/
 # *.js
 # *.js.map
 
-# Environment variables
-config.toml
-.env
+# Environment variabless
 *.local
 
 # Debug / Logs

@@ -16,7 +16,7 @@ const configWatcherLog = createLogger('config-watcher');
 const filesystemLog = createLogger('filesystem');
 
 // Resolve config path explicitly
-const configPath = resolvePath(__dirname, '..', 'config.toml');
+const configPath = resolvePath(__dirname, '..', '..', '..', 'config', 'config.toml');
 
 // Load configuration with graceful error handling
 let config: Config;
@@ -31,11 +31,11 @@ try {
 			'Make sure config.toml exists and is valid.',
 			'Copy config.example.toml to config.toml and customize it:',
 			'',
-			'  cp config.example.toml config.toml',
+			'  cp config/config.example.toml config/config.toml',
 			'',
 			'If using .env variables for API keys, copy .env.example:',
 			'',
-			'  cp .env.example .env',
+			'  cp config/.env.example config/.env',
 		],
 	);
 	process.exit(1);
@@ -70,6 +70,14 @@ try {
 	filesystemLog.info(`sandbox ready at ${config.resolvedFilesystemRootPath}`);
 } catch (err) {
 	filesystemLog.warn(`could not create sandbox directory: ${(err as Error).message}`);
+}
+
+// Ensure skills directory exists
+try {
+	await mkdir(config.resolvedSkillsFolder, { recursive: true });
+	filesystemLog.info(`skills directory ready at ${config.resolvedSkillsFolder}`);
+} catch (err) {
+	filesystemLog.warn(`could not create skills directory: ${(err as Error).message}`);
 }
 
 // Core components (mutable so we can update them on config reload)

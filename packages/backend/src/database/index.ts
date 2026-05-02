@@ -11,14 +11,12 @@ import { dirname, resolve } from 'path';
 import * as schema from './schema-drizzle.ts';
 import type { Config } from '../config.ts';
 import { seedBuiltInSkills } from '../services/skill-io.ts';
-import { runSeeds } from './seeds/runner.ts';
+import { runSeeds } from './seed-runner.ts';
 import { createLogger } from '../utils/logger.ts';
 
 const log = createLogger('database');
 
 export type DrizzleDB = BunSQLiteDatabase<typeof schema>;
-
-const MIGRATIONS_FOLDER = resolve(__dirname, './migrations/drizzle');
 
 let rawDb: Database | null = null;
 let db: DrizzleDB | null = null;
@@ -54,7 +52,7 @@ export function initializeDatabase(config: Config): DrizzleDB {
 
 	db = drizzle(rawDb, { schema });
 
-	migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+	migrate(db, { migrationsFolder: config.resolvedMigrationsFolder });
 
 	// Seed built-in skills (harmless re-seed if already exist)
 	seedBuiltInSkills().catch((err) => {
@@ -62,7 +60,7 @@ export function initializeDatabase(config: Config): DrizzleDB {
 	});
 
 	// Run database seeds (idempotent — skips existing records)
-	runSeeds(db).catch((err) => {
+	runSeeds(db, config.resolvedSeedsFolder).catch((err) => {
 		log.warn('database seeding failed:', err);
 	});
 

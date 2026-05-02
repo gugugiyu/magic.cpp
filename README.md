@@ -123,15 +123,15 @@ Or just download as ZIP.
 Copy the example config:
 
 ```bash
-cp packages/frontend/config.example.toml packages/frontend/config.toml
+cp config/config.example.toml config/config.toml
 ```
 
-Then edit it with any text editor. It’s pretty self-explanatory.
+Then edit it with any text editor. It's pretty self-explanatory.
 
 Optional: environment variables
 
 ```bash
-cp packages/frontend/.env.example packages/frontend/.env
+cp config/.env.example config/.env
 ```
 
 Add your API keys if needed.
@@ -142,10 +142,11 @@ Add your API keys if needed.
 
 ```bash
 docker build -t webui:latest .
-
 docker run \
   -p 3000:3000 \
   -v /path/to/your/data-dir:/app/data \
+  -v ./config:/app/config \
+  --add-host=host.docker.internal:host-gateway \
   webui:latest
 ```
 

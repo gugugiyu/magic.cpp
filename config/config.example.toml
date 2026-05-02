@@ -22,7 +22,7 @@
 # Server
 # ---------------------------------------------------------------------------
 port              = 3000                          # HTTP port to listen on
-staticDir         = "../frontend/public"          # Path to built frontend assets, relative to this config file
+staticDir         = "packages/public"             # Path to built frontend assets, relative to project root
 heartbeatInterval = 30                            # Seconds between upstream health checks
 logLevel          = "info"                        # Logging verbosity: trace | debug | info | warn | error
                                                   # (legacy `debug = true` still works and bumps this to debug)
@@ -31,7 +31,11 @@ logLevel          = "info"                        # Logging verbosity: trace | d
 # Database
 # ---------------------------------------------------------------------------
 [database]
-path = "data/chat.db"                             # Path to SQLite file, relative to this config file
+path = "data/chat.db"                                  # Path to SQLite file, relative to project root
+skillsFolder = "data/skills"                           # Path to skills directory, relative to project root
+# DO NOT TOUCH - Internal paths for migrations and seeds
+migrationsFolder = "packages/database/migrations/drizzle"  # Path to migration files, relative to project root
+seedsFolder = "packages/database/seeds"                    # Path to seed data files, relative to project root
 
 # ---------------------------------------------------------------------------
 # Streaming
@@ -71,6 +75,9 @@ adminKey = null
 # ---------------------------------------------------------------------------
 # Upstreams
 # ---------------------------------------------------------------------------
+# Quick note for DOCKER: 
+# For endpoint at 'localhost', you'll have to use `host.docker.internal` instead
+#
 # Define one or more upstream llama-server or OpenAI-compatible endpoints.
 # Each upstream must have a unique `id`. The `type` field determines the
 # protocol variant: "llamacpp" or "openai".

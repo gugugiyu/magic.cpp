@@ -1,15 +1,11 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { resolve } from 'path';
 import { eq } from 'drizzle-orm';
-import { presets as presetsTable } from '../schema-drizzle.ts';
-import type { DrizzleDB } from '../index.ts';
-import { createLogger } from '../../utils/logger.ts';
+import { presets as presetsTable } from './schema-drizzle.ts';
+import type { DrizzleDB } from './index.ts';
+import { createLogger } from '../utils/logger.ts';
 
 const log = createLogger('seeds');
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const SEEDS_DIR = __dirname;
 
 interface PresetSeed {
 	id: string;
@@ -19,15 +15,18 @@ interface PresetSeed {
 	commonPrompts: string[];
 }
 
-async function loadPresetSeeds(): Promise<PresetSeed[]> {
-	const presetsDir = resolve(SEEDS_DIR, 'presets');
+async function loadPresetSeeds(seedsDir: string): Promise<PresetSeed[]> {
+	const presetsDir = resolve(seedsDir, 'presets');
 	const seeds: PresetSeed[] = [];
+
+	log.info(`loading preset seeds from ${presetsDir}`);
 
 	let files: string[];
 	try {
 		files = await readdir(presetsDir);
-	} catch {
-		log.warn('no presets seed directory found, skipping');
+		log.info(`found ${files.length} files in presets directory`);
+	} catch (err) {
+		log.warn('no presets seed directory found, skipping:', (err as Error).message);
 		return seeds;
 	}
 
@@ -44,8 +43,8 @@ async function loadPresetSeeds(): Promise<PresetSeed[]> {
 	return seeds;
 }
 
-async function seedPresets(db: DrizzleDB): Promise<void> {
-	const seeds = await loadPresetSeeds();
+async function seedPresets(db: DrizzleDB, seedsDir: string): Promise<void> {
+	const seeds = await loadPresetSeeds(seedsDir);
 	if (seeds.length === 0) return;
 
 	for (const seed of seeds) {
@@ -75,8 +74,12 @@ async function seedPresets(db: DrizzleDB): Promise<void> {
  * Run all database seeds.
  * Idempotent: skips records that already exist.
  * Extend this function to add seeders for new tables in the future.
+ *
+ * @param db - Database instance
+ * @param seedsFolder - Absolute path to the seeds directory
  */
-export async function runSeeds(db: DrizzleDB): Promise<void> {
-	await seedPresets(db);
+export async function runSeeds(db: DrizzleDB, seedsFolder: string): Promise<void> {
+	log.info(`running seeds from ${seedsFolder}`);
+	await seedPresets(db, seedsFolder);
 	// Future seeders: await seedConversations(db); await seedSkills(db); etc.
 }

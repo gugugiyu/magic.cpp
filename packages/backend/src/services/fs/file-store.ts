@@ -248,9 +248,9 @@ export class FileStore {
 
 /** Pre-configured file store for skills. */
 export const skillFileStore = new FileStore({
-	directory: SKILLS_DIRECTORY,
+	directory: '',
 	extension: SKILL_FILE_EXTENSION,
-	dataDir: resolve(loadConfig().database.path, "..") ?? resolve(__dirname, '..', '..', 'data') /* Going back once to not nested upon "chat.db" */
+	dataDir: resolve(loadConfig().resolvedSkillsFolder)
 });
 
 /** Create a FileStore for a specific skill source directory. */

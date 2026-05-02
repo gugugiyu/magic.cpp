@@ -9,6 +9,27 @@ const log = createLogger('config');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Load .env file from ./config/.env (relative to repo root)
+const envPath = resolve(__dirname, '..', '..', '..', 'config', '.env');
+try {
+	const envContent = readFileSync(envPath, 'utf-8');
+	for (const line of envContent.split('\n')) {
+		const trimmed = line.trim();
+		if (trimmed && !trimmed.startsWith('#')) {
+			const [key, ...valueParts] = trimmed.split('=');
+			if (key && valueParts.length > 0) {
+				process.env[key.trim()] = valueParts.join('=').trim();
+			}
+		}
+	}
+	log.debug(`loaded .env from ${envPath}`);
+} catch (err) {
+	// Silently ignore if .env doesn't exist - it's optional
+	if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+		log.warn(`failed to load .env: ${(err as Error).message}`);
+	}
+}
+
 const LogLevelSchema = z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info');
 
 const StreamingConfigSchema = z.object({
@@ -23,8 +44,16 @@ const CorsConfigSchema = z.object({
 }).default(() => ({ allowedOrigins: [], allowCredentials: true, maxAge: 86400 }));
 
 const DatabaseConfigSchema = z.object({
-	path: z.string().default('data/chat.db')
-}).default(() => ({ path: 'data/chat.db' }));
+	path: z.string().default('data/chat.db'),
+	skillsFolder: z.string().default('data/skills'),
+	migrationsFolder: z.string().default('packages/database/migrations/drizzle'),
+	seedsFolder: z.string().default('packages/database/seeds')
+}).default(() => ({
+	path: 'data/chat.db',
+	skillsFolder: 'data/skills',
+	migrationsFolder: 'packages/database/migrations/drizzle',
+	seedsFolder: 'packages/database/seeds'
+}));
 
 const UpstreamSchema = z.object({
 	id: z.string().min(1),
@@ -52,7 +81,7 @@ export type CommandsConfig = z.infer<typeof CommandsConfigSchema>;
 
 const ConfigFileSchema = z.object({
 	port: z.number().int().positive().default(3000),
-	staticDir: z.string().default('../public'),
+	staticDir: z.string().default('packages/public'),
 	heartbeatInterval: z.number().int().positive().default(30),
 	upstreams: z.array(UpstreamSchema).min(1),
 	enabled: z.boolean().default(true),
@@ -60,7 +89,7 @@ const ConfigFileSchema = z.object({
 	debug: z.boolean().default(false),
 	logLevel: LogLevelSchema,
 	streaming: StreamingConfigSchema.default({ enabled: true, bufferWords: 0 }),
-	database: DatabaseConfigSchema.default(() => ({ path: 'data/chat.db' })),
+	database: DatabaseConfigSchema,
 	cors: CorsConfigSchema,
 	filesystem: FilesystemConfigSchema,
 	commands: CommandsConfigSchema,
@@ -81,6 +110,12 @@ export type Config = Omit<z.infer<typeof ConfigFileSchema>, 'upstreams'> & {
 	resolvedStaticDir: string;
 	/** Absolute path to the SQLite database file */
 	resolvedDatabasePath: string;
+	/** Absolute path to the migrations folder */
+	resolvedMigrationsFolder: string;
+	/** Absolute path to the seeds folder */
+	resolvedSeedsFolder: string;
+	/** Absolute path to the skills folder */
+	resolvedSkillsFolder: string;
 	/** Absolute path to the filesystem sandbox root */
 	resolvedFilesystemRootPath: string;
 	streaming: StreamingConfig;
@@ -104,7 +139,7 @@ function resolveEnvPlaceholder(value: string | null): string | null {
 }
 
 export function loadConfig(configPath?: string): Config {
-	const path = configPath ?? resolve(__dirname, '..', 'config.toml');
+	const path = configPath ?? resolve(__dirname, '..', '..', '..', 'config', 'config.toml');
 
 	let raw: unknown;
 	try {
@@ -131,12 +166,18 @@ export function loadConfig(configPath?: string): Config {
 	const effectiveLogLevel: LogLevel =
 		data.debug && data.logLevel === 'info' ? 'debug' : data.logLevel;
 
+	// Project root is one level up from config directory (config is at ./config/config.toml)
+	const projectRoot = dirname(dirname(path));
+
 	return {
 		...data,
 		upstreams,
-		resolvedStaticDir: resolve(dirname(path), data.staticDir),
-		resolvedDatabasePath: resolve(dirname(path), data.database.path),
-		resolvedFilesystemRootPath: resolve(dirname(path), data.filesystem.rootPath),
+		resolvedStaticDir: resolve(projectRoot, data.staticDir),
+		resolvedDatabasePath: resolve(projectRoot, data.database.path),
+		resolvedMigrationsFolder: resolve(projectRoot, data.database.migrationsFolder),
+		resolvedSeedsFolder: resolve(projectRoot, data.database.seedsFolder),
+		resolvedSkillsFolder: resolve(projectRoot, data.database.skillsFolder),
+		resolvedFilesystemRootPath: resolve(projectRoot, data.filesystem.rootPath),
 		commands: data.commands,
 		logLevel: effectiveLogLevel,
 	};

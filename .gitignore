@@ -2,3 +2,5 @@ node_modules/
 .kilo/
 packages/public/
 **/data/
+config/config.toml
+config/.env

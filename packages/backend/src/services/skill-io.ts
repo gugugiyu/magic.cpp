@@ -42,7 +42,7 @@ async function getSkillSourceConfigs(): Promise<SkillSourceConfig[]> {
 	const localDataDir = resolve(loadConfig().database.path, '..');
 	configs.push({
 		source: 'local',
-		dirPath: resolve(localDataDir, 'skills')
+		dirPath: loadConfig().resolvedSkillsFolder
 	});
 
 	// Global skill directories
@@ -360,7 +360,7 @@ export async function deleteSkill(name: string): Promise<boolean> {
 const BUILT_IN_SKILLS: { name: string; filePath: string }[] = [
 	{
 		name: 'qa-system-guide',
-		filePath: resolve(__dirname, '..', '..', '..', 'data', 'skills', 'qa-system-guide.md')
+		filePath: resolve(__dirname, '..', '..', '..', '..', 'packages', 'database', 'seeds', 'skills', 'qa-system-guide.md')
 	}
 ];
 

@@ -4,7 +4,7 @@
 
 # magic.cpp (working name)
 
-A lightweight, minimal web UI built on top of **llama.cpp** — but with a few extra features that make it more practical to use day-to-day.
+A lightweight, minimal web UI built on top of **llama.cpp** - but with a few extra features that make it more practical to use day-to-day.
 
 This started as a personal tweak… and slowly turned into a full fork.
 
@@ -14,7 +14,7 @@ This started as a personal tweak… and slowly turned into a full fork.
 
 I really like how clean and minimal the original llama.cpp web UI is. But it feels a bit behind compared to other tools out there.
 
-So instead of switching away, I forked it and added the stuff I personally missed — while trying *very hard* not to bloat it.
+So instead of switching away, I forked it and added the stuff I personally missed - while trying *very hard* not to bloat it.
 
 **Goals:**
 - Keep the frontend simple (no heavy frameworks or extra deps, mirror mainstream useful PR every now and then)
@@ -35,7 +35,7 @@ So instead of switching away, I forked it and added the stuff I personally misse
 
 ---
 
-### ⚙️ Presets
+### Presets
 <p align="center">
   <img src="./resources/images/presets-preview.png" width="600">
 </p>
@@ -77,7 +77,7 @@ Includes:
 - Model pool support
 - Still keeps agent loop in frontend (to avoid breaking stuff)
 
-### 📁 File system (WIP)
+### File system (WIP)
 <p align="center">
   <img src="./resources/images/fs-preview.png" width="600">
 </p>
@@ -162,7 +162,7 @@ bun run ./packages/backend/dist/index.js
 
 ## Contributing
 
-Not quite ready for contributions yet — still refactoring things.
+Not quite ready for contributions yet - still refactoring things.
 
 ## AI disclosure
 Some parts of this project were built with help from AI (mostly tricky parts of the agent loop from llama.cpp).

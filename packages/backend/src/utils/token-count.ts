@@ -7,6 +7,7 @@
 
 import type { ModelPool } from '../pool/model-pool.ts';
 import { estimateTokenCount } from '#shared/utils/token-estimator.ts';
+import { fetchWithTimeout } from '#shared/utils/abort';
 
 const TOKENIZE_TIMEOUT = 5_000;
 
@@ -51,17 +52,15 @@ async function tryUpstreamTokenize(
       headers['Authorization'] = `Bearer ${upstream.resolvedApiKey}`;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TOKENIZE_TIMEOUT);
-
-    const response = await fetch(tokenizeUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ content: text }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
+    const response = await fetchWithTimeout(
+      tokenizeUrl,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content: text }),
+      },
+      TOKENIZE_TIMEOUT
+    );
 
     if (!response.ok) return null;
 

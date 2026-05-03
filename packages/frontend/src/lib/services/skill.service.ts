@@ -4,8 +4,9 @@
  * Communicates with the backend skill API endpoints.
  */
 
-import type { SkillDefinition } from '@shared/types/skills';
 import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
+import type { SkillDefinition } from '@shared/types/skills';
+import { fetchWithTimeout } from '@shared/utils/abort';
 
 const SKILLS_ENDPOINT = '/api/skills';
 const SKILL_REQUEST_TIMEOUT_MS = 10_000;
@@ -14,22 +15,7 @@ async function fetchWithEndpoint(path: string, init?: RequestInit): Promise<Resp
 	const endpoint = serverEndpointStore.getBaseUrl();
 	const url = `${endpoint}${path}`;
 
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), SKILL_REQUEST_TIMEOUT_MS);
-
-	try {
-		const res = await fetch(url, {
-			...init,
-			signal: controller.signal,
-			headers: {
-				'Content-Type': 'application/json',
-				...init?.headers
-			}
-		});
-		return res;
-	} finally {
-		clearTimeout(timeout);
-	}
+	return fetchWithTimeout(url, init, SKILL_REQUEST_TIMEOUT_MS);
 }
 
 export class SkillService {

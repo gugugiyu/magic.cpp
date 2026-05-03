@@ -440,7 +440,8 @@ class AgenticStore {
 					sessionMessages as ApiChatMessageData[],
 					{
 						...options,
-						tools: tools.length > 0 ? tools : undefined
+						tools: tools.length > 0 ? tools : undefined,
+						signal
 					},
 					{
 						onChunk: (chunk: string) => {

@@ -2,6 +2,7 @@ import type { ModelPool } from '../pool/model-pool.ts';
 import { getTokenCount } from '../utils/token-count.ts';
 import { buildCompactSystemMessage } from '#shared/constants/prompts-and-tools.ts';
 import { createLogger } from '../utils/logger.ts';
+import { fetchWithTimeout, isAbortError } from '#shared/utils/abort';
 
 const log = createLogger('compact');
 
@@ -128,27 +129,24 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
 
     log.info('requesting summarization from:', upstream.id);
 
-    // Use AbortController to avoid hanging requests — cap at 60s for summarization.
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60_000);
-
     let response: Response;
     try {
-      response = await fetch(upstreamUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
+      response = await fetchWithTimeout(
+        upstreamUrl,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody)
+        },
+        60_000
+      );
     } catch (fetchError) {
-      clearTimeout(timeoutId);
-      const status = fetchError instanceof Error && fetchError.name === 'AbortError' ? 504 : 502;
+      const status = isAbortError(fetchError) ? 504 : 502;
       return Response.json(
         { error: `Summarization request failed: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}` },
         { status }
       );
     }
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();

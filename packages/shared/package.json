@@ -7,6 +7,7 @@
 		".": "./index.ts",
 		"./enums": "./enums/index.ts",
 		"./types": "./types/index.ts",
+		"./utils/*": "./utils/*",
 		"./enums/attachment": "./enums/attachment.ts",
 		"./enums/chat": "./enums/chat.ts",
 		"./constants/*": "./constants/*"

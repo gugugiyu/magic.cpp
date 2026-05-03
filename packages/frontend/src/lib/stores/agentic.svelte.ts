@@ -260,7 +260,7 @@ class AgenticStore {
 			if (!initialized) {
 				logger.info('[AgenticStore] MCP not initialized, continuing with built-in tools only');
 			} else {
-				mcpTools = mcpStore.getToolDefinitionsForLLM();
+				mcpTools = mcpStore.getToolDefinitionsForLLM(perChatOverrides);
 			}
 		}
 

@@ -19,8 +19,6 @@
 	let showResetDialog = $state(false);
 	let showIndicator = $derived(isDirty);
 
-	$inspect(isDirty);
-
 	function handleResetClick() {
 		showResetDialog = true;
 	}

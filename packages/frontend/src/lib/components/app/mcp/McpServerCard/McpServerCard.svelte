@@ -23,9 +23,20 @@
 		onToggle: (enabled: boolean) => void;
 		onUpdate: (updates: Partial<MCPServerSettingsEntry>) => void;
 		onDelete: () => void;
+		isToolEnabled: (toolName: string) => boolean;
+		onToolToggle: (toolName: string, enabled: boolean) => void;
 	}
 
-	let { server, faviconUrl, enabled, onToggle, onUpdate, onDelete }: Props = $props();
+	let {
+		server,
+		faviconUrl,
+		enabled,
+		onToggle,
+		onUpdate,
+		onDelete,
+		isToolEnabled,
+		onToolToggle
+	}: Props = $props();
 
 	let healthState = $derived<HealthCheckState>(mcpStore.getHealthCheckState(server.id));
 	let displayName = $derived(mcpStore.getServerLabel(server));
@@ -156,7 +167,7 @@
 					{/if}
 
 					{#if tools.length > 0}
-						<McpServerCardToolsList {tools} />
+						<McpServerCardToolsList {tools} {isToolEnabled} {onToolToggle} />
 					{/if}
 
 					{#if connectionLogs.length > 0}

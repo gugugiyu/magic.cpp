@@ -92,6 +92,8 @@ export interface ChatMessageTimings {
 export interface McpServerOverride {
 	serverId: string;
 	enabled: boolean;
+	/** List of tool names that should be disabled for this server */
+	disabledTools?: string[];
 }
 
 export interface TodoItem {

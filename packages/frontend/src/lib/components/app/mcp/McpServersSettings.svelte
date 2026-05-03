@@ -151,6 +151,17 @@
 							onToggle={async () => await conversationsStore.toggleMcpServerForChat(server.id)}
 							onUpdate={(updates) => mcpStore.updateServer(server.id, updates)}
 							onDelete={() => mcpStore.removeServer(server.id)}
+							isToolEnabled={(toolName) =>
+								conversationsStore.isMcpToolEnabledForChat(server.id, toolName)}
+							onToolToggle={async (toolName, enabled) => {
+								const currentlyEnabled = conversationsStore.isMcpToolEnabledForChat(
+									server.id,
+									toolName
+								);
+								if (currentlyEnabled !== enabled) {
+									await conversationsStore.toggleMcpToolForChat(server.id, toolName);
+								}
+							}}
 						/>
 					{/if}
 				</div>

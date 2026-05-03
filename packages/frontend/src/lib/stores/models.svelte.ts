@@ -4,6 +4,7 @@ import { ServerModelStatus, ModelModality } from '$lib/enums';
 import { ModelsService, PropsService } from '$lib/services';
 import { serverStore } from '$lib/stores/server.svelte';
 import { modelCapabilityStore } from '$lib/stores/model-capabilities.svelte';
+import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 import { TTLCache } from '$lib/utils';
 import {
 	MODEL_PROPS_CACHE_TTL_MS,
@@ -329,6 +330,9 @@ class ModelsStore {
 				this.selectedModelId = models[0].id;
 				this.selectedModelName = models[0].model;
 			}
+
+			// Sync subagent model selection against the new pool
+			subagentConfigStore.syncWithPool(models);
 
 			// WORKAROUND: In MODEL mode, /props returns modalities for the single model,
 			// but /v1/models doesn't include modalities. We bridge this gap here.

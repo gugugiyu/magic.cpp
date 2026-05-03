@@ -1,5 +1,6 @@
 import { PropsService } from '$lib/services/props.service';
 import { ServerRole } from '$lib/enums';
+import { poolStatusStore } from './pool-status.svelte';
 
 /**
  * serverStore - Server connection state, configuration, and role detection
@@ -134,6 +135,7 @@ class ServerStore {
 			const response = await fetch('./health');
 			if (!response.ok) return false;
 			const data = await response.json();
+			poolStatusStore.updateFromHealth(data);
 			if (data.upstreams && Array.isArray(data.upstreams)) {
 				return (
 					data.upstreams.length > 0 &&

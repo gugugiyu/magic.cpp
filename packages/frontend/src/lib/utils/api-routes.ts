@@ -150,10 +150,10 @@ export const RouteHandlers = {
 	getV1Models: 'getV1Models',
 	handleChat: 'handleChat',
 
-	// Other
-	handleCompact: 'handleCompact',
-	handleProps: 'handleProps',
+	// Models
 	getModels: 'getModels',
+	loadModel: 'loadModel',
+	unloadModel: 'unloadModel',
 	handleCorsProxy: 'handleCorsProxy',
 	handleHealth: 'handleHealth'
 } as const;

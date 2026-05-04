@@ -194,6 +194,10 @@ export const apiRoutes: RouteDef[] = [
   {
     path: "/models",
     methods: { GET: "getModels" },
+    children: [
+      { path: "load", methods: { POST: "loadModel" } },
+      { path: "unload", methods: { POST: "unloadModel" } },
+    ],
   },
   {
     path: "/cors-proxy",

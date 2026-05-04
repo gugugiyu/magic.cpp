@@ -4,13 +4,7 @@
  * Communicates with the backend skill API endpoints.
  */
 
-import {
-	getAllSkills,
-	getSkill,
-	createSkill,
-	updateSkill,
-	deleteSkill
-} from '$lib/api/skills.api';
+import { getAllSkills, getSkill, createSkill, updateSkill, deleteSkill } from '$lib/api/skills.api';
 import type { SkillDefinition } from '@shared/types/skills';
 
 export class SkillService {

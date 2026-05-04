@@ -56,11 +56,6 @@ export class ModelPool {
 			return true;
 		}
 
-		// Log warning if whitelist is too restrictive
-		if (!isEmpty(upstreamList)) {
-			// console.warn(`[model-pool] model '${modelId}' not in upstream whitelist ${JSON.stringify(upstreamList)}`);
-		}
-
 		return false;
 	}
 
@@ -170,8 +165,6 @@ export class ModelPool {
 
 		const body = (await resp.json()) as { data?: unknown[] };
 		const data = Array.isArray(body.data) ? body.data : [];
-
-		// console.log(`[model-pool] ${upstream.id} raw response:`, data.slice(0, 3).map(m => (m as Record<string, unknown>).id));
 
 		const models: PooledModel[] = data
 			.filter((m): m is Record<string, unknown> => typeof m === 'object' && m !== null)

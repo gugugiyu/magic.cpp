@@ -97,7 +97,6 @@ export class FileStore {
 	/** Read a file's content as text. Returns null if not found. */
 	async read(name: string): Promise<string | null> {
 		const file = Bun.file(this.resolvePath(name));
-		console.log(file, this.resolvePath(name), "@@")
 		if (!(await file.exists())) {
 			return null;
 		}

@@ -16,12 +16,12 @@ class TodoStore {
 
 	async loadTodos(convId: string): Promise<void> {
 		if (this.loadedConversations.has(convId)) return;
-		
+
 		const conversationExists = conversationsStore.conversations.some((c) => c.id === convId);
 		if (!conversationExists) {
 			return;
 		}
-		
+
 		try {
 			const conv = await DatabaseService.getConversation(convId);
 			if (conv?.todos) {

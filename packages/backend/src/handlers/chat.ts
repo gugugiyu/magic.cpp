@@ -40,7 +40,6 @@ function extractContent(line: string): string | null {
 export async function handleChat(req: Request, pool: ModelPool): Promise<Response> {
 	let modelId: string | undefined;
 	const rawBody = await req.text();
-	// console.log('[chat] raw incoming body:', rawBody);
 
 	try {
 		const body = JSON.parse(rawBody) as { model?: string; stream?: boolean };

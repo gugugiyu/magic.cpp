@@ -4,6 +4,7 @@
  */
 
 import { apiFetch, apiPost } from '$lib/utils/api-fetch';
+import { routeUrl, RouteHandlers } from '$lib/utils/api-routes';
 import type { DatabaseMessage, DatabaseConversation } from '$lib/types/database';
 
 export interface CreateMessageParams {
@@ -26,14 +27,14 @@ export interface CreateMessageParams {
  * Get a message by ID.
  */
 export async function getMessageById(id: string): Promise<DatabaseMessage> {
-	return apiFetch<DatabaseMessage>(`/api/messages/${id}`);
+	return apiFetch<DatabaseMessage>(routeUrl(RouteHandlers.getMessage, { id }));
 }
 
 /**
  * Get all messages for a conversation.
  */
 export async function getConversationMessages(convId: string): Promise<DatabaseMessage[]> {
-	return apiFetch<DatabaseMessage[]>(`/api/conversations/${convId}/messages`);
+	return apiFetch<DatabaseMessage[]>(routeUrl(RouteHandlers.getMessages, { id: convId }));
 }
 
 /**
@@ -43,7 +44,7 @@ export async function updateMessage(
 	id: string,
 	updates: Partial<Omit<DatabaseMessage, 'id'>>
 ): Promise<DatabaseMessage> {
-	return apiFetch<DatabaseMessage>(`/api/messages/${id}`, {
+	return apiFetch<DatabaseMessage>(routeUrl(RouteHandlers.updateMessage, { id }), {
 		method: 'PUT',
 		body: JSON.stringify(updates)
 	});
@@ -53,8 +54,9 @@ export async function updateMessage(
  * Delete a message, optionally reparenting children.
  */
 export async function deleteMessage(id: string, options?: { newParentId?: string }): Promise<void> {
-	const params = options?.newParentId ? `?newParentId=${options.newParentId}` : '';
-	await apiFetch(`/api/messages/${id}${params}`, {
+	const params = options?.newParentId ? { newParentId: options.newParentId } : undefined;
+	const url = routeUrl(RouteHandlers.deleteMessage, { id }, params);
+	await apiFetch(url, {
 		method: 'DELETE'
 	});
 }
@@ -66,9 +68,10 @@ export async function deleteMessageCascading(
 	id: string,
 	conversationId: string
 ): Promise<string[]> {
-	return apiPost<string[], { conversationId: string }>(`/api/messages/${id}/delete-cascading`, {
-		conversationId
-	});
+	return apiPost<string[], { conversationId: string }>(
+		routeUrl(RouteHandlers.deleteMessageCascading, { id }),
+		{ conversationId }
+	);
 }
 
 /**
@@ -79,15 +82,17 @@ export async function createMessage(
 	params: Omit<CreateMessageParams, 'convId'>,
 	options?: { parentId?: string | null; type?: 'root' | 'system' }
 ): Promise<DatabaseMessage> {
-	const queryParams = new URLSearchParams();
-	if (options?.parentId) queryParams.set('parentId', options.parentId);
-	if (options?.type) queryParams.set('type', options.type);
+	const pathParams = { id: convId };
+	const queryParams: Record<string, string> = {};
+	if (options?.parentId) queryParams.parentId = options.parentId;
+	if (options?.type) queryParams.type = options.type;
 
-	const queryString = queryParams.toString();
-	return apiPost<DatabaseMessage, CreateMessageParams>(
-		`/api/conversations/${convId}/messages${queryString ? `?${queryString}` : ''}`,
-		{ ...params, convId }
-	);
+	const url =
+		Object.keys(queryParams).length > 0
+			? routeUrl(RouteHandlers.createMessage, pathParams, queryParams)
+			: routeUrl(RouteHandlers.createMessage, pathParams);
+
+	return apiPost<DatabaseMessage, CreateMessageParams>(url, { ...params, convId });
 }
 
 /**
@@ -128,7 +133,7 @@ export async function createSystemMessage(
  * Get all subagent session IDs for a conversation.
  */
 export async function getSubagentSessions(convId: string): Promise<string[]> {
-	return apiFetch<string[]>(`/api/conversations/${convId}/subagent-sessions`);
+	return apiFetch<string[]>(routeUrl(RouteHandlers.getSubagentSessions, { id: convId }));
 }
 
 /**
@@ -139,7 +144,7 @@ export async function getSubagentMessages(
 	sessionId: string
 ): Promise<DatabaseMessage[]> {
 	return apiFetch<DatabaseMessage[]>(
-		`/api/conversations/${convId}/subagent-messages?sessionId=${sessionId}`
+		routeUrl(RouteHandlers.getSubagentMessages, { id: convId }, { sessionId })
 	);
 }
 
@@ -161,8 +166,11 @@ export async function updateCurrentNode(
 	convId: string,
 	nodeId: string
 ): Promise<DatabaseConversation> {
-	return apiFetch<DatabaseConversation>(`/api/conversations/${convId}`, {
-		method: 'PUT',
-		body: JSON.stringify({ currNode: nodeId })
-	});
+	return apiFetch<DatabaseConversation>(
+		routeUrl(RouteHandlers.updateConversation, { id: convId }),
+		{
+			method: 'PUT',
+			body: JSON.stringify({ currNode: nodeId })
+		}
+	);
 }

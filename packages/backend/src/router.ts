@@ -15,313 +15,186 @@ import * as presetHandlers from "./handlers/presets.ts";
 import { handleExecuteTool, handleGetAllowedCommands } from "./handlers/tools.ts";
 import { handleFileSystem, handleFileSystemDiff } from "./handlers/filesystem.ts";
 import { createLogger } from "./utils/logger.ts";
+import { apiRoutes, buildRoutes, type CompiledRoute } from "#shared/types/routes.ts";
 
 const log = createLogger("router");
 
-type RouteHandler = (
+type Handler = (
   req: Request,
-  pool: ModelPool,
-  config: Config,
-) => Promise<Response>;
-type RoutePattern = {
-  pattern: RegExp | string;
-  method?: string | string[];
-  handler: RouteHandler;
-};
-
-const routes: RoutePattern[] = [];
-
-function addRoute(
-  pattern: RegExp | string,
-  method: string | string[] | undefined,
-  handler: RouteHandler,
-) {
-  routes.push({ pattern, method, handler });
-}
+  params: Record<string, string>,
+  context: { pool: ModelPool; config: Config; query: URLSearchParams },
+) => Promise<Response> | Response;
 
 function matchRoute(
+  compiled: CompiledRoute[],
   pathname: string,
   method: string,
-): RouteHandler | null {
-  for (const route of routes) {
-    const isMatch =
-      typeof route.pattern === "string"
-        ? route.pattern === pathname
-        : route.pattern.test(pathname);
+): { route: CompiledRoute; params: Record<string, string> } | null {
+  for (const route of compiled) {
+    if (route.method !== method) continue;
 
-    if (isMatch) {
-      if (!route.method) return route.handler;
-      const methods = Array.isArray(route.method)
-        ? route.method
-        : [route.method];
-      if (methods.includes(method)) return route.handler;
-    }
+    const match = pathname.match(route.regex);
+    if (!match) continue;
+
+    const params: Record<string, string> = {};
+    route.keys.forEach((k: string, i: number) => {
+      params[k] = match[i + 1];
+    });
+
+    return { route, params };
   }
+
   return null;
 }
 
-function extractId(pathname: string, pattern: RegExp): string | null {
-  const match = pathname.match(pattern);
-  return match?.[1] ?? null;
-}
+const compiledRoutes = buildRoutes(apiRoutes);
 
-// Initialize routes
-function initializeRoutes(pool: ModelPool, config: Config) {
-  routes.length = 0;
+const handlers: Record<string, Handler> = {
+  getV1Models: (_req, _params, { pool }) => handleV1Models(pool),
+  handleChat: (req, _params, { pool }) => handleChat(req, pool),
+  handleCompact: (req, _params, { pool }) => handleCompact(req, pool),
+  handleProps: (req, _params, { pool }) => handleProps(req, pool),
+  getModels: (req, _params, { pool }) => handleModels(req, pool),
+  handleCorsProxy: (req, _params, _ctx) => handleCorsProxy(req),
+  handleHealth: (_req, _params, { pool }) => handleHealth(pool),
 
-  // API routes - models
-  addRoute("/v1/models", "GET", async () => handleV1Models(pool));
-  addRoute("/v1/chat/completions", "POST", (req) => handleChat(req, pool));
-  addRoute("/compact", "POST", (req) => handleCompact(req, pool));
-  addRoute("/props", "GET", (req) => handleProps(req, pool));
-  addRoute("/models", "GET", (req) => handleModels(req, pool));
-  addRoute(
-    "/cors-proxy",
-    ["GET", "HEAD"],
-    (req) => handleCorsProxy(req),
-  );
-  addRoute("/health", "GET", async () => handleHealth(pool));
+  getConversations: (_req, _params, _ctx) =>
+    conversationHandlers.handleGetConversations(getDatabase()),
 
-  // Database API - conversations collection
-  addRoute(
-    "/api/conversations",
-    "GET",
-    async () => conversationHandlers.handleGetConversations(getDatabase()),
-  );
-  addRoute(
-    "/api/conversations",
-    "POST",
-    (req) => conversationHandlers.handleCreateConversation(req, getDatabase()),
-  );
-  addRoute(
-    "/api/conversations",
-    "DELETE",
-    async (req) => conversationHandlers.handleDeleteAllConversations(getDatabase(), new URL(req.url)),
-  );
-  addRoute(
-    "/api/conversations/import",
-    "POST",
-    (req) => conversationHandlers.handleImportConversations(req, getDatabase()),
-  );
-  addRoute(
-    "/api/conversations/export",
-    "GET",
-    async (req) => conversationHandlers.handleExportConversations(getDatabase(), new URL(req.url)),
-  );
+  createConversation: (req, _params, _ctx) =>
+    conversationHandlers.handleCreateConversation(req, getDatabase()),
 
-  // Database API - conversations by ID
-  addRoute(
-    /^\/api\/conversations\/([^/]+)$/,
-    "GET",
-    async (req) => {
-      const convId = extractId(new URL(req.url).pathname, /^\/api\/conversations\/([^/]+)$/);
-      return conversationHandlers.handleGetConversation(getDatabase(), convId!);
-    },
-  );
-  addRoute(
-    /^\/api\/conversations\/([^/]+)$/,
-    "PUT",
-    (req) => {
-      const convId = extractId(new URL(req.url).pathname, /^\/api\/conversations\/([^/]+)$/);
-      return conversationHandlers.handleUpdateConversation(req, getDatabase(), convId!);
-    },
-  );
-  addRoute(
-    /^\/api\/conversations\/([^/]+)$/,
-    "DELETE",
-    async (req) => {
-      const convId = extractId(new URL(req.url).pathname, /^\/api\/conversations\/([^/]+)$/);
-      return conversationHandlers.handleDeleteConversation(getDatabase(), convId!, new URL(req.url));
-    },
-  );
+  deleteAllConversations: (req, _params, { query }) =>
+    conversationHandlers.handleDeleteAllConversations(getDatabase(), new URLSearchParams(query)),
 
-  // Database API - conversation fork
-  addRoute(
-    /^\/api\/conversations\/[^/]+\/fork$/,
-    "POST",
-    (req) => {
-      const convId = new URL(req.url).pathname.split("/")[3];
-      return conversationHandlers.handleForkConversation(getDatabase(), convId, req);
-    },
-  );
+  importConversations: (req, _params, _ctx) =>
+    conversationHandlers.handleImportConversations(req, getDatabase()),
 
-  // Database API - conversation messages
-  addRoute(
-    /^\/api\/conversations\/[^/]+\/messages$/,
-    "GET",
-    async (req) => {
-      const convId = new URL(req.url).pathname.split("/")[3];
-      return conversationHandlers.handleGetConversationMessages(getDatabase(), convId);
-    },
-  );
-  addRoute(
-    /^\/api\/conversations\/[^/]+\/messages$/,
-    "POST",
-    (req) => {
-      const convId = new URL(req.url).pathname.split("/")[3];
-      return conversationHandlers.handleCreateMessage(req, getDatabase(), convId, new URL(req.url));
-    },
-  );
+  exportConversations: (_req, _params, { query }) =>
+    conversationHandlers.handleExportConversations(getDatabase(), new URLSearchParams(query)),
 
-  // Database API - subagent sessions
-  addRoute(
-    /^\/api\/conversations\/[^/]+\/subagent-sessions$/,
-    "GET",
-    async (req) => {
-      const convId = new URL(req.url).pathname.split("/")[3];
-      return conversationHandlers.handleGetSubagentSessions(getDatabase(), convId);
-    },
-  );
-  addRoute(
-    /^\/api\/conversations\/[^/]+\/subagent-messages$/,
-    "GET",
-    async (req) => {
-      const convId = new URL(req.url).pathname.split("/")[3];
-      return conversationHandlers.handleGetSubagentMessages(getDatabase(), convId, new URL(req.url));
-    },
-  );
+  getConversation: (_req, { id }, _ctx) =>
+    conversationHandlers.handleGetConversation(getDatabase(), id),
 
-  // Database API - messages by ID
-  addRoute(
-    /^\/api\/messages\/([^/]+)$/,
-    "GET",
-    async (req) => {
-      const msgId = extractId(new URL(req.url).pathname, /^\/api\/messages\/([^/]+)$/);
-      return messageHandlers.handleGetMessage(getDatabase(), msgId!);
-    },
-  );
-  addRoute(
-    /^\/api\/messages\/([^/]+)$/,
-    "PUT",
-    (req) => {
-      const msgId = extractId(new URL(req.url).pathname, /^\/api\/messages\/([^/]+)$/);
-      return messageHandlers.handleUpdateMessage(req, getDatabase(), msgId!);
-    },
-  );
-  addRoute(
-    /^\/api\/messages\/([^/]+)$/,
-    "DELETE",
-    async (req) => {
-      const msgId = extractId(new URL(req.url).pathname, /^\/api\/messages\/([^/]+)$/);
-      return messageHandlers.handleDeleteMessage(getDatabase(), msgId!, new URL(req.url));
-    },
-  );
+  updateConversation: (req, { id }, _ctx) =>
+    conversationHandlers.handleUpdateConversation(req, getDatabase(), id),
 
-  // Database API - message cascading delete
-  addRoute(
-    /^\/api\/messages\/[^/]+\/delete-cascading$/,
-    "POST",
-    (req) => {
-      const msgId = new URL(req.url).pathname.split("/")[3];
-      return messageHandlers.handleDeleteMessageCascading(req, getDatabase(), msgId);
-    },
-  );
+  deleteConversation: (req, { id }, { query }) =>
+    conversationHandlers.handleDeleteConversation(getDatabase(), id, new URLSearchParams(query)),
 
-  // Tool execution
-  addRoute(
-    "/api/tools/execute",
-    "POST",
-    (req) => handleExecuteTool(req, config),
-  );
-  addRoute(
-    "/api/tools/allowed-commands",
-    "GET",
-    (req) => handleGetAllowedCommands(req, config),
-  );
+  forkConversation: (req, { id }, _ctx) =>
+    conversationHandlers.handleForkConversation(getDatabase(), id, req),
 
-  // File system API
-  addRoute(
-    "/api/file-system",
-    "GET",
-    (req) => handleFileSystem(req, config),
-  );
-  addRoute(
-    "/api/file-system/diff",
-    "POST",
-    (req) => handleFileSystemDiff(req, config),
-  );
+  getMessages: (_req, { id }, _ctx) =>
+    conversationHandlers.handleGetConversationMessages(getDatabase(), id),
 
-  // Skill API routes
-  addRoute(
-    "/api/skills",
-    "GET",
-    () => skillHandlers.handleListSkills(getDatabase()),
-  );
-  addRoute(
-    "/api/skills",
-    "POST",
-    (req) => skillHandlers.handleCreateSkill(req, getDatabase()),
-  );
+  createMessage: (req, { id }, { query }) =>
+    conversationHandlers.handleCreateMessage(req, getDatabase(), id, new URLSearchParams(query)),
 
-  // Database API - skills by name
-  addRoute(
-    /^\/api\/skills\/([^/]+)$/,
-    "GET",
-    (req) => {
-      const skillName = extractId(new URL(req.url).pathname, /^\/api\/skills\/([^/]+)$/);
-      return skillHandlers.handleReadSkill(getDatabase(), skillName!);
-    },
-  );
-  addRoute(
-    /^\/api\/skills\/([^/]+)$/,
-    "PUT",
-    (req) => {
-      const skillName = extractId(new URL(req.url).pathname, /^\/api\/skills\/([^/]+)$/);
-      return skillHandlers.handleUpdateSkill(req, getDatabase(), skillName!);
-    },
-  );
-  addRoute(
-    /^\/api\/skills\/([^/]+)$/,
-    "DELETE",
-    (req) => {
-      const skillName = extractId(new URL(req.url).pathname, /^\/api\/skills\/([^/]+)$/);
-      return skillHandlers.handleDeleteSkill(getDatabase(), skillName!);
-    },
-  );
+  getSubagentSessions: (_req, { id }, _ctx) =>
+    conversationHandlers.handleGetSubagentSessions(getDatabase(), id),
 
-  // Preset API routes
-  addRoute(
-    "/api/presets",
-    "GET",
-    () => presetHandlers.handleListPresets(getDatabase()),
-  );
-  addRoute(
-    "/api/presets",
-    "POST",
-    (req) => presetHandlers.handleCreatePreset(req, getDatabase()),
-  );
-  addRoute(
-    /^\/api\/presets\/([^/]+)$/,
-    "GET",
-    (req) => {
-      const presetId = extractId(new URL(req.url).pathname, /^\/api\/presets\/([^/]+)$/);
-      return presetHandlers.handleGetPreset(getDatabase(), presetId!);
-    },
-  );
-  addRoute(
-    /^\/api\/presets\/([^/]+)$/,
-    "PUT",
-    (req) => {
-      const presetId = extractId(new URL(req.url).pathname, /^\/api\/presets\/([^/]+)$/);
-      return presetHandlers.handleUpdatePreset(req, getDatabase(), presetId!);
-    },
-  );
-  addRoute(
-    /^\/api\/presets\/([^/]+)$/,
-    "DELETE",
-    (req) => {
-      const presetId = extractId(new URL(req.url).pathname, /^\/api\/presets\/([^/]+)$/);
-      return presetHandlers.handleDeletePreset(getDatabase(), presetId!);
-    },
-  );
-}
+  getSubagentMessages: (_req, { id }, { query }) =>
+    conversationHandlers.handleGetSubagentMessages(getDatabase(), id, new URLSearchParams(query)),
+
+  getMessage: (_req, { id }, _ctx) =>
+    messageHandlers.handleGetMessage(getDatabase(), id),
+
+  updateMessage: (req, { id }, _ctx) =>
+    messageHandlers.handleUpdateMessage(req, getDatabase(), id),
+
+  deleteMessage: (req, { id }, { query }) =>
+    messageHandlers.handleDeleteMessage(getDatabase(), id, new URLSearchParams(query)),
+
+  deleteMessageCascading: (req, { id }, _ctx) =>
+    messageHandlers.handleDeleteMessageCascading(req, getDatabase(), id),
+
+  listSkills: (_req, _params, _ctx) =>
+    skillHandlers.handleListSkills(getDatabase()),
+
+  createSkill: (req, _params, _ctx) =>
+    skillHandlers.handleCreateSkill(req, getDatabase()),
+
+  readSkill: (_req, { name }, _ctx) =>
+    skillHandlers.handleReadSkill(getDatabase(), name),
+
+  updateSkill: (req, { name }, _ctx) =>
+    skillHandlers.handleUpdateSkill(req, getDatabase(), name),
+
+  deleteSkill: (_req, { name }, _ctx) =>
+    skillHandlers.handleDeleteSkill(getDatabase(), name),
+
+  listPresets: (_req, _params, _ctx) =>
+    presetHandlers.handleListPresets(getDatabase()),
+
+  createPreset: (req, _params, _ctx) =>
+    presetHandlers.handleCreatePreset(req, getDatabase()),
+
+  getPreset: (_req, { id }, _ctx) =>
+    presetHandlers.handleGetPreset(getDatabase(), id),
+
+  updatePreset: (req, { id }, _ctx) =>
+    presetHandlers.handleUpdatePreset(req, getDatabase(), id),
+
+  deletePreset: (_req, { id }, _ctx) =>
+    presetHandlers.handleDeletePreset(getDatabase(), id),
+
+  executeTool: (req, _params, { config }) =>
+    handleExecuteTool(req, config),
+
+  getAllowedCommands: (req, _params, { config }) =>
+    handleGetAllowedCommands(req, config),
+
+  getFileSystem: (req, _params, { config }) =>
+    handleFileSystem(req, config),
+
+  getFileSystemDiff: (req, _params, { config }) =>
+    handleFileSystemDiff(req, config),
+};
 
 export function createRouter(pool: ModelPool, config: Config) {
-  initializeRoutes(pool, config);
-
   return async function router(req: Request): Promise<Response> {
     try {
-      return await dispatchRoute(req, pool, config);
+      const url = new URL(req.url);
+      const method = req.method.toUpperCase();
+
+      const found = matchRoute(compiledRoutes, url.pathname, method);
+
+      if (found) {
+        const { route, params } = found;
+        const handler = handlers[route.handlerKey];
+
+        if (!handler) {
+          log.error(`no handler registered for ${route.handlerKey}`);
+          return Response.json(
+            { error: "Handler not found" },
+            { status: 500 },
+          );
+        }
+
+        return handler(req, params, {
+          pool,
+          config,
+          query: url.searchParams,
+        });
+      }
+
+      if (method === "OPTIONS") {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE, HEAD",
+            "Access-Control-Allow-Headers": "*",
+          },
+        });
+      }
+
+      if (method === "GET") {
+        return serveStatic(req, config.resolvedStaticDir);
+      }
+
+      return new Response("Method Not Allowed", { status: 405 });
     } catch (err) {
       log.error(
         `unhandled error in ${req.method} ${new URL(req.url).pathname}:`,
@@ -333,40 +206,4 @@ export function createRouter(pool: ModelPool, config: Config) {
       );
     }
   };
-}
-
-
-async function dispatchRoute(
-  req: Request,
-  pool: ModelPool,
-  config: Config,
-): Promise<Response> {
-  const url = new URL(req.url);
-  const { pathname } = url;
-  const method = req.method.toUpperCase();
-
-  // Try to match route in registry
-  const handler = matchRoute(pathname, method);
-  if (handler) {
-    return handler(req, pool, config);
-  }
-
-  // CORS preflight
-  if (method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS, HEAD",
-        "Access-Control-Allow-Headers": "*",
-      },
-    });
-  }
-
-  // Static file serving + SPA fallback for all unmatched GET requests
-  if (method === "GET") {
-    return serveStatic(req, config.resolvedStaticDir);
-  }
-
-  return new Response("Method Not Allowed", { status: 405 });
 }

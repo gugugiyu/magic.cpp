@@ -4,9 +4,8 @@
  */
 
 import { apiFetch, apiPost } from '$lib/utils/api-fetch';
+import { routeUrl, RouteHandlers } from '$lib/utils/api-routes';
 import type { PresetView, PresetInput } from '@shared/types/presets';
-
-const PRESETS_ENDPOINT = '/api/presets';
 
 /**
  * Parse a raw Preset (with JSON-stringified fields) into a PresetView.
@@ -43,7 +42,7 @@ function coerceStringArray(value: unknown): string[] {
  * List all presets.
  */
 export async function getAllPresets(): Promise<PresetView[]> {
-	const res = await apiFetch<unknown[]>(PRESETS_ENDPOINT);
+	const res = await apiFetch<unknown[]>(routeUrl(RouteHandlers.listPresets));
 	return res.map(parsePreset);
 }
 
@@ -51,7 +50,7 @@ export async function getAllPresets(): Promise<PresetView[]> {
  * Get a single preset by ID.
  */
 export async function getPreset(id: string): Promise<PresetView> {
-	const res = await apiFetch<unknown>(`${PRESETS_ENDPOINT}/${id}`);
+	const res = await apiFetch<unknown>(routeUrl(RouteHandlers.getPreset, { id }));
 	return parsePreset(res);
 }
 
@@ -59,7 +58,7 @@ export async function getPreset(id: string): Promise<PresetView> {
  * Create a new preset.
  */
 export async function createPreset(input: PresetInput): Promise<PresetView> {
-	const res = await apiPost<unknown, PresetInput>(PRESETS_ENDPOINT, input);
+	const res = await apiPost<unknown, PresetInput>(routeUrl(RouteHandlers.createPreset), input);
 	return parsePreset(res);
 }
 
@@ -67,7 +66,7 @@ export async function createPreset(input: PresetInput): Promise<PresetView> {
  * Update an existing preset.
  */
 export async function updatePreset(id: string, input: PresetInput): Promise<PresetView> {
-	const res = await apiFetch<unknown>(`${PRESETS_ENDPOINT}/${id}`, {
+	const res = await apiFetch<unknown>(routeUrl(RouteHandlers.updatePreset, { id }), {
 		method: 'PUT',
 		body: JSON.stringify(input)
 	});
@@ -78,5 +77,5 @@ export async function updatePreset(id: string, input: PresetInput): Promise<Pres
  * Delete a preset.
  */
 export async function deletePreset(id: string): Promise<void> {
-	await apiFetch(`${PRESETS_ENDPOINT}/${id}`, { method: 'DELETE' });
+	await apiFetch(routeUrl(RouteHandlers.deletePreset, { id }), { method: 'DELETE' });
 }

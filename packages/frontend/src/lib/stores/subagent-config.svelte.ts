@@ -118,9 +118,7 @@ class SubagentConfigStore {
 		const currentModel = this.#config.model;
 		if (!currentModel) return;
 
-		const stillAvailable = models.some(
-			(m) => m.model === currentModel || m.id === currentModel
-		);
+		const stillAvailable = models.some((m) => m.model === currentModel || m.id === currentModel);
 		if (stillAvailable) return;
 
 		// Current model no longer in pool — fall back to first available

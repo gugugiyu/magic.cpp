@@ -10,6 +10,7 @@
 		"./utils/*": "./utils/*",
 		"./enums/attachment": "./enums/attachment.ts",
 		"./enums/chat": "./enums/chat.ts",
-		"./constants/*": "./constants/*"
+		"./constants/*": "./constants/*",
+		"./routes": "./types/routes.ts"
 	}
 }

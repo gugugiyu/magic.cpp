@@ -13,7 +13,7 @@
 
 	import { HealthCheckStatus } from '$lib/enums';
 	import type { MCPServerSettingsEntry } from '$lib/types';
-	import { builtinToolFields } from '$lib/enums/builtin-tools';
+	import { builtinToolFields, BUILTIN_TOOL_SETTING_KEY_TARGET } from '$lib/enums/builtin-tools';
 
 	interface Props {
 		class?: string;
@@ -108,6 +108,70 @@
 		console.log(key as keyof typeof currentConfig, enabled);
 		settingsStore.updateConfig(key as keyof typeof currentConfig, enabled);
 	}
+
+	// ─── MCP Tools sub-menu state ─────────────────────────────────────────────
+	let mcpToolsForToolbar = $derived.by(() => {
+		const result: Array<{
+			serverId: string;
+			serverName: string;
+			toolName: string;
+			toolDescription?: string;
+		}> = [];
+		for (const server of mcpStore.getServers()) {
+			if (!conversationsStore.isMcpServerEnabledForChat(server.id)) continue;
+			const health = mcpStore.getHealthCheckState(server.id);
+			if (health.status !== HealthCheckStatus.SUCCESS || !health.tools) continue;
+			for (const tool of health.tools) {
+				if (!tool.name) continue;
+				result.push({
+					serverId: server.id,
+					serverName: getServerLabel(server),
+					toolName: tool.name,
+					toolDescription: tool.description
+				});
+			}
+		}
+		return result;
+	});
+
+	let hasMcpToolsForToolbar = $derived(mcpToolsForToolbar.length > 0);
+
+	let mcpToolsGrouped = $derived.by(() => {
+		const map: Record<string, { serverName: string; tools: typeof mcpToolsForToolbar }> = {};
+		for (const item of mcpToolsForToolbar) {
+			if (!map[item.serverId]) {
+				map[item.serverId] = { serverName: item.serverName, tools: [] };
+			}
+			map[item.serverId].tools.push(item);
+		}
+		return Object.entries(map).map(([serverId, { serverName, tools }]) => ({
+			serverId,
+			serverName,
+			tools
+		}));
+	});
+
+	function isMcpToolEnabled(serverId: string, toolName: string): boolean {
+		return conversationsStore.isMcpToolEnabledForChat(serverId, toolName);
+	}
+
+	async function toggleMcpTool(serverId: string, toolName: string) {
+		await conversationsStore.toggleMcpToolForChat(serverId, toolName);
+	}
+
+	// ─── Built-in tools grouped by execution target ───────────────────────────
+	let builtinToolsGrouped = $derived.by(() => {
+		const frontend = builtinToolFields.filter(
+			(tool) => BUILTIN_TOOL_SETTING_KEY_TARGET[tool.key] === 'frontend'
+		);
+		const backend = builtinToolFields.filter(
+			(tool) => BUILTIN_TOOL_SETTING_KEY_TARGET[tool.key] === 'backend'
+		);
+		return [
+			{ label: 'Frontend Tools', items: frontend },
+			{ label: 'Backend Tools', items: backend }
+		].filter((g) => g.items.length > 0);
+	});
 </script>
 
 <div class="flex items-center gap-1 {className}">
@@ -338,6 +402,47 @@
 				</DropdownMenu.Item>
 			{/if}
 
+			{#if hasMcpToolsForToolbar}
+				<DropdownMenu.Sub>
+					<DropdownMenu.SubTrigger class="flex cursor-pointer items-center gap-2">
+						<Wrench class="h-4 w-4" />
+
+						<span>MCP Tools</span>
+					</DropdownMenu.SubTrigger>
+
+					<DropdownMenu.SubContent class="w-72 pt-0">
+						<div class="px-2 py-1.5">
+							<p class="text-xs font-medium text-muted-foreground">Toggle MCP tools</p>
+							<p class="text-xs text-muted-foreground">Per-conversation tool selection</p>
+						</div>
+
+						<div class="max-h-64 overflow-y-auto">
+							{#each mcpToolsGrouped as group (group.serverId)}
+								<div class="sticky top-0 z-10 bg-background px-2 py-1.5">
+									<p class="text-xs font-semibold text-muted-foreground">{group.serverName}</p>
+								</div>
+								{#each group.tools as item (item.serverId + ':' + item.toolName)}
+									{@const enabled = isMcpToolEnabled(item.serverId, item.toolName)}
+									<button
+										type="button"
+										class="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
+										onclick={() => toggleMcpTool(item.serverId, item.toolName)}
+									>
+										<div class="min-w-0">
+											<p class="truncate text-sm">{item.toolName}</p>
+											{#if item.toolDescription}
+												<p class="truncate text-xs text-muted-foreground">{item.toolDescription}</p>
+											{/if}
+										</div>
+										<Switch checked={enabled} />
+									</button>
+								{/each}
+							{/each}
+						</div>
+					</DropdownMenu.SubContent>
+				</DropdownMenu.Sub>
+			{/if}
+
 			<DropdownMenu.Sub>
 				<DropdownMenu.SubTrigger class="flex cursor-pointer items-center gap-2">
 					<Wrench class="h-4 w-4" />
@@ -352,16 +457,21 @@
 					</div>
 
 					<div class="max-h-64 overflow-y-auto">
-						{#each builtinToolFields as tool (tool.key)}
-							{@const isEnabled = !!currentConfig[tool.key]}
-							<button
-								type="button"
-								class="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
-								onclick={() => toggleBuiltinTool(tool.key, !isEnabled)}
-							>
-								<span class="text-sm hover:text-foreground">{tool.label}</span>
-								<Switch checked={isEnabled} />
-							</button>
+						{#each builtinToolsGrouped as group (group.label)}
+							<div class="sticky top-0 z-10 bg-background px-2 py-1.5">
+								<p class="text-xs font-semibold text-muted-foreground">{group.label}</p>
+							</div>
+							{#each group.items as tool (tool.key)}
+								{@const isEnabled = !!currentConfig[tool.key]}
+								<button
+									type="button"
+									class="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
+									onclick={() => toggleBuiltinTool(tool.key, !isEnabled)}
+								>
+									<span class="text-sm hover:text-foreground">{tool.label}</span>
+									<Switch checked={isEnabled} />
+								</button>
+							{/each}
 						{/each}
 					</div>
 				</DropdownMenu.SubContent>

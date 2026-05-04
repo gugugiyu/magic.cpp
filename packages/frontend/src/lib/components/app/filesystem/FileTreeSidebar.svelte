@@ -2,7 +2,7 @@
 	import { filesystemStore } from '$lib/stores/filesystem.svelte.js';
 	import FileTreeNode from './FileTreeNode.svelte';
 	import SearchInput from '$lib/components/app/forms/SearchInput.svelte';
-	import { RefreshCw, X } from '@lucide/svelte';
+	import { RefreshCw, X, Info } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
@@ -28,6 +28,16 @@
 
 	let displayTree = $derived(filesystemStore.filteredTree);
 	let hasSearch = $derived(!!filesystemStore.searchQuery.trim());
+
+	function handleFileNodeSelect(path: string) {
+		console.log('[FileTreeSidebar.handleFileNodeSelect] Called with:', path);
+		console.log('[FileTreeSidebar.handleFileNodeSelect] filesystemStore.onFileSelect:', filesystemStore.onFileSelect);
+		filesystemStore.onFileSelect?.(path);
+	}
+
+	$effect(() => {
+		console.log('[FileTreeSidebar] onFileSelect callback:', filesystemStore.onFileSelect);
+	});
 </script>
 
 {#if open}
@@ -92,13 +102,20 @@
 					{/if}
 				</div>
 				{#each displayTree as node (node.path)}
-					<FileTreeNode {node} />
+					<FileTreeNode {node} onFileSelect={handleFileNodeSelect} />
 				{/each}
 			{:else}
 				<div class="flex items-center justify-center py-8 text-sm text-muted-foreground">
 					No files loaded
 				</div>
 			{/if}
+		</div>
+
+		<div class="border-t p-3 text-xs text-muted-foreground">
+			<div class="flex items-start gap-2">
+				<Info class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+				<span>Click on any file or folder to insert it into the chat</span>
+			</div>
 		</div>
 	</aside>
 {/if}

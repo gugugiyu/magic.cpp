@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { Settings, FolderTree, Bot } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { useSidebar } from '$lib/components/ui/sidebar';
 	import { filesystemStore } from '$lib/stores/filesystem.svelte.js';
 	import { subagentConfigStore } from '$lib/stores/subagent-config.svelte';
 	import { subagentDialogStore } from '$lib/stores/subagent-dialog.svelte';
 	import { config } from '$lib/stores/settings.svelte';
 	import { activeConversation } from '$lib/stores/conversations.svelte';
+	import { poolStatusStore } from '$lib/stores/pool-status.svelte';
 	import { goto } from '$app/navigation';
 
 	const sidebar = useSidebar();
@@ -20,6 +23,18 @@
 			subagentDialogStore.openDialog({ conversationId });
 		}
 	}
+
+	let showPoolStatus = $derived(poolStatusStore.total > 0);
+	let poolDotColor = $derived.by(() => {
+		if (poolStatusStore.isHealthy) return 'bg-success';
+		if (poolStatusStore.isDegraded) return 'bg-warning';
+		return 'bg-destructive';
+	});
+	let poolLabel = $derived.by(() => {
+		if (poolStatusStore.isHealthy) return 'Full';
+		if (poolStatusStore.isDegraded) return 'Partial';
+		return 'Down';
+	});
 </script>
 
 <header
@@ -28,6 +43,21 @@
 		: ''}"
 >
 	<div class="pointer-events-auto flex items-center space-x-2">
+		{#if showPoolStatus}
+			<Tooltip.Provider>
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						<Badge variant="tertiary" class="gap-1.5 text-xs backdrop-blur-lg">
+							<span class="h-2 w-2 rounded-full {poolDotColor}"></span>
+							{poolLabel}
+						</Badge>
+					</Tooltip.Trigger>
+					<Tooltip.Content side="bottom">
+						{poolStatusStore.connected}/{poolStatusStore.total} upstreams connected
+					</Tooltip.Content>
+				</Tooltip.Root>
+			</Tooltip.Provider>
+		{/if}
 		{#if isSubagentConfigured && isSubagentEnabled && conversationId}
 			<Button
 				variant="ghost"

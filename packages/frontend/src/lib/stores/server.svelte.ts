@@ -1,5 +1,6 @@
 import { PropsService } from '$lib/services/props.service';
 import { ServerRole } from '$lib/enums';
+import { poolStatusStore } from './pool-status.svelte';
 
 /**
  * serverStore - Server connection state, configuration, and role detection
@@ -134,6 +135,7 @@ class ServerStore {
 			const response = await fetch('./health');
 			if (!response.ok) return false;
 			const data = await response.json();
+			poolStatusStore.updateFromHealth(data);
 			if (data.upstreams && Array.isArray(data.upstreams)) {
 				return (
 					data.upstreams.length > 0 &&
@@ -223,6 +225,7 @@ class ServerStore {
 	private getErrorMessage(error: unknown): string {
 		if (error instanceof Error) {
 			const message = error.message || '';
+			console.log('@@', error, message);
 
 			if (error.name === 'TypeError' && message.includes('fetch')) {
 				return 'Cannot reach server — check that llama.cpp is running and the URL is correct';
@@ -237,7 +240,7 @@ class ServerStore {
 			} else if (message.includes('500')) {
 				return 'Server error — check server logs for details';
 			} else if (message.includes('404')) {
-				return 'Server does not support model metadata endpoint (/props) — running in compatibility mode';
+				return 'Server not found: Upstream not found';
 			} else if (message.includes('403') || message.includes('401')) {
 				return 'Access denied — check API key and permissions';
 			} else if (message.includes('not a recognized llama.cpp /props shape')) {

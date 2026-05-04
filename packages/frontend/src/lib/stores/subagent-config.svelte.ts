@@ -10,6 +10,7 @@
 
 import { browser } from '$app/environment';
 import { SUBAGENT_CONFIG_LOCALSTORAGE_KEY } from '$lib/constants';
+import type { ModelOption } from '$lib/types/models';
 
 export interface SubagentConfig {
 	endpoint: string;
@@ -106,6 +107,27 @@ class SubagentConfigStore {
 	reset(): void {
 		this.#config = DEFAULT_CONFIG;
 		this.saveToStorage(this.#config);
+	}
+
+	/**
+	 * Validate and sync the selected subagent model against the current pool.
+	 * If the configured model is no longer available, fall back to the first
+	 * model in the pool (mirroring the main model selection logic).
+	 */
+	syncWithPool(models: ModelOption[]): void {
+		const currentModel = this.#config.model;
+		if (!currentModel) return;
+
+		const stillAvailable = models.some((m) => m.model === currentModel || m.id === currentModel);
+		if (stillAvailable) return;
+
+		// Current model no longer in pool — fall back to first available
+		if (models.length > 0) {
+			const fallback = models[0].model ?? models[0].id;
+			this.setModel(fallback);
+		} else {
+			this.setModel('');
+		}
 	}
 }
 

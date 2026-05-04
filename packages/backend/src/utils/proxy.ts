@@ -1,6 +1,7 @@
 import type { Upstream } from '../pool/types.ts';
 import { forwardHeaders } from './headers.ts';
 import { createLogger } from './logger.ts';
+import { createLinkedController } from '#shared/utils/abort';
 
 const log = createLogger('proxy');
 
@@ -40,25 +41,14 @@ export async function proxyRequest(
 		// We do NOT want this timeout to apply to the body stream, since streaming
 		// responses can take minutes to complete. Use AbortController manually
 		// instead of AbortSignal.timeout() which applies to the entire fetch lifecycle.
-		const headerController = new AbortController();
+		const headerController = createLinkedController(req.signal);
 		const headerTimeout = setTimeout(() => headerController.abort(), headerTimeoutMs);
-
-		// Forward client disconnects to the upstream request so llama-server receives the abort.
-		// fetch() overrides any signal on the Request object, so we wire req.signal into
-		// headerController instead.
-		const onClientAbort = () => headerController.abort();
-		if (req.signal.aborted) {
-			headerController.abort();
-		} else {
-			req.signal.addEventListener('abort', onClientAbort);
-		}
 
 		const startTime = Date.now();
 		try {
 			resp = await fetch(upstreamReq, { signal: headerController.signal });
 		} finally {
 			clearTimeout(headerTimeout);
-			req.signal.removeEventListener('abort', onClientAbort);
 		}
 		const elapsed = Date.now() - startTime;
 		if (import.meta.env.DEV) {

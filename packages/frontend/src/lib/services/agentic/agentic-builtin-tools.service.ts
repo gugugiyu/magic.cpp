@@ -52,6 +52,30 @@ export class AgenticBuiltinToolExecutor {
 				}
 			}
 
+			if (name === 'get_time') {
+				const endpoint = serverEndpointStore.getBaseUrl();
+				try {
+					const resp = await fetch(`${endpoint}/api/tools/execute`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ name, args: parsed }),
+						signal
+					});
+					if (!resp.ok) {
+						const text = await resp.text().catch(() => 'Unknown error');
+						return { content: `Error: HTTP ${resp.status} — ${text}` };
+					}
+					const data = (await resp.json()) as {
+						result?: string;
+						error?: string;
+					};
+					if (data.error) return { content: `Error: ${data.error}` };
+					return { content: String(data.result ?? '') };
+				} catch (err) {
+					return { content: `Error: ${err instanceof Error ? err.message : String(err)}` };
+				}
+			}
+
 			const endpoint = serverEndpointStore.getBaseUrl();
 			try {
 				const resp = await fetch(`${endpoint}/api/tools/execute`, {
@@ -91,8 +115,6 @@ export class AgenticBuiltinToolExecutor {
 		switch (name) {
 			case 'calculator':
 				return { content: this.executeCalculator(parsed) };
-			case 'get_time':
-				return { content: this.executeGetTime(parsed) };
 			case 'get_location':
 				return { content: await this.executeGetLocation() };
 			case 'call_subagent':
@@ -148,31 +170,6 @@ export class AgenticBuiltinToolExecutor {
 		} catch (err) {
 			return `Error: ${err instanceof Error ? err.message : String(err)}`;
 		}
-	}
-
-	private static executeGetTime(parsed: Record<string, unknown>): string {
-		const tz = String(parsed.timezone ?? import.meta.env.TZ ?? 'UTC');
-		let formatter: Intl.DateTimeFormat;
-		try {
-			formatter = new Intl.DateTimeFormat('en-CA', {
-				timeZone: tz,
-				year: 'numeric',
-				month: '2-digit',
-				day: '2-digit',
-				hour: '2-digit',
-				minute: '2-digit',
-				second: '2-digit',
-				hour12: false,
-				timeZoneName: 'short'
-			});
-		} catch {
-			return `Error: invalid timezone "${tz}"`;
-		}
-		const parts = formatter.formatToParts(new Date());
-		const get = (unit: string) => parts.find((p) => p.type === unit)?.value ?? '';
-		const dateStr = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
-		const tzAbbr = parts.find((p) => p.type === 'timeZoneName')?.value ?? tz;
-		return JSON.stringify({ iso: `${dateStr}`, timezone: tz, tz_abbr: tzAbbr });
 	}
 
 	private static executeGetLocation(): Promise<string> {

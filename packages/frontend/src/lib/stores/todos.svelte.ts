@@ -1,5 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 import { DatabaseService } from '$lib/services/database.service';
+import { conversationsStore } from '$lib/stores/conversations.svelte';
 import type { TodoItem } from '@shared/types';
 
 class TodoStore {
@@ -14,7 +15,13 @@ class TodoStore {
 	}
 
 	async loadTodos(convId: string): Promise<void> {
-		if (this.loadedConversations.get(convId)) return;
+		if (this.loadedConversations.has(convId)) return;
+
+		const conversationExists = conversationsStore.conversations.some((c) => c.id === convId);
+		if (!conversationExists) {
+			return;
+		}
+
 		try {
 			const conv = await DatabaseService.getConversation(convId);
 			if (conv?.todos) {

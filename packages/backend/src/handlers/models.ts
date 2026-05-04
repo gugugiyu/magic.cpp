@@ -41,7 +41,7 @@ export async function handleModels(req: Request, pool: ModelPool): Promise<Respo
 			}, { status: 503 });
 		}
 
-		log.info('Proxying to:', upstream.url + '/models');
+		log.debug('Proxying to:', upstream.url + '/models');
 		return await proxyRequest(req, upstream, '/models');
 	} catch (err) {
 		log.error('error handling /models:', err);

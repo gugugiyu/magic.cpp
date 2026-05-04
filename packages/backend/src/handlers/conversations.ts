@@ -174,7 +174,7 @@ export async function handleUpdateConversation(
 export function handleDeleteConversation(
   db: DrizzleDB,
   id: string,
-  url: URL,
+  params: URLSearchParams,
 ): Response {
   try {
     const existing = getConversation(db, id);
@@ -185,7 +185,7 @@ export function handleDeleteConversation(
       );
     }
 
-    const deleteWithForks = url.searchParams.get("deleteWithForks") === "true";
+    const deleteWithForks = params.get("deleteWithForks") === "true";
 
     db.transaction((tx) => {
       if (deleteWithForks) {
@@ -277,7 +277,7 @@ export function handleGetSubagentSessions(
 export function handleGetSubagentMessages(
   db: DrizzleDB,
   convId: string,
-  url: URL,
+  params: URLSearchParams,
 ): Response {
   try {
     const conversation = getConversation(db, convId);
@@ -288,7 +288,7 @@ export function handleGetSubagentMessages(
       );
     }
 
-    const sessionId = url.searchParams.get("sessionId");
+    const sessionId = params.get("sessionId");
     if (!sessionId) {
       return Response.json(
         { error: "Missing sessionId query parameter" },
@@ -318,7 +318,7 @@ export async function handleCreateMessage(
   req: Request,
   db: DrizzleDB,
   convId: string,
-  url: URL,
+  params: URLSearchParams,
 ): Promise<Response> {
   try {
     const conversation = getConversation(db, convId);
@@ -330,8 +330,8 @@ export async function handleCreateMessage(
     }
 
     const body = await req.json();
-    const parentId = url.searchParams.get("parentId");
-    const messageType = url.searchParams.get("type");
+    const parentId = params.get("parentId");
+    const messageType = params.get("type");
 
     return db.transaction((tx) => {
       let newMessage: DatabaseMessage;
@@ -668,10 +668,10 @@ function topologicalSort(
  */
 export function handleDeleteAllConversations(
   db: DrizzleDB,
-  url: URL,
+  params: URLSearchParams,
 ): Response {
   try {
-    const deleteWithForks = url.searchParams.get("deleteWithForks") === "true";
+    const deleteWithForks = params.get("deleteWithForks") === "true";
 
     db.transaction((tx) => {
       if (deleteWithForks) {
@@ -702,9 +702,9 @@ export function handleDeleteAllConversations(
  * GET /api/conversations/export
  * Query params: limit (number, optional)
  */
-export function handleExportConversations(db: DrizzleDB, url: URL): Response {
+export function handleExportConversations(db: DrizzleDB, params: URLSearchParams): Response {
   try {
-    const limitParam = url.searchParams.get("limit");
+    const limitParam = params.get("limit");
     const limit = limitParam ? parseInt(limitParam, 10) : -1;
 
     let conversations = getAllConversations(db);

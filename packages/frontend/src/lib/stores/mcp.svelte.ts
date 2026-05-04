@@ -83,6 +83,24 @@ import type { ListChangedHandlers } from '@modelcontextprotocol/sdk/types.js';
 import type { DatabaseMessageExtraMcpResource, McpServerOverride } from '$lib/types/database';
 import type { SettingsConfigType } from '$lib/types/settings';
 
+/**
+ * Pure helper: check whether a specific tool is disabled by per-chat overrides.
+ * Exported for unit testing.
+ */
+export function isToolDisabled(
+	toolName: string,
+	serverName: string,
+	perChatOverrides?: McpServerOverride[]
+): boolean {
+	if (!perChatOverrides) return false;
+	for (const override of perChatOverrides) {
+		if (override.serverId === serverName && override.disabledTools?.includes(toolName)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 class MCPStore {
 	private _isInitializing = $state(false);
 	private _error = $state<string | null>(null);
@@ -795,12 +813,14 @@ class MCPStore {
 		}
 	}
 
-	getToolDefinitionsForLLM(): OpenAIToolDefinition[] {
+	getToolDefinitionsForLLM(perChatOverrides?: McpServerOverride[]): OpenAIToolDefinition[] {
 		const tools: OpenAIToolDefinition[] = [];
 
 		// Iterate via toolsIndex so each tool name appears exactly once,
 		// even when multiple servers expose identically-named tools.
 		for (const [toolName, serverName] of this.toolsIndex.entries()) {
+			if (isToolDisabled(toolName, serverName, perChatOverrides)) continue;
+
 			const connection = this.connections.get(serverName);
 			const tool = connection?.tools.find((t) => t.name === toolName);
 			if (!tool) continue;

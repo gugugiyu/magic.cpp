@@ -27,7 +27,6 @@ const logger = createModuleLogger('Theme');
 export function applyTheme(theme: string): void {
 	if (!browser) return;
 	if (theme === lastAppliedTheme) return;
-	console.log(theme, lastAppliedTheme);
 	lastAppliedTheme = theme;
 
 	if (CUSTOM_THEMES.has(theme)) {

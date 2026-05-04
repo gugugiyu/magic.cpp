@@ -2,6 +2,7 @@ import { base } from '$app/paths';
 import { getJsonHeaders } from './api-headers';
 import { UrlProtocol } from '$lib/enums';
 import { serverEndpointStore } from '$lib/stores/server-endpoint.svelte';
+import { createLinkedController } from '@shared/utils/abort';
 
 /**
  * API Fetch Utilities
@@ -92,24 +93,17 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 				: `${serverEndpointStore.getBaseUrl()}${normalizedPath}`;
 
 	// Create abort controller for timeout if no signal provided
-	const controller = signal ? null : new AbortController();
-	const timeoutSignal = controller ? controller.signal : undefined;
-
-	// Set up timeout
-	let timeoutId: ReturnType<typeof setTimeout> | undefined;
-	if (controller) {
-		timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_API_TIMEOUT);
-		controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
-	}
+	const controller = createLinkedController(signal);
+	const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_API_TIMEOUT);
 
 	try {
 		const response = await fetch(url, {
 			...fetchOptions,
 			headers,
-			signal: timeoutSignal
+			signal: controller.signal
 		});
 
-		if (timeoutId !== undefined) clearTimeout(timeoutId);
+		clearTimeout(timeoutId);
 
 		if (!response.ok) {
 			const error = await parseApiError(response);
@@ -178,9 +172,8 @@ export async function apiFetchWithParams<T>(
 	const headers = { ...baseHeaders, ...customHeaders };
 
 	// Create abort controller for timeout
-	const controller = new AbortController();
+	const controller = createLinkedController();
 	const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_API_TIMEOUT);
-	controller.signal.addEventListener('abort', () => clearTimeout(timeoutId), { once: true });
 
 	try {
 		const response = await fetch(url.toString(), {

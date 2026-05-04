@@ -13,13 +13,16 @@ export function handleHealth(pool: ModelPool): Response {
 		);
 	}
 
-	const upstreams = pool.getAllUpstreams().map((u) => ({
-		id: u.id,
-		label: u.label,
-		type: u.type,
-		health: u.health,
-		models: u.modelIds.size,
-	}));
+	const upstreams = pool
+		.getAllUpstreams()
+		.filter((u) => u.enabled !== false)
+		.map((u) => ({
+			id: u.id,
+			label: u.label,
+			type: u.type,
+			health: u.health,
+			models: u.modelIds.size,
+		}));
 
 	const allHealthy = upstreams.every((u) => u.health === 'healthy');
 	const anyHealthy = upstreams.some((u) => u.health === 'healthy');

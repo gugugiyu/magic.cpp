@@ -342,17 +342,25 @@ class ConversationsStore {
 	 */
 	async deleteConversation(convId: string, options?: { deleteWithForks?: boolean }): Promise<void> {
 		try {
-			await DatabaseService.deleteConversation(convId, options);
-			await todoStore.clearTodos(convId);
+			// Clear in-memory todo state before deleting to avoid 404 on backend update
+			todoStore.conversationTodos.delete(convId);
+			todoStore.loadedConversations.delete(convId);
 			subagentSessionStore.clearSessionsForConversation(convId);
+
+			await DatabaseService.deleteConversation(convId, options);
+
+			// Remove from in-memory state immediately to prevent stale checks (e.g., TodoPocket loadTodos)
+			this.conversations = this.conversations.filter((c) => c.id !== convId);
+
+			if (this.activeConversation?.id === convId) {
+				this.clearActiveConversation();
+			}
 
 			// Re-fetch from backend to ensure in-memory state is consistent
 			await this.loadConversations();
 
-			// If the active conversation was deleted, clear it and navigate home
-			const stillExists = this.conversations.some((c) => c.id === convId);
-			if (!stillExists && this.activeConversation?.id === convId) {
-				this.clearActiveConversation();
+			// Navigate home if the active conversation was deleted
+			if (this.activeConversation === null) {
 				await goto(`?new_chat=true#/`);
 			}
 
@@ -705,6 +713,7 @@ class ConversationsStore {
 	/**
 	 * Sets or removes MCP server override for the active conversation.
 	 * If no conversation exists, stores as pending override.
+	 * Preserves disabledTools when updating the enabled flag.
 	 * @param serverId - The server ID to override
 	 * @param enabled - The enabled state, or undefined to remove override
 	 */
@@ -718,7 +727,8 @@ class ConversationsStore {
 		const currentOverrides = (this.activeConversation.mcpServerOverrides || []).map(
 			(o: McpServerOverride) => ({
 				serverId: o.serverId,
-				enabled: o.enabled
+				enabled: o.enabled,
+				disabledTools: o.disabledTools
 			})
 		);
 		let newOverrides: McpServerOverride[];
@@ -731,7 +741,11 @@ class ConversationsStore {
 			);
 			if (existingIndex >= 0) {
 				newOverrides = [...currentOverrides];
-				newOverrides[existingIndex] = { serverId, enabled };
+				newOverrides[existingIndex] = {
+					...newOverrides[existingIndex],
+					serverId,
+					enabled
+				};
 			} else {
 				newOverrides = [...currentOverrides, { serverId, enabled }];
 			}
@@ -756,6 +770,7 @@ class ConversationsStore {
 
 	/**
 	 * Sets or removes a pending MCP server override (for new conversations).
+	 * Preserves disabledTools when updating the enabled flag.
 	 */
 	private setPendingMcpServerOverride(serverId: string, enabled: boolean | undefined): void {
 		if (enabled === undefined) {
@@ -768,12 +783,123 @@ class ConversationsStore {
 			);
 			if (existingIndex >= 0) {
 				const newOverrides = [...this.pendingMcpServerOverrides];
-				newOverrides[existingIndex] = { serverId, enabled };
+				newOverrides[existingIndex] = {
+					...newOverrides[existingIndex],
+					serverId,
+					enabled
+				};
 				this.pendingMcpServerOverrides = newOverrides;
 			} else {
 				this.pendingMcpServerOverrides = [...this.pendingMcpServerOverrides, { serverId, enabled }];
 			}
 		}
+		this.saveMcpDefaults();
+	}
+
+	/**
+	 * Checks if a specific MCP tool is enabled for the active conversation.
+	 * Tools are enabled by default unless explicitly listed in disabledTools.
+	 * @param serverId - The server ID the tool belongs to
+	 * @param toolName - The tool name to check
+	 * @returns True if the tool is enabled for this conversation
+	 */
+	isMcpToolEnabledForChat(serverId: string, toolName: string): boolean {
+		const override = this.getMcpServerOverride(serverId);
+		if (!override?.disabledTools) return true;
+		return !override.disabledTools.includes(toolName);
+	}
+
+	/**
+	 * Toggles an MCP tool's enabled state for the active conversation.
+	 * If no conversation exists, stores as pending override.
+	 * @param serverId - The server ID the tool belongs to
+	 * @param toolName - The tool name to toggle
+	 */
+	async toggleMcpToolForChat(serverId: string, toolName: string): Promise<void> {
+		if (!this.activeConversation) {
+			this.setPendingMcpToolOverride(serverId, toolName);
+			return;
+		}
+
+		// Clone to plain objects to avoid Proxy serialization issues with IndexedDB
+		const currentOverrides = (this.activeConversation.mcpServerOverrides || []).map(
+			(o: McpServerOverride) => ({
+				serverId: o.serverId,
+				enabled: o.enabled,
+				disabledTools: o.disabledTools
+			})
+		);
+
+		const existingIndex = currentOverrides.findIndex(
+			(o: McpServerOverride) => o.serverId === serverId
+		);
+
+		let newOverrides: McpServerOverride[];
+
+		if (existingIndex >= 0) {
+			newOverrides = [...currentOverrides];
+			const existing = newOverrides[existingIndex];
+			const currentDisabled = existing.disabledTools ?? [];
+			const disabledIndex = currentDisabled.indexOf(toolName);
+			const nextDisabled =
+				disabledIndex >= 0
+					? currentDisabled.filter((_, i) => i !== disabledIndex)
+					: [...currentDisabled, toolName];
+			newOverrides[existingIndex] = {
+				...existing,
+				disabledTools: nextDisabled
+			};
+		} else {
+			// Server override didn't exist yet; create one with the tool disabled
+			newOverrides = [...currentOverrides, { serverId, enabled: false, disabledTools: [toolName] }];
+		}
+
+		await DatabaseService.updateConversation(this.activeConversation.id, {
+			mcpServerOverrides: newOverrides.length > 0 ? newOverrides : undefined
+		});
+
+		this.activeConversation = {
+			...this.activeConversation,
+			mcpServerOverrides: newOverrides.length > 0 ? newOverrides : undefined
+		};
+
+		const convIndex = this.conversations.findIndex((c) => c.id === this.activeConversation!.id);
+		if (convIndex !== -1) {
+			this.conversations[convIndex].mcpServerOverrides =
+				newOverrides.length > 0 ? newOverrides : undefined;
+			this.conversations = [...this.conversations];
+		}
+	}
+
+	/**
+	 * Sets or removes a pending MCP tool override (for new conversations).
+	 */
+	private setPendingMcpToolOverride(serverId: string, toolName: string): void {
+		const existingIndex = this.pendingMcpServerOverrides.findIndex((o) => o.serverId === serverId);
+
+		let newOverrides: McpServerOverride[];
+
+		if (existingIndex >= 0) {
+			newOverrides = [...this.pendingMcpServerOverrides];
+			const existing = newOverrides[existingIndex];
+			const currentDisabled = existing.disabledTools ?? [];
+			const disabledIndex = currentDisabled.indexOf(toolName);
+			const nextDisabled =
+				disabledIndex >= 0
+					? currentDisabled.filter((_, i) => i !== disabledIndex)
+					: [...currentDisabled, toolName];
+			newOverrides[existingIndex] = {
+				...existing,
+				disabledTools: nextDisabled
+			};
+		} else {
+			newOverrides = [
+				...this.pendingMcpServerOverrides,
+				{ serverId, enabled: false, disabledTools: [toolName] }
+			];
+		}
+
+		this.pendingMcpServerOverrides = newOverrides;
 		this.saveMcpDefaults();
 	}
 

@@ -31,7 +31,7 @@
 
 	onMount(() => {
 		if (textareaElement) {
-			autoResizeTextarea(textareaElement);
+			// autoResizeTextarea(textareaElement);
 			textareaElement.focus();
 		}
 	});
@@ -40,6 +40,7 @@
 		tick().then(() => {
 			if (overlayElement && textareaElement) {
 				overlayElement.scrollTop = textareaElement.scrollTop;
+				overlayElement.scrollLeft = textareaElement.scrollLeft;
 			}
 		});
 	});
@@ -47,6 +48,7 @@
 	function syncScroll() {
 		if (overlayElement && textareaElement) {
 			overlayElement.scrollTop = textareaElement.scrollTop;
+			overlayElement.scrollLeft = textareaElement.scrollLeft;
 		}
 	}
 
@@ -58,6 +60,9 @@
 
 	function handleInput(event: Event) {
 		autoResizeTextarea(event.currentTarget as HTMLTextAreaElement);
+		tick().then(() => {
+			syncScroll();
+		});
 		onInput?.();
 	}
 
@@ -87,7 +92,7 @@
 		class="pointer-events-none col-start-1 row-start-1 overflow-hidden"
 		aria-hidden="true"
 	>
-		<div class="min-h-12 w-full text-base break-words text-transparent">
+		<div class="min-h-12 max-h-50 w-full text-base break-words whitespace-pre-wrap text-transparent">
 			{#each segments as segment (segment.start)}
 				{#if segment.type === 'text'}
 					<span class="text-foreground">{segment.text}</span>
@@ -107,7 +112,7 @@
 	<textarea
 		bind:this={textareaElement}
 		bind:value
-		class="text-transparentmin-h-12 col-start-1 row-start-1 max-h-46 w-full resize-none border-0 bg-transparent text-base break-words outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+		class="text-transparent min-h-12 col-start-1 row-start-1 max-h-50 w-full resize-none border-0 bg-transparent text-base break-words whitespace-pre-wrap outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
 		style="caret-color: var(--foreground);"
 		aria-label="Message input"
 		class:cursor-not-allowed={disabled}

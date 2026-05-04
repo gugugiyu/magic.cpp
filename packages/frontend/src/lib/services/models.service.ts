@@ -1,5 +1,5 @@
 import { ServerModelStatus } from '$lib/enums';
-import { apiFetch, apiPost } from '$lib/utils';
+import { getV1Models, getModels, loadModel, unloadModel } from '$lib/api/models.api';
 import type { ParsedModelId } from '$lib/types/models';
 import {
 	MODEL_QUANTIZATION_SEGMENT_RE,
@@ -10,8 +10,7 @@ import {
 	MODEL_ID_NOT_FOUND,
 	MODEL_ID_ORG_SEPARATOR,
 	MODEL_ID_SEGMENT_SEPARATOR,
-	MODEL_ID_QUANTIZATION_SEPARATOR,
-	API_MODELS
+	MODEL_ID_QUANTIZATION_SEPARATOR
 } from '$lib/constants';
 
 export class ModelsService {
@@ -30,7 +29,7 @@ export class ModelsService {
 	 * @returns List of available models with basic metadata
 	 */
 	static async list(): Promise<ApiModelListResponse> {
-		return apiFetch<ApiModelListResponse>(API_MODELS.LIST);
+		return getV1Models();
 	}
 
 	/**
@@ -42,7 +41,7 @@ export class ModelsService {
 	 * @returns List of models with detailed status and configuration info
 	 */
 	static async listRouter(): Promise<ApiRouterModelsListResponse> {
-		return apiFetch<ApiRouterModelsListResponse>(API_MODELS.LIST);
+		return getModels();
 	}
 
 	/**
@@ -63,14 +62,7 @@ export class ModelsService {
 	 * @returns Load response from the server
 	 */
 	static async load(modelId: string, extraArgs?: string[]): Promise<ApiRouterModelsLoadResponse> {
-		const payload: { model: string; extra_args?: string[] } = {
-			model: modelId
-		};
-		if (extraArgs && extraArgs.length > 0) {
-			payload.extra_args = extraArgs;
-		}
-
-		return apiPost<ApiRouterModelsLoadResponse>(API_MODELS.LOAD, payload);
+		return loadModel(modelId, extraArgs);
 	}
 
 	/**
@@ -82,9 +74,7 @@ export class ModelsService {
 	 * @returns Unload response from the server
 	 */
 	static async unload(modelId: string): Promise<ApiRouterModelsUnloadResponse> {
-		return apiPost<ApiRouterModelsUnloadResponse>(API_MODELS.UNLOAD, {
-			model: modelId
-		});
+		return unloadModel(modelId);
 	}
 
 	/**

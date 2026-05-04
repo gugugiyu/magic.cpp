@@ -19,12 +19,12 @@ async function loadPresetSeeds(seedsDir: string): Promise<PresetSeed[]> {
 	const presetsDir = resolve(seedsDir, 'presets');
 	const seeds: PresetSeed[] = [];
 
-	log.info(`loading preset seeds from ${presetsDir}`);
+	log.debug(`loading preset seeds from ${presetsDir}`);
 
 	let files: string[];
 	try {
 		files = await readdir(presetsDir);
-		log.info(`found ${files.length} files in presets directory`);
+		log.debug(`found ${files.length} files in presets directory`);
 	} catch (err) {
 		log.warn('no presets seed directory found, skipping:', (err as Error).message);
 		return seeds;
@@ -66,7 +66,7 @@ async function seedPresets(db: DrizzleDB, seedsDir: string): Promise<void> {
 			})
 			.run();
 
-		log.info(`seeded preset: ${seed.id} (${seed.name})`);
+		log.debug(`seeded preset: ${seed.id} (${seed.name})`);
 	}
 }
 
@@ -79,7 +79,7 @@ async function seedPresets(db: DrizzleDB, seedsDir: string): Promise<void> {
  * @param seedsFolder - Absolute path to the seeds directory
  */
 export async function runSeeds(db: DrizzleDB, seedsFolder: string): Promise<void> {
-	log.info(`running seeds from ${seedsFolder}`);
+	log.debug(`running seeds from ${seedsFolder}`);
 	await seedPresets(db, seedsFolder);
 	// Future seeders: await seedConversations(db); await seedSkills(db); etc.
 }

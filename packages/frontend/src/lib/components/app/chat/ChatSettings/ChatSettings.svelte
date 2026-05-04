@@ -488,7 +488,9 @@
 		}
 
 		// Convert numeric strings to numbers for numeric fields
-		const processedConfig = { ...localConfig };
+		// Preserve mcpServers from the authoritative config() since McpServersSettings
+		// mutates it directly via mcpStore (outside localConfig).
+		const processedConfig = { ...localConfig, mcpServers: config().mcpServers };
 
 		for (const field of NUMERIC_FIELDS) {
 			if (processedConfig[field] !== undefined && processedConfig[field] !== '') {

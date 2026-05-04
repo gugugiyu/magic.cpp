@@ -91,17 +91,17 @@ export async function handleUpdateMessage(req: Request, db: DrizzleDB, id: strin
  * DELETE /api/messages/:id
  * Query params: newParentId (optional)
  */
-export function handleDeleteMessage(db: DrizzleDB, id: string, url: URL): Response {
-	try {
-		const message = getMessageById(db, id);
-		if (!message) {
-			return Response.json(
-				{ error: 'Message not found' },
-				{ status: 404 }
-			);
-		}
+export function handleDeleteMessage(db: DrizzleDB, id: string, params: URLSearchParams): Response {
+  try {
+    const message = getMessageById(db, id);
+    if (!message) {
+      return Response.json(
+        { error: 'Message not found' },
+        { status: 404 }
+      );
+    }
 
-		const newParentId = url.searchParams.get('newParentId') || undefined;
+    const newParentId = params.get('newParentId') || undefined;
 
 		db.transaction((tx) => {
 			if (newParentId && message.children.length > 0) {

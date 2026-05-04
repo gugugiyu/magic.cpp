@@ -4,6 +4,7 @@
  */
 
 import { apiFetch, apiPost, apiFetchWithParams } from '$lib/utils/api-fetch';
+import { routeUrl, RouteHandlers } from '$lib/utils/api-routes';
 import type { DatabaseConversation, DatabaseMessage, McpServerOverride } from '$lib/types/database';
 
 export interface CreateConversationParams {
@@ -23,21 +24,24 @@ export interface ForkConversationParams {
 export async function createConversation(
 	params: CreateConversationParams
 ): Promise<DatabaseConversation> {
-	return apiPost<DatabaseConversation, CreateConversationParams>('/api/conversations', params);
+	return apiPost<DatabaseConversation, CreateConversationParams>(
+		routeUrl(RouteHandlers.createConversation),
+		params
+	);
 }
 
 /**
  * Get a conversation by ID.
  */
 export async function getConversation(id: string): Promise<DatabaseConversation> {
-	return apiFetch<DatabaseConversation>(`/api/conversations/${id}`);
+	return apiFetch<DatabaseConversation>(routeUrl(RouteHandlers.getConversation, { id }));
 }
 
 /**
  * Get all conversations sorted by lastModified DESC.
  */
 export async function getAllConversations(): Promise<DatabaseConversation[]> {
-	return apiFetch<DatabaseConversation[]>('/api/conversations');
+	return apiFetch<DatabaseConversation[]>(routeUrl(RouteHandlers.getConversations));
 }
 
 /**
@@ -47,7 +51,7 @@ export async function updateConversation(
 	id: string,
 	updates: Partial<Omit<DatabaseConversation, 'id'>>
 ): Promise<DatabaseConversation> {
-	return apiFetch<DatabaseConversation>(`/api/conversations/${id}`, {
+	return apiFetch<DatabaseConversation>(routeUrl(RouteHandlers.updateConversation, { id }), {
 		method: 'PUT',
 		body: JSON.stringify(updates)
 	});
@@ -60,8 +64,9 @@ export async function deleteConversation(
 	id: string,
 	options?: { deleteWithForks?: boolean }
 ): Promise<void> {
-	const params = options?.deleteWithForks ? '?deleteWithForks=true' : '';
-	const response = await apiFetch(`/api/conversations/${id}${params}`, {
+	const params = options?.deleteWithForks ? { deleteWithForks: 'true' } : undefined;
+	const url = routeUrl(RouteHandlers.deleteConversation, { id }, params);
+	const response = await apiFetch(url, {
 		method: 'DELETE'
 	});
 	// 204 No Content
@@ -76,7 +81,7 @@ export async function forkConversation(
 	params: ForkConversationParams
 ): Promise<DatabaseConversation> {
 	return apiPost<DatabaseConversation, ForkConversationParams>(
-		`/api/conversations/${convId}/fork`,
+		routeUrl(RouteHandlers.forkConversation, { id: convId }),
 		params
 	);
 }
@@ -88,7 +93,7 @@ export async function importConversations(
 	data: { conv: DatabaseConversation; messages: DatabaseMessage[] }[]
 ): Promise<{ imported: number; skipped: number }> {
 	return apiPost<{ imported: number; skipped: number }, typeof data>(
-		'/api/conversations/import',
+		routeUrl(RouteHandlers.importConversations),
 		data
 	);
 }
@@ -105,7 +110,7 @@ export async function exportConversations(
 		params.limit = limit.toString();
 	}
 	return apiFetchWithParams<{ conv: DatabaseConversation; messages: DatabaseMessage[] }[]>(
-		'/api/conversations/export',
+		routeUrl(RouteHandlers.exportConversations),
 		params
 	);
 }
@@ -115,8 +120,9 @@ export async function exportConversations(
  * @param deleteWithForks - If true, recursively delete all forked conversations too
  */
 export async function deleteAllConversations(deleteWithForks: boolean = false): Promise<void> {
-	const params = deleteWithForks ? '?deleteWithForks=true' : '';
-	await apiFetch(`/api/conversations${params}`, {
+	const params = deleteWithForks ? { deleteWithForks: 'true' } : undefined;
+	const url = routeUrl(RouteHandlers.deleteAllConversations, undefined, params);
+	await apiFetch(url, {
 		method: 'DELETE'
 	});
 }

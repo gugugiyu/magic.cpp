@@ -9,6 +9,7 @@ export class FilesystemStore {
 	fileCount = $state(0);
 	sidebarOpen = $state(false);
 	searchQuery = $state('');
+	onFileSelect?: (path: string) => void;
 
 	filteredTree = $derived.by(() => {
 		if (!this.tree) return null;

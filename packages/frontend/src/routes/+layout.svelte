@@ -286,7 +286,7 @@
 
 			<FileTreeSidebar
 				open={filesystemStore.sidebarOpen}
-				onOpenChange={(v) => (filesystemStore.sidebarOpen = v)}
+				onOpenChange={(v: boolean) => (filesystemStore.sidebarOpen = v)}
 			/>
 		</div>
 	</Sidebar.Provider>

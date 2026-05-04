@@ -230,10 +230,35 @@
 		textareaRef?.resetHeight();
 	}
 
+	export function getElement() {
+		return textareaRef?.getElement();
+	}
+
 	export function setValue(text: string) {
 		value = text;
 		onValueChange?.(text);
 		requestAnimationFrame(() => textareaRef?.focus());
+	}
+
+	export function insertFileToken(path: string) {
+		const textarea = textareaRef?.getElement();
+		if (!textarea) return;
+
+		const cursorPos = textarea.selectionStart ?? value.length;
+		const before = value.slice(0, cursorPos);
+		const after = value.slice(cursorPos);
+
+		const token = `@file("${path}")`;
+		value = `${before}${token}${after}`;
+		onValueChange?.(value);
+
+		requestAnimationFrame(() => {
+			const newPos = cursorPos + token.length;
+			textarea.selectionStart = textarea.selectionEnd = newPos;
+			textarea.focus();
+			textareaRef?.focus();
+			textarea.scrollTop = textarea.scrollHeight;
+		});
 	}
 
 	export function openModelSelector() {

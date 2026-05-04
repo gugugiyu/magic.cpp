@@ -856,7 +856,6 @@
 		</div>
 	{:else if section.type === AgenticSectionType.REASONING}
 		{@const reasoningPreview = truncateToWords(section.content, 25)}
-		{@const hasReasoningMore = section.content.length > reasoningPreview.length}
 		<div class="agentic-inline-block">
 			<button
 				type="button"
@@ -867,15 +866,15 @@
 				<Brain class="h-3.5 w-3.5 shrink-0" />
 				<span class="agentic-label">
 					Thought
-					{#if !isExpanded(index, section) && hasReasoningMore}
-						<span class="agentic-preview"> — {reasoningPreview}…</span>
+					{#if !isExpanded(index, section) }
+						<span class="agentic-preview"> — {reasoningPreview}</span>
 					{/if}
 				</span>
 			</button>
 
 			{#if isExpanded(index, section)}
 				<div class="agentic-inline-content" transition:slide={motionStore.slide()}>
-					<div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
+					<div class="text-xs max-h-60 leading-relaxed break-words whitespace-pre-wrap">
 						{section.content}
 					</div>
 				</div>

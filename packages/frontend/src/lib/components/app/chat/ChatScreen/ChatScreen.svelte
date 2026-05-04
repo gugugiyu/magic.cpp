@@ -40,6 +40,7 @@
 	} from '$lib/stores/server.svelte';
 	import { modelsStore, modelOptions, selectedModelId } from '$lib/stores/models.svelte';
 	import { presetsStore } from '$lib/stores/presets.svelte';
+	import { filesystemStore } from '$lib/stores/filesystem.svelte.js';
 	import { isFileTypeSupported, filterFilesByModalities } from '$lib/utils';
 	import { parseFilesToMessageExtras, processFilesToChatUploaded } from '$lib/utils/browser-only';
 	import { ErrorDialogType } from '$lib/enums';
@@ -373,6 +374,16 @@
 			initialMessage = pendingDraft.message;
 			uploadedFiles = pendingDraft.files;
 		}
+
+		filesystemStore.onFileSelect = (path: string) => {
+			console.log('[ChatScreen] File selected:', path);
+			console.log('[ChatScreen] chatScreenFormRef:', chatScreenFormRef);
+			if (chatScreenFormRef) {
+				chatScreenFormRef.insertText(`@file("${path}")`);
+			} else {
+				console.warn('[ChatScreen] chatScreenFormRef is not set');
+			}
+		};
 	});
 
 	$effect(() => {

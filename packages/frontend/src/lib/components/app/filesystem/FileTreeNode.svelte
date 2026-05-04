@@ -8,9 +8,10 @@
 	interface Props {
 		node: FileSystemNode;
 		depth?: number;
+		onFileSelect?: (path: string) => void;
 	}
 
-	let { node, depth = 0 }: Props = $props();
+	let { node, depth = 0, onFileSelect }: Props = $props();
 
 	let indent = $derived(depth * 12);
 	let isNodeExpanded = $derived(filesystemStore.expanded.has(node.path));
@@ -22,6 +23,10 @@
 			} else {
 				filesystemStore.toggle(node.path);
 			}
+		} else {
+			console.log('[FileTreeNode] File clicked:', node.path);
+			console.log('[FileTreeNode] onFileSelect callback:', onFileSelect);
+			onFileSelect?.(node.path);
 		}
 	}
 </script>
@@ -40,16 +45,18 @@
 			<Folder class="h-4 w-4 shrink-0 text-yellow-500" />
 			<span class="truncate font-medium">{node.name}</span>
 		{:else}
-			<span class="ml-5.5 h-4 w-4 shrink-0"></span>
-			<File class="h-4 w-4 shrink-0 text-gray-400" />
-			<span class="truncate text-gray-600 dark:text-gray-300">{node.name}</span>
+			<div class="flex gap-2 cursor-pointer hover:bg-muted">
+				<span class="ml-0.5 h-4 w-4 shrink-0"></span>
+				<File class="h-4 w-4 shrink-0 text-gray-400" />
+				<span class="truncate text-foreground">{node.name}</span>
+			</div>
 		{/if}
 	</button>
 
 	{#if node.type === 'directory' && node.children && isNodeExpanded}
 		<div transition:slide={{ duration: 150 }}>
 			{#each node.children as child (child.path)}
-				<FileTreeNode node={child} depth={depth + 1} />
+				<FileTreeNode node={child} depth={depth + 1} {onFileSelect} />
 			{/each}
 		</div>
 	{/if}

@@ -44,7 +44,25 @@
 	let previousInitialMessage = $derived(initialMessage);
 
 	export function insertText(text: string) {
-		chatFormRef?.setValue(text);
+		const textarea = chatFormRef?.getElement();
+		if (!textarea) return;
+
+		const cursorPos = textarea.selectionStart ?? message.length;
+		const before = message.slice(0, cursorPos);
+		const after = message.slice(cursorPos);
+
+		message = `${before}${text}${after}`;
+		
+		requestAnimationFrame(() => {
+			const newPos = cursorPos + text.length;
+			textarea.selectionStart = textarea.selectionEnd = newPos;
+			chatFormRef?.focus();
+			textarea.scrollTop = textarea.scrollHeight;
+		});
+	}
+
+	export function getElement() {
+		return chatFormRef?.getElement();
 	}
 
 	// Sync message when initialMessage prop changes (e.g., after draft restoration)

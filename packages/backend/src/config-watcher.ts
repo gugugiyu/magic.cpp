@@ -52,7 +52,7 @@ export function watchConfig(configPath?: string, onChange?: ConfigListener): () 
 		debounceTimer = setTimeout(async () => {
 			try {
 				const newConfig = loadConfig(path!);
-				log.info(`config reloaded from ${path}`);
+				log.debug(`config reloaded from ${path}`);
 
 				// Notify all listeners
 				for (const listener of listeners) {
@@ -87,7 +87,7 @@ export function watchConfig(configPath?: string, onChange?: ConfigListener): () 
 		});
 
 		watcher = w;
-		log.info(`watching ${path} for changes`);
+		log.debug(`watching ${path} for changes`);
 
 		// Return unsubscribe function
 		return () => {

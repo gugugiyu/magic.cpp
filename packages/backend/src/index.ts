@@ -67,7 +67,7 @@ try {
 // Ensure filesystem sandbox directory exists
 try {
 	await mkdir(config.resolvedFilesystemRootPath, { recursive: true });
-	filesystemLog.info(`sandbox ready at ${config.resolvedFilesystemRootPath}`);
+	filesystemLog.debug(`sandbox ready at ${config.resolvedFilesystemRootPath}`);
 } catch (err) {
 	filesystemLog.warn(`could not create sandbox directory: ${(err as Error).message}`);
 }
@@ -75,7 +75,7 @@ try {
 // Ensure skills directory exists
 try {
 	await mkdir(config.resolvedSkillsFolder, { recursive: true });
-	filesystemLog.info(`skills directory ready at ${config.resolvedSkillsFolder}`);
+	filesystemLog.debug(`skills directory ready at ${config.resolvedSkillsFolder}`);
 } catch (err) {
 	filesystemLog.warn(`could not create skills directory: ${(err as Error).message}`);
 }
@@ -121,7 +121,7 @@ const server = Bun.serve({
 	},
 });
 
-log.info(`listening on http://localhost:${server.port}`);
+log.debug(`listening on http://localhost:${server.port}`);
 
 // Start background services
 heartbeat.start();
@@ -129,7 +129,7 @@ heartbeat.start();
 // Initial model list fetch in the background so the server begins serving
 // static assets immediately. The frontend has its own splash screen for
 // upstream-unavailable states.
-startupLog.info('fetching initial model list...');
+	startupLog.debug('fetching initial model list...');
 pool.refresh()
 	.then(() => {
 		startupLog.info(`${pool.getMergedModels().length} model(s) discovered`);
@@ -174,7 +174,7 @@ try {
 		configLog.info('reload complete');
 	});
 
-	configWatcherLog.info(`watching ${configPath} for changes`);
+	configWatcherLog.debug(`watching ${configPath} for changes`);
 } catch (err) {
 	configWatcherLog.error('failed to start watcher:', (err as Error).message);
 }
@@ -182,7 +182,7 @@ try {
 // Graceful shutdown
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
 	process.on(sig, () => {
-		log.info(`${sig} received, shutting down`);
+		log.debug(`${sig} received, shutting down`);
 		heartbeat.stop();
 		closeDatabase();
 		if (stopWatcher) {

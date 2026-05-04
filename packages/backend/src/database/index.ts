@@ -39,7 +39,7 @@ export function initializeDatabase(config: Config): DrizzleDB {
 		}
 	}
 
-	log.info(`opening SQLite database at ${dbPath}`);
+	log.debug(`opening SQLite database at ${dbPath}`);
 
 	rawDb = new Database(dbPath, { create: true, readwrite: true });
 
@@ -64,7 +64,7 @@ export function initializeDatabase(config: Config): DrizzleDB {
 		log.warn('database seeding failed:', err);
 	});
 
-	log.info('SQLite database initialized successfully');
+	log.debug('SQLite database initialized successfully');
 	return db;
 }
 
@@ -94,6 +94,6 @@ export function closeDatabase(): void {
 		rawDb.close();
 		rawDb = null;
 		db = null;
-		log.info('SQLite database closed');
+		log.debug('SQLite database closed');
 	}
 }

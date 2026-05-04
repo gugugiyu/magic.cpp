@@ -154,10 +154,11 @@ const handlers: Record<string, Handler> = {
 
 export function createRouter(pool: ModelPool, config: Config) {
   return async function router(req: Request): Promise<Response> {
-    try {
-      const url = new URL(req.url);
-      const method = req.method.toUpperCase();
+    const url = new URL(req.url);
+    const method = req.method.toUpperCase();
+    const startTime = Date.now();
 
+    try {
       const found = matchRoute(compiledRoutes, url.pathname, method);
 
       if (found) {
@@ -172,11 +173,16 @@ export function createRouter(pool: ModelPool, config: Config) {
           );
         }
 
-        return handler(req, params, {
+        const response = await handler(req, params, {
           pool,
           config,
           query: url.searchParams,
         });
+
+        const elapsed = Date.now() - startTime;
+        log.info(`${method} ${url.pathname} ${response.status} (${elapsed}ms)`);
+
+        return response;
       }
 
       if (method === "OPTIONS") {
@@ -191,13 +197,19 @@ export function createRouter(pool: ModelPool, config: Config) {
       }
 
       if (method === "GET") {
-        return serveStatic(req, config.resolvedStaticDir);
+        const response = await serveStatic(req, config.resolvedStaticDir);
+        const elapsed = Date.now() - startTime;
+        log.info(`${method} ${url.pathname} ${response.status} (${elapsed}ms)`);
+        return response;
       }
 
-      return new Response("Method Not Allowed", { status: 405 });
+      const response = new Response("Method Not Allowed", { status: 405 });
+      const elapsed = Date.now() - startTime;
+      log.info(`${method} ${url.pathname} ${response.status} (${elapsed}ms)`);
+      return response;
     } catch (err) {
       log.error(
-        `unhandled error in ${req.method} ${new URL(req.url).pathname}:`,
+        `unhandled error in ${method} ${url.pathname}:`,
         err,
       );
       return Response.json(

@@ -100,7 +100,7 @@ export class ModelPool {
 				u.modelIds.clear();
 				const upstreamModelList = (upstream as unknown as { modelList?: string[] }).modelList || [];
 
-				log.info(`${upstream.id}: fetched ${models.length} models, whitelist:`, upstreamModelList);
+				log.debug(`${upstream.id}: fetched ${models.length} models, whitelist:`, upstreamModelList);
 
 				for (const m of models) {
 					if (!this.shouldIncludeModel(m.id, upstreamModelList)) {
@@ -113,7 +113,7 @@ export class ModelPool {
 			}
 		}
 
-		log.info('routing map built:', Array.from(freshRouting.keys()));
+		log.debug('routing map built:', Array.from(freshRouting.keys()));
 		this.pooledModels = freshModels;
 		this.routingMap = freshRouting;
 		this._initialized = true;
@@ -153,11 +153,11 @@ export class ModelPool {
 		upstream: Upstream,
 	): Promise<{ upstream: Upstream; models: PooledModel[] }> {
 		if (upstream.enabled === false) {
-			log.info(`skipping disabled upstream: ${upstream.id}`);
+			log.debug(`skipping disabled upstream: ${upstream.id}`);
 			return { upstream, models: [] };
 		}
 
-		log.info(`fetching models from upstream ${upstream.id}`)
+		log.debug(`fetching models from upstream ${upstream.id}`)
 
 		const url = `${upstream.url}/v1/models`;
 		const headers: Record<string, string> = { Accept: 'application/json' };

@@ -1,10 +1,5 @@
 import { ServerModelStatus } from '$lib/enums';
-import {
-	getV1Models,
-	getModels,
-	loadModel,
-	unloadModel
-} from '$lib/api/models.api';
+import { getV1Models, getModels, loadModel, unloadModel } from '$lib/api/models.api';
 import type { ParsedModelId } from '$lib/types/models';
 import {
 	MODEL_QUANTIZATION_SEGMENT_RE,

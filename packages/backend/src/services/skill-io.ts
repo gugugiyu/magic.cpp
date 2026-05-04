@@ -307,7 +307,7 @@ export async function listAllSkills(): Promise<SkillDefinition[]> {
 	const breakdown = Object.entries(sourceCounts)
 		.map(([src, count]) => `${src}: ${count}`)
 		.join(', ');
-	log.info(`loaded ${skills.length} skills (${breakdown})`);
+	log.debug(`loaded ${skills.length} skills (${breakdown})`);
 
 	return skills;
 }
@@ -384,7 +384,7 @@ export async function seedBuiltInSkills(): Promise<void> {
 			}
 			const content = await file.text();
 			await createSkill(name, content);
-			log.info(`seeded built-in skill: ${name}`);
+			log.debug(`seeded built-in skill: ${name}`);
 		} catch (err) {
 			// Already exists or other error — seed is best-effort
 			if ((err as Error).message.includes('already exists')) {

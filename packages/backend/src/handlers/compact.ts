@@ -127,7 +127,7 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       stream: false,
     };
 
-    log.info('requesting summarization from:', upstream.id);
+    log.debug('requesting summarization from:', upstream.id);
 
     let response: Response;
     try {
@@ -182,7 +182,7 @@ export async function handleCompact(req: Request, pool: ModelPool): Promise<Resp
       tokensSaved: Math.max(0, tokensSaved),
     };
 
-    log.info('tokens before:', tokensBefore, 'after:', tokensAfter, 'saved:', tokensSaved);
+    log.debug('tokens before:', tokensBefore, 'after:', tokensAfter, 'saved:', tokensSaved);
 
     return Response.json(result);
 

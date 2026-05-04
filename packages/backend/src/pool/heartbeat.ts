@@ -49,6 +49,12 @@ export class Heartbeat {
 		await Promise.allSettled(
 			this.pool.getAllUpstreams().map((u) => this.checkHealth(u.id)),
 		);
+
+		// Concise heartbeat report
+		const activeUpstreams = this.pool.getAllUpstreams().filter(u => u.health === 'healthy').length;
+		const totalUpstreams = this.pool.getAllUpstreams().length;
+		const totalModels = this.pool.getMergedModels().length;
+		log.info(`heartbeat: ${activeUpstreams}/${totalUpstreams} upstreams healthy, ${totalModels} models in pool`);
 	}
 
 	private async checkHealth(upstreamId: string): Promise<void> {
@@ -66,6 +72,6 @@ export class Heartbeat {
 			upstream.health = 'degraded';
 		}
 
-		log.info(`${upstream.id} → ${upstream.health}`);
+		log.debug(`${upstream.id} → ${upstream.health}`);
 	}
 }

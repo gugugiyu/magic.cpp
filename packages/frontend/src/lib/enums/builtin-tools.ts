@@ -91,7 +91,7 @@ export const builtinToolFields = [
 /** Routes tool execution: 'frontend' means browser-side switch, 'backend' means POST /api/tools/execute. */
 export const BUILTIN_TOOL_EXECUTION_TARGET: Record<string, 'frontend' | 'backend'> = {
 	calculator: 'frontend',
-	get_time: 'frontend',
+	get_time: 'backend',
 	get_location: 'frontend',
 	call_subagent: 'frontend',
 	list_skill: 'frontend',
@@ -112,7 +112,7 @@ export const BUILTIN_TOOL_EXECUTION_TARGET: Record<string, 'frontend' | 'backend
 /** Maps settings keys to execution target (derived from the tools each key enables). */
 export const BUILTIN_TOOL_SETTING_KEY_TARGET: Record<string, 'frontend' | 'backend'> = {
 	[SETTINGS_KEYS.BUILTIN_TOOL_CALCULATOR]: 'frontend',
-	[SETTINGS_KEYS.BUILTIN_TOOL_TIME]: 'frontend',
+	[SETTINGS_KEYS.BUILTIN_TOOL_TIME]: 'backend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_LOCATION]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_CALL_SUBAGENT]: 'frontend',
 	[SETTINGS_KEYS.BUILTIN_TOOL_SKILLS]: 'frontend',

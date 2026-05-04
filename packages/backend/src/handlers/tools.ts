@@ -94,6 +94,31 @@ function requireAdminKey(req: Request, config: Config): Response | null {
 }
 
 const BACKEND_TOOL_HANDLERS: Record<string, BackendToolHandler> = {
+	async get_time(args) {
+		const tz = String(args.timezone ?? process.env.TZ ?? 'UTC');
+		let formatter: Intl.DateTimeFormat;
+		try {
+			formatter = new Intl.DateTimeFormat('en-CA', {
+				timeZone: tz,
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit',
+				hour12: false,
+				timeZoneName: 'short'
+			});
+		} catch {
+			return { result: `Error: invalid timezone "${tz}"` };
+		}
+		const parts = formatter.formatToParts(new Date());
+		const get = (unit: string) => parts.find((p) => p.type === unit)?.value ?? '';
+		const dateStr = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+		const tzAbbr = parts.find((p) => p.type === 'timeZoneName')?.value ?? tz;
+		return { result: JSON.stringify({ iso: dateStr, timezone: tz, tz_abbr: tzAbbr }) };
+	},
+
 	async read_file(args, config) {
 		const path = String(args.path ?? '');
 		if (!path) return { result: 'Error: path is required' };

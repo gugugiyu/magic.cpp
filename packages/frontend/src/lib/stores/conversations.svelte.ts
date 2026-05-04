@@ -342,17 +342,25 @@ class ConversationsStore {
 	 */
 	async deleteConversation(convId: string, options?: { deleteWithForks?: boolean }): Promise<void> {
 		try {
-			await DatabaseService.deleteConversation(convId, options);
-			await todoStore.clearTodos(convId);
+			// Clear in-memory todo state before deleting to avoid 404 on backend update
+			todoStore.conversationTodos.delete(convId);
+			todoStore.loadedConversations.delete(convId);
 			subagentSessionStore.clearSessionsForConversation(convId);
+
+			await DatabaseService.deleteConversation(convId, options);
+
+			// Remove from in-memory state immediately to prevent stale checks (e.g., TodoPocket loadTodos)
+			this.conversations = this.conversations.filter((c) => c.id !== convId);
+
+			if (this.activeConversation?.id === convId) {
+				this.clearActiveConversation();
+			}
 
 			// Re-fetch from backend to ensure in-memory state is consistent
 			await this.loadConversations();
 
-			// If the active conversation was deleted, clear it and navigate home
-			const stillExists = this.conversations.some((c) => c.id === convId);
-			if (!stillExists && this.activeConversation?.id === convId) {
-				this.clearActiveConversation();
+			// Navigate home if the active conversation was deleted
+			if (this.activeConversation === null) {
 				await goto(`?new_chat=true#/`);
 			}
 

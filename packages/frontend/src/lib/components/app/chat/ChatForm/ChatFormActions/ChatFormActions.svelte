@@ -76,7 +76,7 @@
 
 	let currentConfig = $derived(config());
 	let isRouter = $derived(isRouterMode());
-	let isOffline = $derived(!!serverError());
+	let isOffline = $derived(serverError() && !serverError()?.includes('(/props)'));
 
 	let conversationModel = $derived(
 		chatStore.getConversationModel(activeMessages() as DatabaseMessage[])
